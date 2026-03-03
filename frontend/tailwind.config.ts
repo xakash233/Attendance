@@ -9,27 +9,27 @@ const config: Config = {
     theme: {
         extend: {
             colors: {
-                // Strict Black & White Corporate UI (Dark)
+                // Strict White Corporate UI (Light)
                 background: {
-                    DEFAULT: "#000000",
+                    DEFAULT: "#FFFFFF",
                 },
                 foreground: {
-                    DEFAULT: "#FFFFFF",
+                    DEFAULT: "#000000",
                 },
                 primary: {
                     DEFAULT: "#2563eb",
                     foreground: "#FFFFFF",
                 },
                 card: {
-                    DEFAULT: "#111111",
-                    foreground: "#FFFFFF",
+                    DEFAULT: "#F9FAFB",
+                    foreground: "#000000",
                 },
                 border: {
-                    DEFAULT: "rgba(255,255,255,0.1)",
+                    DEFAULT: "rgba(0,0,0,0.1)",
                 },
                 muted: {
-                    DEFAULT: "#1A1A1A",
-                    foreground: "#A0A0A0",
+                    DEFAULT: "#E5E7EB",
+                    foreground: "#6B7280",
                 },
             },
             borderRadius: {
