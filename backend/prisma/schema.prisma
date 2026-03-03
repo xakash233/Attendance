@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  HR
+  EMPLOYEE
+}
+
+model Department {
+  id              String         @id @default(uuid())
+  name            String         @unique
+  hrId            String?        @unique
+  hr              User?          @relation("DeptHR", fields: [hrId], references: [id])
+  employees       User[]         @relation("DeptEmployees")
+  leaveRequests   LeaveRequest[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model User {
+  id                    String      @id @default(uuid())
+  email                 String      @unique
+  password              String
+  name                  String
+  employeeCode          String      @unique
+  role                  Role        @default(EMPLOYEE)
+  departmentId          String?
+  department            Department? @relation("DeptEmployees", fields: [departmentId], references: [id])
+  managedDepartment     Department? @relation("DeptHR")
+  
+  leaveBalances         LeaveBalance[]
+  leaveRequests         LeaveRequest[]
+  attendances           Attendance[]
+  biometricAttendances  BiometricAttendance[]
+  notifications         Notification[]
+  refreshTokens         RefreshToken[]
+  auditLogs             AuditLog[]
+  emailLogs             EmailLog[]
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model LeaveType {
+  id            String          @id @default(uuid())
+  name          String          @unique
+  daysAllowed   Int
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveBalance {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  leaveTypeId   String
+  leaveType     LeaveType @relation(fields: [leaveTypeId], references: [id])
+  balance       Float
+  used          Float     @default(0)
+
+  @@unique([userId, leaveTypeId])
+}
+
+enum LeaveStatus {
+  PENDING_HR
+  HR_APPROVED
+  FINAL_APPROVED
+  REJECTED_BY_HR
+  REJECTED_BY_SUPERADMIN
+}
+
+enum LeaveDurationType {
+  FULL_DAY
+  FIRST_HALF
+  SECOND_HALF
+  WORK_FROM_HOME
+}
+
+model LeaveRequest {
+  id                    String            @id @default(uuid())
+  userId                String
+  user                  User              @relation(fields: [userId], references: [id])
+  departmentId          String
+  department            Department        @relation(fields: [departmentId], references: [id])
+  leaveTypeId           String
+  leaveType             LeaveType         @relation(fields: [leaveTypeId], references: [id])
+  durationType          LeaveDurationType @default(FULL_DAY)
+  startDate             DateTime
+  endDate               DateTime
+  totalDays             Float
+  reason                String
+  status                LeaveStatus       @default(PENDING_HR)
+  hrApprovedAt         DateTime?
+  superadminApprovedAt DateTime?
+  comments              String?
+  
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model Attendance {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  date            DateTime    @db.Date
+  checkIn         DateTime?
+  checkOut        DateTime?
+  status          String      // PRESENT, HALF_DAY, ABSENT, LATE, OVERTIME, WFH_PRESENT
+  workingHours    Float       @default(0)
+  overtime        Float       @default(0)
+  isManual        Boolean     @default(false)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([userId, date])
+}
+
+model BiometricAttendance {
+  id              String      @id @default(uuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  employeeCode    String
+  timestamp       DateTime
+  deviceIP        String?
+  syncLogId       String?
+  syncLog         AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
+
+  createdAt       DateTime    @default(now())
+}
+
+model Notification {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  type        String      // LEAVE_REQUEST, ATTENDANCE_SYNC, etc.
+  isRead      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  action      String
+  entity      String
+  entityId    String?
+  details     Json?
+  ipAddress   String?
+  createdAt   DateTime    @default(now())
+}
+
+model EmailLog {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  subject     String
+  sentStatus  Boolean
+  error       String?
+  createdAt   DateTime    @default(now())
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+model SystemSettings {
+  id                 String    @id @default(uuid())
+  biometricDeviceIP  String?
+  syncInterval       String?   // e.g., "Daily", "Hourly"
+  workStartTime      String    @default("09:00")
+  workEndTime        String    @default("18:00")
+  halfDayCutoffTime  String    @default("13:30")
+  gracePeriod        Int       @default(15) // Minutes
+  wfhMonthlyLimit    Int       @default(4)
+  wfhConsecutiveLimit Int       @default(2)
+  updatedAt          DateTime  @updatedAt
+}
+
+model AttendanceSyncLog {
+  id            String                @id @default(uuid())
+  syncedAt      DateTime              @default(now())
+  status        String                // SUCCESS, FAILED
+  recordsCount  Int
+  errorMessage  String?
+  records       BiometricAttendance[]
+}
