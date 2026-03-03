@@ -9,13 +9,19 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-attendance}
+      TZ: UTC
     ports:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
-    build: ./backend
+    build: .
     container_name: tectra_backend
     restart: always
     ports:
@@ -25,11 +31,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your_super_secret_jwt_key_12345}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_refresh_secret_key_67890}
       FRONTEND_URL: http://localhost:3000
+      TZ: UTC
     depends_on:
       - db
 
   frontend:
-    build: ./frontend
+    build: ../frontend
     container_name: tectra_frontend
     restart: always
     ports:

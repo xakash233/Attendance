@@ -7,6 +7,199 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Department {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  hrId          String?        @unique
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  hr            User?          @relation("DeptHR", fields: [hrId], references: [id])
+  employees     User[]         @relation("DeptEmployees")
+  leaveRequests LeaveRequest[]
+}
+
+model User {
+  id                   String                @id @default(uuid())
+  email                String                @unique
+  password             String
+  name                 String
+  employeeCode         String                @unique
+  role                 Role                  @default(EMPLOYEE)
+  departmentId         String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  attendances          Attendance[]
+  auditLogs            AuditLog[]
+  biometricAttendances BiometricAttendance[]
+  DailyTask            DailyTask[]
+  managedDepartment    Department?           @relation("DeptHR")
+  emailLogs            EmailLog[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  notifications        Notification[]
+  refreshTokens        RefreshToken[]
+  TaskSubmission       TaskSubmission[]
+  department           Department?           @relation("DeptEmployees", fields: [departmentId], references: [id])
+}
+
+model LeaveType {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  daysAllowed   Int
+  leaveBalances LeaveBalance[]
+  leaveRequests LeaveRequest[]
+}
+
+model LeaveBalance {
+  id          String    @id @default(uuid())
+  userId      String
+  leaveTypeId String
+  balance     Float
+  used        Float     @default(0)
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, leaveTypeId])
+}
+
+model LeaveRequest {
+  id                   String      @id @default(uuid())
+  userId               String
+  leaveTypeId          String
+  departmentId         String?
+  startDate            DateTime
+  endDate              DateTime
+  totalDays            Float
+  durationType         String      @default("FULL_DAY")
+  reason               String
+  status               LeaveStatus @default(PENDING_HR)
+  approvedById         String?
+  comments             String?
+  hrApprovedAt         DateTime?
+  superadminApprovedAt DateTime?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  leaveType            LeaveType   @relation(fields: [leaveTypeId], references: [id])
+  user                 User        @relation(fields: [userId], references: [id])
+  department           Department? @relation(fields: [departmentId], references: [id])
+}
+
+model Attendance {
+  id           String    @id @default(uuid())
+  userId       String
+  date         DateTime  @db.Date
+  checkIn      DateTime?
+  checkOut     DateTime?
+  status       String
+  workingHours Float     @default(0)
+  overtime     Float     @default(0)
+  isManual     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model BiometricAttendance {
+  id           String             @id @default(uuid())
+  userId       String
+  employeeCode String
+  timestamp    DateTime
+  deviceIP     String?
+  syncLogId    String?
+  createdAt    DateTime           @default(now())
+  syncLog      AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
+  user         User               @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+}
+
+model EmailLog {
+  id         String   @id @default(uuid())
+  userId     String
+  subject    String
+  sentStatus Boolean
+  error      String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SystemSettings {
+  id                  String   @id @default(uuid())
+  biometricDeviceIP   String?
+  syncInterval        String?
+  workStartTime       String   @default("09:00")
+  workEndTime         String   @default("18:00")
+  gracePeriod         Int      @default(15)
+  wfhMonthlyLimit     Int      @default(4)
+  wfhConsecutiveLimit Int      @default(2)
+  updatedAt           DateTime @updatedAt
+}
+
+model AttendanceSyncLog {
+  id           String                @id @default(uuid())
+  syncedAt     DateTime              @default(now())
+  status       String
+  recordsCount Int
+  errorMessage String?
+  records      BiometricAttendance[]
+}
+
+model DailyTask {
+  id             String           @id
+  title          String
+  description    String
+  deadline       DateTime
+  assignedToId   String
+  status         String           @default("PENDING")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  User           User             @relation(fields: [assignedToId], references: [id])
+  TaskSubmission TaskSubmission[]
+}
+
+model TaskSubmission {
+  id          String    @id
+  taskId      String
+  userId      String
+  proofUrl    String?
+  comments    String?
+  submittedAt DateTime  @default(now())
+  DailyTask   DailyTask @relation(fields: [taskId], references: [id])
+  User        User      @relation(fields: [userId], references: [id])
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
@@ -14,189 +207,36 @@ enum Role {
   EMPLOYEE
 }
 
-model Department {
-  id              String         @id @default(uuid())
-  name            String         @unique
-  hrId            String?        @unique
-  hr              User?          @relation("DeptHR", fields: [hrId], references: [id])
-  employees       User[]         @relation("DeptEmployees")
-  leaveRequests   LeaveRequest[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-}
-
-model User {
-  id                    String      @id @default(uuid())
-  email                 String      @unique
-  password              String
-  name                  String
-  employeeCode          String      @unique
-  role                  Role        @default(EMPLOYEE)
-  departmentId          String?
-  department            Department? @relation("DeptEmployees", fields: [departmentId], references: [id])
-  managedDepartment     Department? @relation("DeptHR")
-  
-  leaveBalances         LeaveBalance[]
-  leaveRequests         LeaveRequest[]
-  attendances           Attendance[]
-  biometricAttendances  BiometricAttendance[]
-  notifications         Notification[]
-  refreshTokens         RefreshToken[]
-  auditLogs             AuditLog[]
-  emailLogs             EmailLog[]
-
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
-}
-
-model LeaveType {
-  id            String          @id @default(uuid())
-  name          String          @unique
-  daysAllowed   Int
-  leaveBalances LeaveBalance[]
-  leaveRequests LeaveRequest[]
-}
-
-model LeaveBalance {
-  id            String    @id @default(uuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  leaveTypeId   String
-  leaveType     LeaveType @relation(fields: [leaveTypeId], references: [id])
-  balance       Float
-  used          Float     @default(0)
-
-  @@unique([userId, leaveTypeId])
-}
-
 enum LeaveStatus {
+  PENDING
   PENDING_HR
+  PENDING_SUPERADMIN
   HR_APPROVED
   FINAL_APPROVED
   REJECTED_BY_HR
   REJECTED_BY_SUPERADMIN
+  APPROVED
+  REJECTED
 }
 
-enum LeaveDurationType {
-  FULL_DAY
-  FIRST_HALF
-  SECOND_HALF
-  WORK_FROM_HOME
+model PendingUser {
+  id           String   @id @default(uuid())
+  name         String
+  email        String
+  password     String
+  role         String
+  departmentId String?
+  employeeCode String
+  otp          String
+  expires      DateTime
+  createdAt    DateTime @default(now())
 }
 
-model LeaveRequest {
-  id                    String            @id @default(uuid())
-  userId                String
-  user                  User              @relation(fields: [userId], references: [id])
-  departmentId          String
-  department            Department        @relation(fields: [departmentId], references: [id])
-  leaveTypeId           String
-  leaveType             LeaveType         @relation(fields: [leaveTypeId], references: [id])
-  durationType          LeaveDurationType @default(FULL_DAY)
-  startDate             DateTime
-  endDate               DateTime
-  totalDays             Float
-  reason                String
-  status                LeaveStatus       @default(PENDING_HR)
-  hrApprovedAt         DateTime?
-  superadminApprovedAt DateTime?
-  comments              String?
-  
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
+model PasswordReset {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  expires   DateTime
+  createdAt DateTime @default(now())
 }
 
-model Attendance {
-  id              String      @id @default(uuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  date            DateTime    @db.Date
-  checkIn         DateTime?
-  checkOut        DateTime?
-  status          String      // PRESENT, HALF_DAY, ABSENT, LATE, OVERTIME, WFH_PRESENT
-  workingHours    Float       @default(0)
-  overtime        Float       @default(0)
-  isManual        Boolean     @default(false)
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  @@unique([userId, date])
-}
-
-model BiometricAttendance {
-  id              String      @id @default(uuid())
-  userId          String
-  user            User        @relation(fields: [userId], references: [id])
-  employeeCode    String
-  timestamp       DateTime
-  deviceIP        String?
-  syncLogId       String?
-  syncLog         AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
-
-  createdAt       DateTime    @default(now())
-}
-
-model Notification {
-  id          String      @id @default(uuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  title       String
-  message     String
-  type        String      // LEAVE_REQUEST, ATTENDANCE_SYNC, etc.
-  isRead      Boolean     @default(false)
-  createdAt   DateTime    @default(now())
-}
-
-model AuditLog {
-  id          String      @id @default(uuid())
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id])
-  action      String
-  entity      String
-  entityId    String?
-  details     Json?
-  ipAddress   String?
-  createdAt   DateTime    @default(now())
-}
-
-model EmailLog {
-  id          String      @id @default(uuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  subject     String
-  sentStatus  Boolean
-  error       String?
-  createdAt   DateTime    @default(now())
-}
-
-model RefreshToken {
-  id        String    @id @default(uuid())
-  token     String    @unique
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime  @default(now())
-}
-
-model SystemSettings {
-  id                 String    @id @default(uuid())
-  biometricDeviceIP  String?
-  syncInterval       String?   // e.g., "Daily", "Hourly"
-  workStartTime      String    @default("09:00")
-  workEndTime        String    @default("18:00")
-  halfDayCutoffTime  String    @default("13:30")
-  gracePeriod        Int       @default(15) // Minutes
-  wfhMonthlyLimit    Int       @default(4)
-  wfhConsecutiveLimit Int       @default(2)
-  updatedAt          DateTime  @updatedAt
-}
-
-model AttendanceSyncLog {
-  id            String                @id @default(uuid())
-  syncedAt      DateTime              @default(now())
-  status        String                // SUCCESS, FAILED
-  recordsCount  Int
-  errorMessage  String?
-  records       BiometricAttendance[]
-}

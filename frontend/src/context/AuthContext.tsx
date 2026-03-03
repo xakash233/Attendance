@@ -36,6 +36,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             socket.emit('join', parsedUser.id);
         }
         setLoading(false);
+
+        // Global response interceptor to handle unauthorized access
+        const interceptor = api.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    logout();
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => {
+            api.interceptors.response.eject(interceptor);
+        };
     }, []);
 
     const login = (token: string, userData: User) => {

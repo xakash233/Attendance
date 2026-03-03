@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const prisma = require('../config/prisma');
 
+const sendEmail = require('../utils/email');
+
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
 };
@@ -90,6 +92,73 @@ exports.logout = async (req, res, next) => {
             where: { token: refreshToken }
         });
         res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Forgot Password
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res, next) => {
+    const { email } = req.body;
+    try {
+        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+        if (!user) return res.status(404).json({ message: 'Personnel record not found' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        await prisma.passwordReset.create({
+            data: {
+                email: email.toLowerCase(),
+                otp,
+                expires: new Date(Date.now() + 10 * 60 * 1000) // 10 mins
+            }
+        });
+
+        await sendEmail({
+            email,
+            subject: 'Password Recovery Protocol',
+            message: `Your account recovery code is: ${otp}. Do not share this key with anyone.`,
+            html: `<div style="font-family: sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto;">
+                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Access Recovery</h2>
+                <p>A password reset has been requested for your workforce node.</p>
+                <div style="background: #000; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">
+                    ${otp}
+                </div>
+                <p style="font-size: 11px; color: #999;">Expires in 10 minutes. If you did not initiate this, secure your node immediately.</p>
+            </div>`
+        });
+
+        res.json({ message: 'Recovery code dispatched to registry email' });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Reset Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res, next) => {
+    const { email, otp, newPassword } = req.body;
+    try {
+        const reset = await prisma.passwordReset.findFirst({
+            where: { email: email.toLowerCase(), otp },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        if (!reset || new Date() > reset.expires) {
+            return res.status(400).json({ message: 'Invalid or expired recovery key' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { email: email.toLowerCase() },
+            data: { password: hashedPassword }
+        });
+
+        await prisma.passwordReset.deleteMany({ where: { email: email.toLowerCase() } });
+
+        res.json({ message: 'Access key updated successfully. Node resynced.' });
     } catch (error) {
         next(error);
     }

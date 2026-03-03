@@ -11,6 +11,11 @@ const sendEmail = async (options) => {
         },
     });
 
+    // Handle transporter errors to prevent process crash
+    transporter.on('error', (err) => {
+        console.error('SMTP Transporter Error:', err);
+    });
+
     const message = {
         from: `${process.env.FROM_NAME || 'Tectra Technologies'} <${process.env.SMTP_FROM}>`,
         to: options.email,

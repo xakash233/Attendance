@@ -26,17 +26,14 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const filteredLinks = links.filter(link => link.roles.includes(user?.role || ''));
 
     return (
-        <aside className="fixed left-0 top-0 bottom-0 w-[100px] h-screen bg-[#000000] border-r border-white/5 flex flex-col items-center py-10 gap-8 z-[120] transition-all duration-700">
-            {/* Strict Corporate Logo */}
-            <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center text-black shadow-2xl relative group overflow-hidden cursor-pointer transform hover:scale-105 transition-all duration-300">
-                <Command size={32} strokeWidth={3} />
-                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <aside className="fixed left-0 top-0 bottom-0 w-[100px] h-screen bg-[#f4f4f5] border-r border-[#e4e4e7] flex flex-col items-center py-8 gap-6 z-[120] transition-all duration-700">
+            {/* Minimal Logo */}
+            <div className="w-16 h-16 flex items-center justify-center p-2 relative group cursor-pointer transition-all duration-300">
+                <img src="/logo/Tectra.png" alt="Tectra Logo" className="w-full h-full object-contain filter grayscale brightness-0 opacity-80 group-hover:opacity-100 transition-all" />
             </div>
 
-            <div className="w-10 h-[1px] bg-white/5"></div>
-
-            {/* Navigation - Dark Mode Consistency */}
-            <nav className="flex-1 flex flex-col gap-2 w-full px-2 items-center overflow-y-auto no-scrollbar py-2">
+            {/* Navigation - Minimalist Style */}
+            <nav className="flex-1 flex flex-col gap-1 w-full px-4 items-center overflow-y-auto no-scrollbar py-2">
                 {filteredLinks.map((link) => {
                     const isActive = pathname === link.href;
                     return (
@@ -44,39 +41,39 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
                             key={link.label}
                             href={link.href}
                             onClick={onClose}
-                            className={`relative group transform active:scale-95 transition-all duration-300 w-full flex flex-col gap-1.5 items-center justify-center rounded-2xl py-5 px-2 ${isActive ? 'bg-white text-black shadow-2xl' : 'text-white/40 hover:bg-white/5 hover:text-white'}`}
+                            className={`relative group transition-all duration-300 w-full flex flex-col gap-1 items-center justify-center rounded-xl py-4 px-2 ${isActive ? 'bg-white text-black shadow-sm border border-black/5' : 'text-black/50 hover:bg-black/50 hover:text-black'}`}
                         >
-                            <link.icon size={26} className="transition-all duration-300" strokeWidth={isActive ? 2.5 : 2} />
-                            <span className={`text-[10px] font-black uppercase tracking-tighter text-center transition-all ${isActive ? 'text-black' : 'text-white/40 group-hover:text-white'}`}>
+                            <link.icon size={22} className="transition-all duration-300" strokeWidth={isActive ? 2 : 1.5} />
+                            <span className={`text-[10px] font-semibold mt-1 tracking-tight text-center transition-all ${isActive ? 'text-black' : 'text-black/50 group-hover:text-black'}`}>
                                 {link.label}
                             </span>
 
                             {isActive && (
-                                <div className="absolute right-[-10px] top-1/2 -translate-y-1/2 w-1.5 h-12 bg-white rounded-l-full"></div>
+                                <div className="absolute left-[-16px] top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full"></div>
                             )}
                         </Link>
                     );
                 })}
             </nav>
 
-            <div className="w-10 h-[1px] bg-white/5"></div>
+            <div className="w-8 h-[1px] bg-black/10"></div>
 
             {/* Bottom Actions */}
-            <div className="flex flex-col gap-2 w-full px-2 items-center pb-6">
+            <div className="flex flex-col gap-2 w-full px-4 items-center pb-4">
                 <Link
                     href="/dashboard/settings"
-                    className={`relative group transform active:scale-95 transition-all duration-300 w-full flex flex-col gap-1.5 items-center justify-center rounded-2xl py-5 px-2 ${pathname === '/dashboard/settings' ? 'bg-white text-black' : 'text-white/40 hover:bg-white/5'}`}
+                    className={`relative group transition-all duration-300 w-full flex flex-col items-center justify-center rounded-xl py-4 px-2 ${pathname === '/dashboard/settings' ? 'bg-white text-black shadow-sm border border-black/5' : 'text-black/50 hover:bg-black/5'}`}
                 >
-                    <Settings size={26} className={`group-hover:rotate-180 transition-all duration-700 ${pathname === '/dashboard/settings' ? '' : 'text-white/40'}`} strokeWidth={2} />
-                    <span className={`text-[10px] font-black uppercase tracking-tighter ${pathname === '/dashboard/settings' ? 'text-black' : 'text-white/40'}`}>Config</span>
+                    <Settings size={22} className={`transition-all duration-700 ${pathname === '/dashboard/settings' ? '' : 'text-black/50'}`} strokeWidth={1.5} />
+                    <span className={`text-[10px] font-semibold mt-1 tracking-tight ${pathname === '/dashboard/settings' ? 'text-black' : 'text-black/50'}`}>Settings</span>
                 </Link>
 
                 <button
                     onClick={logout}
-                    className="group transform active:scale-90 transition-all duration-300 w-full flex flex-col gap-1.5 items-center justify-center hover:bg-red-500/10 text-red-500 rounded-2xl py-5 px-2"
+                    className="group transition-all duration-300 w-full flex flex-col items-center justify-center hover:bg-red-50 text-red-500 rounded-xl py-4 px-2"
                 >
-                    <LogOut size={26} strokeWidth={2.5} />
-                    <span className="text-[10px] font-black uppercase tracking-tighter">Exit</span>
+                    <LogOut size={22} strokeWidth={1.5} />
+                    <span className="text-[10px] font-semibold mt-1 tracking-tight">Logout</span>
                 </button>
             </div>
         </aside>

@@ -10,8 +10,13 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "seed": "node prisma/seed.js",
+<<<<<<< Updated upstream
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "prisma generate"
+=======
+    "lint": "eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+>>>>>>> Stashed changes
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -27,21 +32,35 @@
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "csurf": "^1.11.0",
+    "csv-parser": "^3.2.0",
+    "date-fns": "^4.1.0",
+    "dompurify": "^3.3.1",
     "dotenv": "^17.3.1",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
+    "fast-xml-parser": "^5.4.2",
     "helmet": "^8.1.0",
+    "hpp": "^0.2.3",
+    "jsdom": "^27.0.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "multer": "^2.1.0",
     "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
     "prisma": "^6.19.2",
     "rate-limiter-flexible": "^9.1.1",
     "serverless-http": "^3.2.0",
     "socket.io": "^4.8.3",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "eslint": "^9.39.3",
+    "globals": "^17.4.0",
     "nodemon": "^3.1.14"
   }
 }

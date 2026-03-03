@@ -3,8 +3,7 @@ const prisma = require('../config/prisma');
 const sendEmail = require('../utils/email');
 const crypto = require('crypto');
 
-// Temporary store for OTPs and pending user data
-const pendingUsers = new Map();
+
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -27,9 +26,14 @@ exports.initUserCreation = async (req, res, next) => {
     const { name, email, password, role, departmentId, employeeCode } = req.body;
 
     try {
-        // Hierarchy Enforcement: ADMIN cannot create SUPER_ADMIN
+        // Hierarchy Enforcement: 
+        // 1. ADMIN cannot create SUPER_ADMIN
         if (req.user.role === 'ADMIN' && role === 'SUPER_ADMIN') {
             return res.status(403).json({ message: 'Operational Administrators cannot initialize Super Administrative nodes.' });
+        }
+        // 2. HR can only create EMPLOYEE
+        if (req.user.role === 'HR' && role !== 'EMPLOYEE') {
+            return res.status(403).json({ message: 'Human Resources nodes can only initialize standard Employee nodes.' });
         }
 
         // Check if user already exists
@@ -47,32 +51,51 @@ exports.initUserCreation = async (req, res, next) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const pendingId = crypto.randomUUID();
 
-        // Store pending data
-        pendingUsers.set(pendingId, {
-            data: { name, email: email.toLowerCase(), password, role: role || 'EMPLOYEE', departmentId, employeeCode },
-            otp,
-            expires: Date.now() + 10 * 60 * 1000 // 10 minutes expiry
+        // Store pending data in Database instead of Map for durability
+        const pendingUser = await prisma.pendingUser.create({
+            data: {
+                id: pendingId,
+                name,
+                email: email.toLowerCase(),
+                password,
+                role: role || 'EMPLOYEE',
+                departmentId,
+                employeeCode,
+                otp,
+                expires: new Date(Date.now() + 10 * 60 * 1000)
+            }
         });
 
         // Send OTP to the provided employee email
-        await sendEmail({
-            email,
-            subject: 'Account Verification OTP - Workforce Hub',
-            message: `Your verification code is: ${otp}. This code is required to finalize your personnel integration.`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                    <h2 style="color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Workforce Integration</h2>
-                    <p style="color: #666; font-size: 14px;">A new employee node is being initialized for your email.</p>
-                    <div style="background: #000; color: #fff; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
-                        <span style="font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">${otp}</span>
+        try {
+            await sendEmail({
+                email,
+                subject: 'Account Verification OTP - Workforce Hub',
+                message: `Your verification code is: ${otp}. This code is required to finalize your personnel integration.`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
+                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Workforce Integration</h2>
+                        <p style="color: #666; font-size: 14px;">A new employee node is being initialized for your email.</p>
+                        <div style="background: #000; color: #fff; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
+                            <span style="font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">${otp}</span>
+                        </div>
+                        <p style="color: #666; font-size: 13px;">Please share this code with the administrator to finalize your account.</p>
+                        <p style="font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">This security code expires in 10 minutes.</p>
                     </div>
-                    <p style="color: #666; font-size: 13px;">Please share this code with the administrator to finalize your account.</p>
-                    <p style="font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">This security code expires in 10 minutes.</p>
-                </div>
-            `
-        });
-
-        res.status(200).json({ pendingId, message: 'OTP sent to employee email' });
+                `
+            });
+            res.status(200).json({ pendingId, message: 'OTP sent to employee email' });
+        } catch (mailError) {
+            console.error('CRITICAL: SMTP Connection Failure.');
+            console.log('------------------------------------');
+            console.log(`VERIFICATION OTP FOR ${email}: ${otp}`);
+            console.log('------------------------------------');
+            res.status(200).json({
+                pendingId,
+                message: 'OTP generated. (SMTP Connection failed, check server console for code)',
+                mailError: true
+            });
+        }
     } catch (error) {
         next(error);
     }
@@ -85,7 +108,9 @@ exports.verifyUserCreation = async (req, res, next) => {
     const { pendingId, otp } = req.body;
 
     try {
-        const pending = pendingUsers.get(pendingId);
+        const pending = await prisma.pendingUser.findUnique({
+            where: { id: pendingId }
+        });
 
         if (!pending) {
             return res.status(400).json({ message: 'Session expired or invalid' });
@@ -95,12 +120,12 @@ exports.verifyUserCreation = async (req, res, next) => {
             return res.status(400).json({ message: 'Invalid Verification Key' });
         }
 
-        if (Date.now() > pending.expires) {
-            pendingUsers.delete(pendingId);
+        if (new Date() > pending.expires) {
+            await prisma.pendingUser.delete({ where: { id: pendingId } });
             return res.status(400).json({ message: 'OTP expired' });
         }
 
-        const { name, email, password, role, departmentId, employeeCode } = pending.data;
+        const { name, email, password, role, departmentId, employeeCode } = pending;
 
         // Hash password and create user
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -125,27 +150,34 @@ exports.verifyUserCreation = async (req, res, next) => {
         await prisma.leaveBalance.createMany({ data: leaveBalancesData });
 
         // Send Final Credentials to the employee
-        await sendEmail({
-            email,
-            subject: 'Welcome to Tectra Technologies - Your Registry Credentials',
-            message: `Welcome ${name}! Your account has been finalized. Email: ${email}, Password: ${password}`,
-            html: `
-                <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                    <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Node Activated</h2>
-                    <p style="color: #666;">Your personnel node has been successfully integrated into the Enterprise HRMS.</p>
-                    <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #eee;">
-                        <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Access Credentials</p>
-                        <p style="margin: 5px 0; font-size: 16px;"><strong>Identity:</strong> ${email}</p>
-                        <p style="margin: 5px 0; font-size: 16px;"><strong>Passkey:</strong> ${password}</p>
+        try {
+            await sendEmail({
+                email,
+                subject: 'Welcome to Tectra Technologies - Your Registry Credentials',
+                message: `Welcome ${name}! Your account has been finalized. Email: ${email}, Password: ${password}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
+                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Node Activated</h2>
+                        <p style="color: #666;">Your personnel node has been successfully integrated into the Enterprise HRMS.</p>
+                        <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #eee;">
+                            <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Access Credentials</p>
+                            <p style="margin: 5px 0; font-size: 16px;"><strong>Identity:</strong> ${email}</p>
+                            <p style="margin: 5px 0; font-size: 16px;"><strong>Passkey:</strong> ${password}</p>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">You can now use these credentials to access the Workforce Portal.</p>
+                        <p style="font-size: 11px; color: #999; margin-top: 30px;">Strict Security Protocol: Change your password after initial access.</p>
                     </div>
-                    <p style="color: #666; font-size: 14px;">You can now use these credentials to access the Workforce Portal.</p>
-                    <p style="font-size: 11px; color: #999; margin-top: 30px;">Strict Security Protocol: Change your password after initial access.</p>
-                </div>
-            `
-        });
+                `
+            });
+        } catch (mailError) {
+            console.error('CRITICAL: Final Credential Email Delivery Failure.');
+            console.log('------------------------------------');
+            console.log(`CREDENTIALS FOR ${name}: ${email} / ${password}`);
+            console.log('------------------------------------');
+        }
 
-        // Clear pending store
-        pendingUsers.delete(pendingId);
+        // Clear pending store from DB
+        await prisma.pendingUser.delete({ where: { id: pendingId } });
 
         // Audit Log
         await prisma.auditLog.create({
@@ -190,11 +222,32 @@ exports.getAnalytics = async (req, res, next) => {
         const { role, id, departmentId } = req.user;
 
         if (role === 'SUPER_ADMIN') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const totalEmployees = await prisma.user.count();
+            const checkedInToday = await prisma.attendance.count({ where: { date: today } });
+            const lateToday = await prisma.attendance.count({ where: { date: today, status: 'LATE' } });
+            const presentToday = await prisma.attendance.count({ where: { date: today, status: 'PRESENT' } });
+
             const stats = {
-                totalEmployees: await prisma.user.count(),
+                totalEmployees,
                 totalDepartments: await prisma.department.count(),
+                totalLeaveRequests: await prisma.leaveRequest.count({
+                    where: {
+                        status: { in: ['PENDING_HR', 'HR_APPROVED', 'PENDING_SUPERADMIN'] }
+                    }
+                }),
+                totalTasks: 0,
+                onTimeToday: presentToday,
+                lateToday: lateToday,
+                absentToday: totalEmployees - checkedInToday,
                 pendingHrApprovals: await prisma.leaveRequest.count({ where: { status: 'PENDING_HR' } }),
-                pendingFinalApprovals: await prisma.leaveRequest.count({ where: { status: 'HR_APPROVED' } }),
+                pendingFinalApprovals: await prisma.leaveRequest.count({
+                    where: {
+                        status: { in: ['HR_APPROVED', 'PENDING_SUPERADMIN'] }
+                    }
+                }),
             };
             return res.json(stats);
         } else if (role === 'ADMIN') {
