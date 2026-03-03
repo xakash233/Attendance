@@ -14,10 +14,13 @@ const server = http.createServer(app);
 // Initialize Socket.io
 initSocket(server);
 
-// Start listening
-server.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+// Start listening only when this file is run directly (e.g. local development).
+// In a serverless environment we import the app and create a handler instead.
+if (require.main === module) {
+    server.listen(PORT, () => {
+        console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    });
+}
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
