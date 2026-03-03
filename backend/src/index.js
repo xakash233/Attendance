@@ -1,30 +1,19 @@
-const http = require('http');
-const dotenv = require('dotenv');
-const app = require('./app');
-const { initSocket } = require('./config/socket');
+// src/index.js
 
-// Load environment variables
+const dotenv = require("dotenv");
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const app = require("./app");
 
-// Create HTTP server
-const server = http.createServer(app);
+/*
+  IMPORTANT:
 
-// Initialize Socket.io
-initSocket(server);
+  - No http.createServer()
+  - No Socket.io initialization
+  - No server.listen()
+  - No manual unhandledRejection shutdown
 
-// Start listening only when this file is run directly (e.g. local development).
-// In a serverless environment we import the app and create a handler instead.
-if (require.main === module) {
-    server.listen(PORT, () => {
-        console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-    });
-}
+  In Vercel (serverless), we only export the app.
+*/
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
-    console.log(`Error: ${err.message}`);
-    // Close server & exit process
-    server.close(() => process.exit(1));
-});
+module.exports = app;
