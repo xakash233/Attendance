@@ -13,7 +13,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "node prisma/seed.js",
-    "lint": "eslint .",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
