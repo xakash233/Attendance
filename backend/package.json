@@ -14,7 +14,6 @@
     "prisma:migrate": "prisma migrate dev",
     "seed": "node prisma/seed.js",
     "lint": "eslint .",
-    "vercel-build": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
