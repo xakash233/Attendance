@@ -13,16 +13,9 @@
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "seed": "node prisma/seed.js",
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+    "lint": "eslint .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "vercel-build": "prisma generate"
-=======
-=======
->>>>>>> Stashed changes
-    "lint": "eslint .",
-    "test": "echo \"Error: no test specified\" && exit 1"
->>>>>>> Stashed changes
   },
   "prisma": {
     "seed": "node prisma/seed.js"
