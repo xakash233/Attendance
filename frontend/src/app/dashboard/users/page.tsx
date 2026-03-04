@@ -196,7 +196,7 @@ export default function UsersPage() {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-md bg-white/40 animate-fade-in">
-                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] overflow-hidden scale-100 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 duration-300">
                         {/* Header */}
                         <div className="p-8 border-b border-neutral-50 flex justify-between items-center bg-white shrink-0">
                             <div className="space-y-1">
@@ -212,71 +212,73 @@ export default function UsersPage() {
 
                         {/* Step 1: Form */}
                         {step === 1 && (
-                            <form onSubmit={handleInitCreation} className="p-8 space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Full Name</label>
-                                    <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="John Doe" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="overflow-y-auto no-scrollbar">
+                                <form onSubmit={handleInitCreation} className="p-8 space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Intel Email</label>
-                                        <input type="email" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all lowercase" placeholder="user@tectra.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })} required />
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Full Name</label>
+                                        <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="John Doe" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Intel Code</label>
-                                        <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="TC-XXXXX" value={formData.employeeCode} onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value.toUpperCase() })} required />
-                                    </div>
-                                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Registry Role</label>
-                                        <div className="relative">
-                                            <select className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })} required>
-                                                <option value="EMPLOYEE">Employee</option>
-                                                <option value="HR">HR Specialist</option>
-                                                {currentUser?.role === 'ADMIN' && <option value="ADMIN">Administrator</option>}
-                                                {currentUser?.role === 'SUPER_ADMIN' && <option value="ADMIN">Administrator</option>}
-                                            </select>
-                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                                                <Filter size={14} />
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Intel Email</label>
+                                            <input type="email" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all lowercase" placeholder="user@tectra.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })} required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Intel Code</label>
+                                            <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="TC-XXXXX" value={formData.employeeCode} onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value.toUpperCase() })} required />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Registry Role</label>
+                                            <div className="relative">
+                                                <select className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })} required>
+                                                    <option value="EMPLOYEE">Employee</option>
+                                                    <option value="HR">HR Specialist</option>
+                                                    {currentUser?.role === 'ADMIN' && <option value="ADMIN">Administrator</option>}
+                                                    {currentUser?.role === 'SUPER_ADMIN' && <option value="ADMIN">Administrator</option>}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                                                    <Filter size={14} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Assigned Unit</label>
+                                            <div className="relative">
+                                                <select className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none" onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })} value={formData.departmentId} required>
+                                                    <option value="">Select unit</option>
+                                                    {departments.map((d: any) => (
+                                                        <option key={d.id} value={d.id}>{d.name}</option>
+                                                    ))}
+                                                </select>
+                                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
+                                                    <Globe size={14} />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Assigned Unit</label>
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Initial Cipher</label>
                                         <div className="relative">
-                                            <select className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none" onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })} value={formData.departmentId} required>
-                                                <option value="">Select unit</option>
-                                                {departments.map((d: any) => (
-                                                    <option key={d.id} value={d.id}>{d.name}</option>
-                                                ))}
-                                            </select>
+                                            <input type="password" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                                                <Globe size={14} />
+                                                <Key size={14} />
                                             </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Initial Cipher</label>
-                                    <div className="relative">
-                                        <input type="password" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
-                                            <Key size={14} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <button type="submit" disabled={loading} className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-4 group">
-                                    {loading ? <Loader2 className="animate-spin text-white" /> : <>Request Clearance Code <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /></>}
-                                </button>
-                            </form>
+                                    <button type="submit" disabled={loading} className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-4 disabled:bg-black/20 group">
+                                        {loading ? <Loader2 className="animate-spin text-white" size={18} /> : <>Generate Personnel Intel <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /></>}
+                                    </button>
+                                </form>
+                            </div>
                         )}
 
-                        {/* Step 2: Verification */}
+                        {/* Step 2: Secret Setup */}
                         {step === 2 && (
                             <form onSubmit={handleVerify} className="p-10 space-y-10">
                                 <div className="text-center space-y-6">
