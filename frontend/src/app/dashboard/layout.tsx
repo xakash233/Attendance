@@ -157,8 +157,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                         <div className="flex items-center gap-6 group cursor-default">
                             <h1 className="text-xl font-black uppercase tracking-tighter text-black">{currentPage}</h1>
-                            <div className="h-4 w-[1px] bg-black/10"></div>
-                            <span className="text-[10px] font-bold tracking-[0.2em] text-black/20 uppercase">Tectra Technology</span>
+                            <div className="h-4 w-[1px] bg-black/10 hidden md:block"></div>
+                            <div className="hidden md:flex items-center gap-3">
+                                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shadow-md border border-neutral-800">
+                                    <span className="text-white font-black text-sm uppercase">T</span>
+                                </div>
+                                <span className="text-[10px] font-black tracking-[0.2em] text-black uppercase">Tectra Technology</span>
+                            </div>
                         </div>
                     </div>
 
@@ -281,15 +286,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                     </div>
                 </header>
-
-                {/* Minimal Breadcrumbs */}
-                <div className="px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-2 text-[10px] font-bold text-black/30 flex items-center gap-2 uppercase tracking-widest">
-                    <Link href="/dashboard" className="hover:text-black transition-colors flex items-center gap-1">
-                        <Home size={12} /> Home
-                    </Link>
-                    <span>/</span>
-                    <span className="text-black italic">{currentPage}</span>
-                </div>
 
                 {/* Main Content Area */}
                 <main className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 pb-20 overflow-x-hidden pt-6">
