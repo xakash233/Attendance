@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -24,9 +24,8 @@ export default function LeavesPage() {
         durationType: 'FULL_DAY'
     });
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
-            // Fetch independently so one failure doesn't block the other
             const fetchHistory = async () => {
                 try {
                     const res = await api.get('/leaves/history');
@@ -42,7 +41,7 @@ export default function LeavesPage() {
                     setLeaveTypes(res.data);
                 } catch (err) {
                     console.error("Types fetch error:", err);
-                    toast.error("SECURITY PROTOCOL: SESSION INVALIDATED");
+                    toast.error("Session expired. Please login again.");
                     logout();
                 }
             };
@@ -53,22 +52,22 @@ export default function LeavesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [logout]);
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [fetchData]);
 
     const handleApply = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
             await api.post('/leaves/apply', formData);
-            toast.success('Request Dispatched for Review');
+            toast.success('Request submitted');
             setIsApplyModalOpen(false);
             fetchData();
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Dispatch Failure');
+            toast.error(err.response?.data?.message || 'Submission failed');
         } finally {
             setLoading(false);
         }
@@ -77,7 +76,7 @@ export default function LeavesPage() {
     const handleHRDecision = async (id: string, decision: string) => {
         try {
             await api.put(`/leaves/${id}/hr-decision`, { decision });
-            toast.success(`Department node ${decision}`);
+            toast.success(`Request ${decision.toLowerCase().replace(/_/g, ' ')}`);
             fetchData();
         } catch (err: any) {
             toast.error('Oversight decision failed');
@@ -87,7 +86,7 @@ export default function LeavesPage() {
     const handleFinalDecision = async (id: string, decision: string) => {
         try {
             await api.put(`/leaves/${id}/final-decision`, { decision });
-            toast.success(`Administrative finality: ${decision}`);
+            toast.success(`Approval finalized`);
             fetchData();
         } catch (err: any) {
             toast.error('Structural finalization failed');
@@ -96,26 +95,26 @@ export default function LeavesPage() {
 
     const getStatusStyle = (status: string) => {
         switch (status) {
-            case 'FINAL_APPROVED': return 'bg-green-500/10 text-green-500 border-green-500/20';
-            case 'HR_APPROVED': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+            case 'FINAL_APPROVED': return 'bg-black text-white border-black';
+            case 'HR_APPROVED': return 'bg-neutral-100 text-black border-black/10';
             case 'PENDING_HR':
-            case 'PENDING_SUPERADMIN': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+            case 'PENDING_SUPERADMIN': return 'bg-white text-black border-black/20 italic';
             case 'REJECTED_BY_HR':
-            case 'REJECTED_BY_SUPERADMIN': return 'bg-red-500/10 text-red-500 border-red-500/20';
-            default: return 'bg-white/10 text-black/40 border-black/10';
+            case 'REJECTED_BY_SUPERADMIN': return 'bg-neutral-50 text-black/40 border-black/5 line-through';
+            default: return 'bg-white text-black/40 border-black/10';
         }
     };
 
     if (loading && leaves.length === 0) return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-black">
             <Loader2 className="w-8 h-8 text-black animate-spin" />
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-black/20">Syncing Registries...</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-black/20">Updating record registry...</p>
         </div>
     );
 
     return (
         <>
-            <div className="space-y-6 animate-fade-in pb-10 max-w-[1600px]">
+            <div className="space-y-6 animate-fade-in pb-10 max-w-[1600px] text-black">
                 {/* Strict Header */}
                 <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="space-y-4">
@@ -124,14 +123,14 @@ export default function LeavesPage() {
                         </h1>
                         <div className="flex items-center gap-4">
                             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">System Active</span>
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></div>
                         </div>
                     </div>
 
                     {user?.role === 'EMPLOYEE' && (
                         <button
                             onClick={() => setIsApplyModalOpen(true)}
-                            className="bg-white text-black px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all shadow-2xl active:scale-95 w-full md:w-auto"
+                            className="bg-black text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all shadow-2xl active:scale-95 w-full md:w-auto hover:bg-neutral-900"
                         >
                             <Plus size={20} strokeWidth={3} />
                             Apply for Leave
@@ -139,73 +138,73 @@ export default function LeavesPage() {
                     )}
                 </header>
 
-                {/* Metrics Overview - Corporate Dark */}
+                {/* Metrics Overview - Corporate B/W */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white border border-black/5 p-6 rounded-3xl space-y-2">
-                        <Briefcase className="text-black/20" size={24} />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/40">My Balance</p>
-                        <p className="text-3xl font-black text-black">STABLE</p>
+                    <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm">
+                        <Briefcase className="text-black/10" size={24} />
+                        <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">My Balance</p>
+                        <p className="text-3xl font-black text-black uppercase tracking-tighter">Status: Active</p>
                     </div>
-                    <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4">
-                        <Calendar className="text-black/20" size={24} />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/40">Total Records</p>
-                        <p className="text-3xl font-black text-black">{leaves.length} REQUESTS</p>
+                    <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm">
+                        <Calendar className="text-black/10" size={24} />
+                        <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">Total Records</p>
+                        <p className="text-3xl font-black text-black tracking-tighter uppercase">{leaves.length} Applications</p>
                     </div>
-                    <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4">
-                        <ShieldCheck className="text-black/20" size={24} />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-black/40">Portal Status</p>
-                        <p className="text-3xl font-black text-green-500">LIVE</p>
+                    <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm">
+                        <ShieldCheck className="text-black/10" size={24} />
+                        <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">Portal Status</p>
+                        <p className="text-3xl font-black text-black tracking-tighter uppercase italic">Secure-Link</p>
                     </div>
                 </div>
 
                 {/* Table Registry */}
-                <div className="bg-white border border-black/5 rounded-3xl overflow-hidden">
+                <div className="bg-white border border-black/5 rounded-3xl overflow-hidden shadow-2xl">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-white/[0.02] text-black/20 uppercase text-[10px] font-black tracking-[0.2em] border-b border-black/5">
+                                <tr className="bg-neutral-50/[0.5] text-black/30 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-black/5">
                                     <th className="px-10 py-8">Employee</th>
                                     <th className="px-10 py-8">Type</th>
-                                    <th className="px-10 py-8">Duration</th>
-                                    <th className="px-10 py-8">Status</th>
+                                    <th className="px-10 py-8 text-center">Duration</th>
+                                    <th className="px-10 py-8 text-center">Status</th>
                                     <th className="px-10 py-8 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
                                 {leaves.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="p-32 text-center text-black/10 font-black uppercase tracking-widest text-xs">
-                                            No records found yet
+                                        <td colSpan={5} className="p-32 text-center text-black/10 font-bold uppercase tracking-widest text-xs">
+                                            No records found in database
                                         </td>
                                     </tr>
                                 ) : (
                                     leaves.map((leave: any) => (
-                                        <tr key={leave.id} className="border-b border-black/5 hover:bg-white/[0.02] transition-colors group">
+                                        <tr key={leave.id} className="border-b border-black/5 hover:bg-neutral-50/[0.3] transition-colors group">
                                             <td className="px-10 py-8">
                                                 <div className="flex items-center gap-6">
-                                                    <div className="w-12 h-12 rounded-2xl bg-white/5 text-black/20 flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all border border-black/5">
+                                                    <div className="w-12 h-12 rounded-2xl bg-neutral-50 text-black/20 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all border border-black/5">
                                                         <User size={20} strokeWidth={2.5} />
                                                     </div>
                                                     <div>
                                                         <p className="font-black text-black uppercase tracking-tight text-base">{leave.user.name}</p>
-                                                        <p className="text-[9px] text-black/20 uppercase tracking-widest font-bold mt-1.5 opacity-70">NODE: {leave.user.employeeCode.toUpperCase()}</p>
+                                                        <p className="text-[9px] text-black/30 font-bold tracking-widest mt-1 opacity-70 uppercase tracking-tighter italic">Emp: {leave.user.employeeCode}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td className="px-10 py-8">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-black">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[11px] font-black uppercase tracking-widest text-black">
                                                         {leave.leaveType.name}
                                                     </span>
-                                                    <span className="text-[9px] text-black/30 font-bold uppercase tracking-tighter">
+                                                    <span className="text-[9px] text-black/30 font-medium italic lowercase">
                                                         {leave.durationType.replace(/_/g, ' ')}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-8 tabular-nums font-black text-[11px] text-black group-hover:text-blue-500 transition-colors uppercase tracking-widest">
+                                            <td className="px-10 py-8 text-center tabular-nums font-black text-black group-hover:italic transition-all tracking-widest text-[12px]">
                                                 {new Date(leave.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()} - {new Date(leave.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()}
                                             </td>
-                                            <td className="px-10 py-8">
+                                            <td className="px-10 py-8 text-center">
                                                 <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(leave.status)}`}>
                                                     {leave.status.replace(/_/g, ' ')}
                                                 </span>
@@ -213,18 +212,18 @@ export default function LeavesPage() {
                                             <td className="px-10 py-8 text-right">
                                                 {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                     <div className="flex justify-end gap-3">
-                                                        <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="p-4 bg-green-500 text-black rounded-2xl hover:bg-green-400 transition-all"><CheckCircle2 size={18} strokeWidth={3} /></button>
-                                                        <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="p-4 bg-red-500 text-black rounded-2xl hover:bg-red-400 transition-all"><XCircle size={18} strokeWidth={3} /></button>
+                                                        <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="p-4 bg-black text-white rounded-2xl hover:bg-neutral-800 transition-all"><CheckCircle2 size={18} strokeWidth={2} /></button>
+                                                        <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="p-4 bg-white border border-black/20 text-black rounded-2xl hover:bg-neutral-50 transition-all"><XCircle size={18} strokeWidth={2} /></button>
                                                     </div>
                                                 )}
                                                 {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                     <div className="flex justify-end gap-3">
-                                                        <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="p-4 bg-white text-black rounded-2xl hover:scale-105 transition-all"><CheckCircle2 size={18} strokeWidth={3} /></button>
-                                                        <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="p-4 bg-red-500 text-black rounded-2xl hover:scale-105 transition-all"><XCircle size={18} strokeWidth={3} /></button>
+                                                        <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="p-4 bg-black text-white rounded-2xl hover:bg-neutral-800 transition-all"><CheckCircle2 size={18} strokeWidth={2} /></button>
+                                                        <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="p-4 bg-white border border-black/20 text-black rounded-2xl hover:bg-neutral-50 transition-all"><XCircle size={18} strokeWidth={2} /></button>
                                                     </div>
                                                 )}
                                                 {leave.status === 'FINAL_APPROVED' && (
-                                                    <span className="text-[9px] uppercase font-black text-black/10 tracking-[0.4em]">STABILIZED</span>
+                                                    <span className="text-[10px] uppercase font-black text-black/10 tracking-[0.4em] italic">Archived Approval</span>
                                                 )}
                                             </td>
                                         </tr>
@@ -236,93 +235,83 @@ export default function LeavesPage() {
                 </div>
             </div>
 
-            {/* Apply Modal - Corporate Dark Overlay - Moved outside animated div to ensure full-page blur */}
+            {/* Apply Modal */}
             {isApplyModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-8 backdrop-blur-md bg-white/40 animate-fade-in">
-                    <div className="bg-white border border-gray-100 max-w-xl w-full rounded-[2.5rem] shadow-[0_40px_50px_rgba(2,5,2,0.5)] overflow-hidden -translate-y-5 scale-100 animate-in zoom-in-95 duration-300">
-                        <div className="p-8 border-b border-gray-50 flex justify-between items-start bg-white">
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-md bg-white/40 animate-fade-in">
+                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] overflow-hidden scale-100 animate-in zoom-in-95 duration-300">
+                        <div className="p-8 border-b border-neutral-50 flex justify-between items-center bg-white shrink-0">
                             <div className="space-y-1">
-                                <h2 className="text-2xl font-black uppercase tracking-tight text-black">Request Leave</h2>
-                                <p className="text-[10px] font-bold tracking-[0.2em] text-black/30 uppercase">Enter your leave details</p>
+                                <h2 className="text-2xl font-black uppercase tracking-tight text-black">Apply for Absence</h2>
+                                <p className="text-[9px] font-black tracking-[0.2em] text-black/20 uppercase italic">Formal declaration required</p>
                             </div>
                             <button
                                 onClick={() => setIsApplyModalOpen(false)}
-                                className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-100 shadow-sm hover:bg-gray-50 transition-all"
+                                className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-100 hover:bg-neutral-50 hover:rotate-90 transition-all duration-300 group"
                             >
-                                <X size={20} className="text-black/40" strokeWidth={3} />
+                                <X size={18} className="text-black group-hover:rotate-90 transition-transform" strokeWidth={3} />
                             </button>
                         </div>
 
                         <form onSubmit={handleApply} className="p-8 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.15em] text-black/40 ml-1">Leave Type</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Leave Type</label>
                                     <div className="relative">
                                         <select
-                                            className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[11px] text-black font-black uppercase tracking-widest focus:ring-4 focus:ring-black/5 focus:border-gray-200 appearance-none cursor-pointer"
+                                            className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
                                             onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
                                             required
                                         >
-                                            <option value="" className="bg-white">SELECT TYPE</option>
-                                            {leaveTypes.map((t: any) => <option key={t.id} value={t.id} className="bg-white">{t.name.toUpperCase()}</option>)}
+                                            <option value="">Select type</option>
+                                            {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                                            <Filter size={14} />
-                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.15em] text-black/40 ml-1">Duration</label>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Duration</label>
                                     <div className="relative">
                                         <select
-                                            className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[11px] text-black font-black uppercase tracking-widest focus:ring-4 focus:ring-black/5 focus:border-gray-200 appearance-none cursor-pointer"
+                                            className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
                                             onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
                                             required
                                         >
-                                            <option value="FULL_DAY" className="bg-white">FULL DAY</option>
-                                            <option value="FIRST_HALF" className="bg-white">FIRST HALF</option>
-                                            <option value="SECOND_HALF" className="bg-white">SECOND HALF</option>
-                                            <option value="WORK_FROM_HOME" className="bg-white">WORK FROM HOME</option>
+                                            <option value="FULL_DAY">Full Day</option>
+                                            <option value="FIRST_HALF">First Half</option>
+                                            <option value="SECOND_HALF">Second Half</option>
+                                            <option value="WORK_FROM_HOME">Work from Home</option>
                                         </select>
-                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-                                            <Clock size={14} />
-                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-3">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.15em] text-black/40 ml-1">Start Date</label>
-                                    <div className="relative">
-                                        <input
-                                            type="date"
-                                            className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[11px] text-black font-black tracking-widest focus:ring-4 focus:ring-black/5 focus:border-gray-200"
-                                            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                            required
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Start Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all"
+                                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                        required
+                                    />
                                 </div>
-                                <div className="space-y-3">
-                                    <label className="text-[9px] font-black uppercase tracking-[0.15em] text-black/40 ml-1">End Date</label>
-                                    <div className="relative">
-                                        <input
-                                            type="date"
-                                            className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[11px] text-black font-black tracking-widest focus:ring-4 focus:ring-black/5 focus:border-gray-200"
-                                            onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                            required
-                                        />
-                                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">End Date</label>
+                                    <input
+                                        type="date"
+                                        className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all"
+                                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                        required
+                                    />
                                 </div>
                             </div>
 
-                            <div className="space-y-3">
-                                <label className="text-[9px] font-black uppercase tracking-[0.15em] text-black/40 ml-1">Reason for Leave</label>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Reason for Absence</label>
                                 <textarea
                                     rows={3}
-                                    className="w-full bg-white border border-gray-100 rounded-2xl p-5 text-[11px] text-black font-black uppercase tracking-[0.1em] focus:ring-4 focus:ring-black/5 focus:border-gray-200 resize-none placeholder:text-black/10"
-                                    placeholder="WRITE YOUR REASON HERE..."
-                                    onChange={(e) => setFormData({ ...formData, reason: e.target.value.toUpperCase() })}
+                                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[13px] text-black font-medium focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 resize-none placeholder:text-black/10 outline-none"
+                                    placeholder="Enter your detailed reason here..."
+                                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                     required
                                 ></textarea>
                             </div>
@@ -330,9 +319,9 @@ export default function LeavesPage() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full h-16 bg-black text-white hover:bg-black/90 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
+                                className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
                             >
-                                {loading ? <Loader2 className="animate-spin text-white" /> : <>Submit Request <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /></>}
+                                {loading ? <Loader2 size={18} className="animate-spin text-white" /> : <>SUBMIT DECLARATION <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /></>}
                             </button>
                         </form>
                     </div>

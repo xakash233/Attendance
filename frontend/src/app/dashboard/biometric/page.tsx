@@ -48,16 +48,16 @@ export default function BiometricPage() {
                 }
 
                 if (records.length === 0) {
-                    toast.error('INVALID PAYLOAD STRUCTURE');
+                    toast.error('Invalid file structure');
                     return;
                 }
 
                 setSyncing(true);
                 await api.post('/biometric/sync', { records, deviceIP: 'OFFLINE_UPLOAD' });
-                toast.success(`SYNCHRONIZED ${records.length} NODES`);
+                toast.success(`Synced ${records.length} records`);
                 fetchLogs();
             } catch (err) {
-                toast.error('PARSING ERROR: INVALID FILE FORMAT');
+                toast.error('File format error');
             } finally {
                 setSyncing(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';
@@ -72,10 +72,10 @@ export default function BiometricPage() {
             <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
                 <div className="space-y-4">
                     <h1 className="text-4xl font-black tracking-tighter uppercase leading-none text-black">
-                        Node Network Sync
+                        Attendance Sync
                     </h1>
                     <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Biometric eSSL Protocol</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Biometric System</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                     </div>
                 </div>
@@ -94,7 +94,7 @@ export default function BiometricPage() {
                         className="flex-1 lg:flex-none flex items-center justify-center gap-4 py-6 px-12 bg-white text-black font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50"
                     >
                         {syncing ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} strokeWidth={3} />}
-                        {syncing ? 'UPLOADING...' : 'UPLOAD PAYLOAD (CSV/JSON)'}
+                        {syncing ? 'UPLOADING...' : 'UPLOAD RECORDS (CSV/JSON)'}
                     </button>
                 </div>
             </header>
@@ -106,18 +106,18 @@ export default function BiometricPage() {
                         <div className="p-5 bg-white/5 text-black/20 rounded-2xl w-fit border border-black/5">
                             <Cpu size={32} />
                         </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight text-black italic">Hardware State</h3>
+                        <h3 className="text-2xl font-black uppercase tracking-tight text-black italic">Device Status</h3>
                         <div className="space-y-6">
                             <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Logic IP</span>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Device IP</span>
                                 <span className="text-[11px] font-black text-black italic">192.168.1.100</span>
                             </div>
                             <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Frequency</span>
-                                <span className="text-[11px] font-black text-black italic">CONTINUOUS_POLLING</span>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Sync Frequency</span>
+                                <span className="text-[11px] font-black text-black italic">Real-time</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Protocol Status</span>
+                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Status</span>
                                 <span className="text-[10px] font-black text-green-500 flex items-center gap-2 uppercase tracking-[0.2em]"><Wifi size={14} /> ACTIVE</span>
                             </div>
                         </div>
@@ -126,7 +126,7 @@ export default function BiometricPage() {
                     <div className="mt-12 p-6 bg-white/[0.02] rounded-2xl border border-black/5 flex items-center gap-4">
                         <Activity size={20} className="text-blue-500" />
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-black">Neural Heartbeat</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-black">System Heartbeat</p>
                             <p className="text-[9px] text-black/20 font-bold uppercase tracking-tighter">Syncing logs every 60m...</p>
                         </div>
                     </div>
@@ -136,9 +136,9 @@ export default function BiometricPage() {
                 <div className="bg-white border border-black/5 rounded-[2.5rem] lg:col-span-2 overflow-hidden flex flex-col">
                     <div className="p-10 border-b border-black/5 flex justify-between items-center bg-white/[0.02]">
                         <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-4 text-black">
-                            <History size={24} className="text-black/20" /> Telemetry Logs
+                            <History size={24} className="text-black/20" /> Sync History
                         </h3>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-black/40 italic">Historical Registry</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-black/40 italic">Past Syncs</span>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -146,8 +146,8 @@ export default function BiometricPage() {
                             <thead>
                                 <tr className="bg-white text-black uppercase text-[10px] font-black tracking-[0.3em]">
                                     <th className="px-10 py-6">Timestamp</th>
-                                    <th className="px-10 py-6">Integrity State</th>
-                                    <th className="px-10 py-6 text-right">Units Synced</th>
+                                    <th className="px-10 py-6">Status</th>
+                                    <th className="px-10 py-6 text-right">Records Synced</th>
                                 </tr>
                             </thead>
                             <tbody className="text-sm">
@@ -170,7 +170,7 @@ export default function BiometricPage() {
                                                 </span>
                                             </td>
                                             <td className="px-10 py-8 text-right font-black text-black text-lg tracking-tighter italic">
-                                                {log.recordsCount} <span className="text-[9px] text-black/10 not-italic uppercase tracking-widest">NODES</span>
+                                                {log.recordsCount} <span className="text-[9px] text-black/10 not-italic uppercase tracking-widest">RECORDS</span>
                                             </td>
                                         </tr>
                                     ))

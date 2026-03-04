@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const parsedUser = JSON.parse(storedUser);
             setUser(parsedUser);
             socket.connect();
-            socket.emit('join', parsedUser.id);
         }
         setLoading(false);
 
@@ -58,7 +57,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         socket.connect();
-        socket.emit('join', userData.id);
         router.push('/dashboard');
     };
 

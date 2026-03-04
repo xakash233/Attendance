@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Shield, Command, ArrowRight, Sun, Loader2, UserCircle, Key, Lock, Mail, Fingerprint, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Shield, ArrowRight, Loader2, Key, Mail, ArrowLeft, Fingerprint, ShieldAlert, Cpu } from 'lucide-react';
 
 export default function LoginPage() {
     const [view, setView] = useState<'LOGIN' | 'FORGOT' | 'RESET'>('LOGIN');
@@ -26,9 +26,9 @@ export default function LoginPage() {
                 role: response.data.role,
                 department: response.data.department,
             });
-            toast.success('ACCESS_GRANTED');
+            toast.success('Access Granted');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'AUTHORIZATION_DENIED');
+            toast.error(error.response?.data?.message || 'Authorization Denied');
         } finally {
             setLoading(false);
         }
@@ -39,10 +39,10 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await api.post('/auth/forgot-password', { email });
-            toast.success('RECOVERY_CODE_DISPATCHED');
+            toast.success('Recovery code sent');
             setView('RESET');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'ENTITY_NOT_FOUND');
+            toast.error(error.response?.data?.message || 'Email not found');
         } finally {
             setLoading(false);
         }
@@ -53,99 +53,100 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await api.post('/auth/reset-password', { email, otp, newPassword: newPass });
-            toast.success('CREDENTIALS_REGENERATED');
+            toast.success('Password updated');
             setView('LOGIN');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'RESET_FAILURE');
+            toast.error(error.response?.data?.message || 'Reset failed');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="h-screen w-full flex items-center justify-center bg-white relative overflow-hidden font-sans selection:bg-black selection:text-white">
-            {/* Background Decorative Elements */}
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#000]/[0.02] rounded-full blur-[100px] animate-pulse"></div>
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#000]/[0.02] rounded-full blur-[100px] animate-pulse"></div>
+        <div className="h-screen w-full flex items-center justify-center bg-[#fafafa] relative overflow-hidden font-sans selection:bg-black selection:text-white">
+            {/* Minimal Grid Background */}
+            <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none"
+                style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
 
-            <div className="max-w-[1200px] w-full h-[700px] px-8 flex items-center justify-center relative z-10">
+            <div className="w-full max-w-[1000px] h-full sm:h-[700px] flex flex-col sm:flex-row rounded-none sm:rounded-[2.5rem] bg-white border border-neutral-200/60 shadow-[0_45px_130px_-20px_rgba(0,0,0,0.1)] overflow-hidden relative z-10 m-0 sm:m-6 animate-fade-in">
 
-                {/* Visual Side (Hidden on Mobile) */}
-                <div className="hidden lg:flex flex-col flex-1 h-full justify-center p-20 border-r border-black/5">
-                    <div className="w-16 h-16 bg-black rounded-2xl mb-12 flex items-center justify-center text-white shadow-2xl">
-                        <Command size={32} />
-                    </div>
-                    <h1 className="text-7xl font-black text-black tracking-tighter uppercase mb-6 leading-none">
-                        Tectra <br /> Tech Hub
-                    </h1>
-                    <p className="text-[12px] font-black uppercase tracking-[0.4em] text-black/20 mb-12">Registry Node v2.4.0_Stable</p>
+                {/* Branding Panel (Tectra Black) */}
+                <div className="hidden lg:flex flex-col w-[40%] bg-black p-12 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/[0.03] rounded-full blur-[100px] -mr-40 -mt-40"></div>
 
-                    <div className="space-y-6 mt-auto">
-                        <div className="flex items-center gap-4 text-black/30">
-                            <Fingerprint size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-widest leading-none">Biometric Sync Active</span>
+                    <div className="relative z-10 flex flex-col h-full">
+                        <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-12">
+                            <img src="/logo/Tectra.png" alt="Logo" className="w-10 h-10 object-contain grayscale brightness-0" />
                         </div>
-                        <div className="flex items-center gap-4 text-black/30">
-                            <Shield size={16} />
-                            <span className="text-[10px] font-black uppercase tracking-widest leading-none">TLS v1.3 Encryption Standard</span>
+
+                        <div className="mt-8 space-y-6">
+                            <h1 className="text-5xl font-black text-white tracking-tighter leading-tight uppercase">
+                                Tectra <br />
+                                <span className="text-white/30 italic">Hub.</span>
+                            </h1>
+                            <p className="text-[10px] font-bold text-white/20 uppercase tracking-[0.4em] leading-relaxed">
+                                Enterprise Attendance & Operational Registry
+                            </p>
+                        </div>
+
+                        <div className="mt-auto space-y-6">
+                            <div className="flex items-center gap-3 text-white/40">
+                                <Fingerprint size={16} strokeWidth={2.5} />
+                                <span className="text-[9px] font-black uppercase tracking-widest leading-none">Security Active</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-white/40">
+                                <ShieldAlert size={16} strokeWidth={2.5} />
+                                <span className="text-[9px] font-black uppercase tracking-widest leading-none">V2.5.1 Stable</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Authentication Side */}
-                <div className="flex-1 max-w-[500px] w-full ml-auto animate-fade-in pl-0 lg:pl-12">
-                    <div className="bg-[#0a0a0a] p-12 lg:p-14 rounded-[3rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.3)] relative overflow-hidden ring-1 ring-white/[0.05]">
-
-                        {/* Internal Accents */}
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-white/[0.02] rounded-full blur-3xl -mr-24 -mt-24 pointer-events-none"></div>
+                {/* Form Panel (Clean & Clear) */}
+                <div className="flex-1 flex flex-col p-8 sm:p-16 justify-center bg-white">
+                    <div className="max-w-[360px] w-full mx-auto">
 
                         {view === 'LOGIN' && (
-                            <form onSubmit={handleLogin} className="space-y-8 relative z-10 transition-all">
-                                <header className="space-y-4 mb-12">
-                                    <div className="flex items-center gap-3">
-                                        <Lock size={14} className="text-white/20" />
-                                        <h2 className="text-3xl font-black text-white uppercase tracking-tight italic">Security Portal</h2>
+                            <form onSubmit={handleLogin} className="space-y-10 animate-slide-up">
+                                <header className="space-y-3">
+                                    <div className="lg:hidden w-12 h-12 bg-black rounded-xl flex items-center justify-center mb-6">
+                                        <img src="/logo/Tectra.png" alt="Logo" className="w-8 h-8 object-contain invert" />
                                     </div>
-                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic">Initialize Authorized Personnel Handshake</p>
+                                    <h2 className="text-4xl font-black text-black tracking-tighter leading-none">Sign in</h2>
+                                    <p className="text-[13px] font-medium text-black/30">Identify yourself to access the registry hub.</p>
                                 </header>
 
                                 <div className="space-y-6">
-                                    <div className="space-y-4 group">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/20 ml-2">Personnel Identifier</label>
+                                    <div className="space-y-2 group">
+                                        <label className="text-[11px] font-bold text-black/40 ml-1">Registry email</label>
                                         <div className="relative">
                                             <input
                                                 type="email"
-                                                className="w-full bg-white/[0.05] border border-white/5 h-16 rounded-2xl px-12 text-white text-[11px] font-black uppercase tracking-widest focus:ring-1 focus:ring-white/20 focus:bg-white/[0.08] transition-all placeholder:text-white/10 outline-none"
-                                                placeholder="IDENT_MAIL@TECTRA.TECH"
+                                                className="w-full bg-neutral-50 border border-neutral-100 h-14 rounded-xl px-12 text-[14px] font-medium text-black focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white transition-all placeholder:text-black/10 outline-none"
+                                                placeholder="alias@tectra.com"
                                                 value={email}
                                                 onChange={(e) => setEmail(e.target.value)}
                                                 required
                                             />
-                                            <Mail size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/10 group-focus-within:text-white/40 transition-colors" />
+                                            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" />
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4 group">
-                                        <div className="flex justify-between items-center px-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-white/20">Access Keycode</label>
-                                            <button
-                                                type="button"
-                                                onClick={() => setView('FORGOT')}
-                                                className="text-[9px] font-black uppercase tracking-widest text-white/10 hover:text-white transition-colors"
-                                            >
-                                                Key Loss?
-                                            </button>
+                                    <div className="space-y-2 group">
+                                        <div className="flex justify-between items-center px-1">
+                                            <label className="text-[11px] font-bold text-black/40">Cipher key</label>
+                                            <button type="button" onClick={() => setView('FORGOT')} className="text-[10px] font-bold text-black/20 hover:text-black transition-colors">Forgot?</button>
                                         </div>
                                         <div className="relative">
                                             <input
                                                 type="password"
-                                                className="w-full bg-white/[0.05] border border-white/5 h-16 rounded-2xl px-12 text-white text-[11px] font-black tracking-widest focus:ring-1 focus:ring-white/20 focus:bg-white/[0.08] transition-all placeholder:text-white/10 outline-none"
+                                                className="w-full bg-neutral-50 border border-neutral-100 h-14 rounded-xl px-12 text-[14px] font-medium tracking-widest text-black focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white transition-all placeholder:text-black/10 outline-none"
                                                 placeholder="••••••••"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 required
                                             />
-                                            <Key size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/10 group-focus-within:text-white/40 transition-colors" />
+                                            <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" />
                                         </div>
                                     </div>
                                 </div>
@@ -153,125 +154,68 @@ export default function LoginPage() {
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full h-18 py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 group/btn"
+                                    className="w-full h-14 bg-black text-white rounded-xl font-bold uppercase tracking-widest text-[11px] flex items-center justify-center gap-3 transition-all hover:bg-neutral-900 active:scale-95 disabled:opacity-50"
                                 >
-                                    {loading ? (
-                                        <Loader2 size={18} className="animate-spin" />
-                                    ) : (
-                                        <>
-                                            Authorize Registry Access <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
-                                        </>
-                                    )}
+                                    {loading ? <Loader2 size={16} className="animate-spin" /> : <>Access System <ArrowRight size={16} /></>}
                                 </button>
+
+                                <footer className="pt-8 border-t border-neutral-100 text-center">
+                                    <p className="text-[9px] text-black/20 font-bold uppercase tracking-[0.4em]">Tectra Technologies &copy; 2026</p>
+                                </footer>
                             </form>
                         )}
 
                         {view === 'FORGOT' && (
-                            <form onSubmit={handleForgot} className="space-y-8 relative z-10 animate-slide-up">
-                                <header className="space-y-4 mb-12">
-                                    <div className="flex items-center gap-3">
-                                        <ShieldAlert size={14} className="text-white/20" />
-                                        <h2 className="text-3xl font-black text-white uppercase tracking-tight italic">Recovery Flow</h2>
-                                    </div>
-                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic">Registry Email Link Required</p>
+                            <form onSubmit={handleForgot} className="space-y-8 animate-slide-up">
+                                <header className="space-y-2">
+                                    <h2 className="text-3xl font-black text-black tracking-tighter">Recovery</h2>
+                                    <p className="text-[12px] font-medium text-black/30">Enter your email to receive an access code.</p>
                                 </header>
-
-                                <div className="space-y-4 group">
-                                    <label className="text-[9px] font-black uppercase tracking-widest text-white/20 ml-2">Target Registry Mail</label>
-                                    <div className="relative">
-                                        <input
-                                            type="email"
-                                            className="w-full bg-white/[0.05] border border-white/5 h-16 rounded-2xl px-12 text-white text-[11px] font-black uppercase tracking-widest focus:ring-1 focus:ring-white/20 outline-none"
-                                            placeholder="DEPLOYED_MAIL@TECTRA.TECH"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            required
-                                        />
-                                        <Mail size={16} className="absolute left-5 top-1/2 -translate-y-1/2 text-white/10" />
-                                    </div>
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-bold text-black/40">Email</label>
+                                    <input
+                                        type="email"
+                                        className="w-full bg-neutral-50 border border-neutral-100 h-14 rounded-xl px-4 text-[14px] focus:ring-1 focus:ring-black/10 outline-none"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
                                 </div>
-
-                                <div className="flex flex-col gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all disabled:opacity-50"
-                                    >
-                                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Request Recovery Key'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setView('LOGIN')}
-                                        className="py-4 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <ArrowLeft size={12} /> Revert to Login
-                                    </button>
+                                <div className="flex flex-col gap-3">
+                                    <button type="submit" className="w-full h-14 bg-black text-white rounded-xl font-bold uppercase tracking-widest text-[11px]">Send code</button>
+                                    <button type="button" onClick={() => setView('LOGIN')} className="text-[11px] font-bold text-black/20 hover:text-black flex items-center justify-center gap-2"><ArrowLeft size={14} /> Back to login</button>
                                 </div>
                             </form>
                         )}
 
                         {view === 'RESET' && (
-                            <form onSubmit={handleReset} className="space-y-8 relative z-10 animate-slide-up">
-                                <header className="space-y-4 mb-12">
-                                    <div className="flex items-center gap-3">
-                                        <Shield size={14} className="text-white/20" />
-                                        <h2 className="text-3xl font-black text-white uppercase tracking-tight italic">Credential Reset</h2>
-                                    </div>
-                                    <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 italic">Submit Identity Recovery Keys</p>
+                            <form onSubmit={handleReset} className="space-y-8 animate-slide-up">
+                                <header className="space-y-2">
+                                    <h2 className="text-3xl font-black text-black tracking-tighter">New Cipher</h2>
+                                    <p className="text-[12px] font-medium text-black/30">Verify the code and set your security key.</p>
                                 </header>
-
-                                <div className="space-y-6">
-                                    <div className="space-y-4">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/20 ml-2">6-Digit Recovery Code</label>
-                                        <input
-                                            type="text"
-                                            autoFocus
-                                            className="w-full bg-white/[0.05] border border-white/5 h-16 rounded-2xl px-6 text-white text-2xl font-black tracking-[0.5em] text-center focus:ring-1 focus:ring-white/20 outline-none"
-                                            placeholder="000000"
-                                            maxLength={6}
-                                            value={otp}
-                                            onChange={(e) => setOtp(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-4">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-white/20 ml-2">New Security Passkey</label>
-                                        <input
-                                            type="password"
-                                            className="w-full bg-white/[0.05] border border-white/5 h-16 rounded-2xl px-12 text-white text-[11px] font-black tracking-widest focus:ring-1 focus:ring-white/20 outline-none"
-                                            placeholder="••••••••"
-                                            value={newPass}
-                                            onChange={(e) => setNewPass(e.target.value)}
-                                            required
-                                        />
-                                    </div>
+                                <div className="space-y-4">
+                                    <input
+                                        type="text"
+                                        className="w-full bg-neutral-50 h-14 rounded-xl text-center text-2xl font-black tracking-[0.5em] focus:ring-1 focus:ring-black/10 outline-none border border-neutral-100"
+                                        placeholder="000000"
+                                        maxLength={6}
+                                        value={otp}
+                                        onChange={(e) => setOtp(e.target.value)}
+                                        required
+                                    />
+                                    <input
+                                        type="password"
+                                        className="w-full bg-neutral-50 h-14 rounded-xl px-4 text-sm font-bold tracking-widest text-center focus:ring-1 focus:ring-black/10 outline-none border border-neutral-100"
+                                        placeholder="NEW KEY"
+                                        value={newPass}
+                                        onChange={(e) => setNewPass(e.target.value)}
+                                        required
+                                    />
                                 </div>
-
-                                <div className="flex flex-col gap-4">
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full py-6 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all disabled:opacity-50"
-                                    >
-                                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Initialize New Access Key'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setView('FORGOT')}
-                                        className="py-4 text-[9px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <ArrowLeft size={12} /> Back to Recovery
-                                    </button>
-                                </div>
+                                <button type="submit" className="w-full h-14 bg-black text-white rounded-xl font-bold uppercase tracking-widest text-[11px]">Update Access</button>
                             </form>
                         )}
-                    </div>
-
-                    {/* Legal/Footer */}
-                    <div className="mt-12 text-center">
-                        <p className="text-[8px] font-black uppercase tracking-[0.6em] text-black/10">
-                            Enterprise Registry Security &copy; 2026 Tectra_Technologies
-                        </p>
                     </div>
                 </div>
             </div>

@@ -14,8 +14,9 @@ export default [
         },
         rules: {
             "no-unused-vars": ["warn", {
-                "argsIgnorePattern": "^(req|res|next|tx|err|_)$",
-                "varsIgnorePattern": "^(pendingUser|mailError|updatedSyncLog|settings|auditService|authorize|response|result|leaveRequest|overlapping|usersRes|deptsRes|stats|recentActivity|recentLeaves|notifications|parsedUser|isSuperAdminRoute|notifyRole)$"
+                "argsIgnorePattern": "^(req|res|next|tx|err|_|promise|settings)$",
+                "varsIgnorePattern": "^(pendingUser|mailError|updatedSyncLog|auditService|authorize|response|result|leaveRequest|overlapping|usersRes|deptsRes|stats|recentActivity|recentLeaves|notifications|parsedUser|isSuperAdminRoute|notifyRole)$",
+                "caughtErrors": "none"
             }],
             "no-console": "off",
         }

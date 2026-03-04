@@ -62,7 +62,7 @@ class NotificationService {
                     html: `<div style="font-family: 'Inter', -apple-system, sans-serif; padding: 40px; border-radius: 24px; background-color: #ffffff; border: 1px solid #e5e7eb; max-width: 600px; margin: 20px auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
                         <div style="margin-bottom: 32px; display: flex; align-items: center; gap: 12px;">
                             <div style="width: 40px; hieght: 40px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 18px;">T</div>
-                            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; color: #9ca3af;">Registry Intelligence</span>
+                            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; color: #9ca3af;">System Notification</span>
                         </div>
                         <h2 style="color: #111827; font-size: 26px; font-weight: 800; margin: 0 0 12px 0; letter-spacing: -0.04em; line-height: 1.1;">${title}</h2>
                         <div style="height: 4px; width: 40px; background: #000; margin-bottom: 24px; border-radius: 2px;"></div>
@@ -70,7 +70,7 @@ class NotificationService {
                         <div style="padding-top: 32px; border-top: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <p style="margin: 0; font-size: 12px; font-weight: 700; color: #111827;">Tectra Technologies</p>
-                                <p style="margin: 2px 0 0 0; font-size: 10px; font-weight: 500; color: #6b7280;">Secure HRMS Infrastructure</p>
+                                <p style="margin: 2px 0 0 0; font-size: 10px; font-weight: 500; color: #6b7280;">HR Management System</p>
                             </div>
                             <div style="font-size: 10px; font-weight: 800; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em;">Ref: ${type}</div>
                         </div>
@@ -113,19 +113,19 @@ class NotificationService {
                         html: `<div style="font-family: 'Inter', -apple-system, sans-serif; padding: 40px; border-radius: 24px; background-color: #ffffff; border: 1px solid #e5e7eb; max-width: 600px; margin: 20px auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);">
                             <div style="margin-bottom: 32px; display: flex; align-items: center; gap: 12px;">
                                 <div style="width: 40px; hieght: 40px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 18px;">T</div>
-                                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; color: #9ca3af;">Enterprise Registry Alert</span>
+                                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; color: #9ca3af;">System Alert</span>
                             </div>
                             <h2 style="color: #111827; font-size: 26px; font-weight: 800; margin: 0 0 12px 0; letter-spacing: -0.04em; line-height: 1.1;">${title}</h2>
                             <div style="height: 4px; width: 40px; background: #000; margin-bottom: 24px; border-radius: 2px;"></div>
                             <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0; font-weight: 500;">${message}</p>
                             <div style="background-color: #f9fafb; border-radius: 16px; padding: 24px; border: 1px solid #f3f4f6; margin-bottom: 32px;">
                                 <p style="margin: 0; font-size: 10px; font-weight: 800; color: #6b7280; text-transform: uppercase; letter-spacing: 0.15em;">Action Required</p>
-                                <p style="margin: 8px 0 0 0; font-size: 13px; font-weight: 600; color: #111827;">Log in to the workforce portal to respond to this priority event.</p>
+                                <p style="margin: 8px 0 0 0; font-size: 13px; font-weight: 600; color: #111827;">Log in to the portal to respond to this priority event.</p>
                             </div>
                             <div style="padding-top: 32px; border-top: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <p style="margin: 0; font-size: 12px; font-weight: 700; color: #111827;">Tectra Technologies</p>
-                                    <p style="margin: 2px 0 0 0; font-size: 10px; font-weight: 500; color: #6b7280;">Secure HRMS Infrastructure</p>
+                                    <p style="margin: 2px 0 0 0; font-size: 10px; font-weight: 500; color: #6b7280;">HR Management System</p>
                                 </div>
                                 <div style="font-size: 10px; font-weight: 800; color: #d1d5db; text-transform: uppercase; letter-spacing: 0.1em;">Ref: ${type}</div>
                             </div>

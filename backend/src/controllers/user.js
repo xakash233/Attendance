@@ -29,11 +29,11 @@ exports.initUserCreation = async (req, res, next) => {
         // Hierarchy Enforcement: 
         // 1. ADMIN cannot create SUPER_ADMIN
         if (req.user.role === 'ADMIN' && role === 'SUPER_ADMIN') {
-            return res.status(403).json({ message: 'Operational Administrators cannot initialize Super Administrative nodes.' });
+            return res.status(403).json({ message: 'Admins cannot create Super Admin accounts.' });
         }
         // 2. HR can only create EMPLOYEE
         if (req.user.role === 'HR' && role !== 'EMPLOYEE') {
-            return res.status(403).json({ message: 'Human Resources nodes can only initialize standard Employee nodes.' });
+            return res.status(403).json({ message: 'HR can only create Employee accounts.' });
         }
 
         // Check if user already exists
@@ -70,12 +70,12 @@ exports.initUserCreation = async (req, res, next) => {
         try {
             await sendEmail({
                 email,
-                subject: 'Account Verification OTP - Workforce Hub',
-                message: `Your verification code is: ${otp}. This code is required to finalize your personnel integration.`,
+                subject: 'Account Verification OTP',
+                message: `Your verification code is: ${otp}. This code is required to finalize your account setup.`,
                 html: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Workforce Integration</h2>
-                        <p style="color: #666; font-size: 14px;">A new employee node is being initialized for your email.</p>
+                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Account Setup</h2>
+                        <p style="color: #666; font-size: 14px;">A new employee account is being created for your email.</p>
                         <div style="background: #000; color: #fff; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
                             <span style="font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">${otp}</span>
                         </div>
@@ -117,7 +117,7 @@ exports.verifyUserCreation = async (req, res, next) => {
         }
 
         if (pending.otp !== otp) {
-            return res.status(400).json({ message: 'Invalid Verification Key' });
+            return res.status(400).json({ message: 'Invalid Verification Code' });
         }
 
         if (new Date() > pending.expires) {
@@ -153,18 +153,18 @@ exports.verifyUserCreation = async (req, res, next) => {
         try {
             await sendEmail({
                 email,
-                subject: 'Welcome to Tectra Technologies - Your Registry Credentials',
+                subject: 'Welcome to Tectra Technologies - Your Account Details',
                 message: `Welcome ${name}! Your account has been finalized. Email: ${email}, Password: ${password}`,
                 html: `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Node Activated</h2>
-                        <p style="color: #666;">Your personnel node has been successfully integrated into the Enterprise HRMS.</p>
+                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Account Activated</h2>
+                        <p style="color: #666;">Your account has been successfully created in the HR management system.</p>
                         <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #eee;">
-                            <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Access Credentials</p>
-                            <p style="margin: 5px 0; font-size: 16px;"><strong>Identity:</strong> ${email}</p>
-                            <p style="margin: 5px 0; font-size: 16px;"><strong>Passkey:</strong> ${password}</p>
+                            <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Your Credentials</p>
+                            <p style="margin: 5px 0; font-size: 16px;"><strong>Email:</strong> ${email}</p>
+                            <p style="margin: 5px 0; font-size: 16px;"><strong>Password:</strong> ${password}</p>
                         </div>
-                        <p style="color: #666; font-size: 14px;">You can now use these credentials to access the Workforce Portal.</p>
+                        <p style="color: #666; font-size: 14px;">You can now use these credentials to access the portal.</p>
                         <p style="font-size: 11px; color: #999; margin-top: 30px;">Strict Security Protocol: Change your password after initial access.</p>
                     </div>
                 `
