@@ -264,7 +264,7 @@ export default function LeavesPage() {
             {/* Apply Modal */}
             {isApplyModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-md bg-white/40 animate-fade-in">
-                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] scale-100 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] scale-100 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
                         <div className="p-8 border-b border-neutral-50 flex justify-between items-center bg-white shrink-0">
                             <div className="space-y-1">
                                 <h2 className="text-2xl font-black uppercase tracking-tight text-black">Apply for Absence</h2>
@@ -278,97 +278,99 @@ export default function LeavesPage() {
                             </button>
                         </div>
 
-                        <form onSubmit={handleApply} className="p-8 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Leave Type</label>
-                                    <div className="relative">
-                                        <select
-                                            className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
-                                            onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
+                        <div className="overflow-y-auto no-scrollbar">
+                            <form onSubmit={handleApply} className="p-8 space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Leave Type</label>
+                                        <div className="relative">
+                                            <select
+                                                className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
+                                                onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
+                                                required
+                                            >
+                                                <option value="">Select type</option>
+                                                {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Duration</label>
+                                        <div className="relative">
+                                            <select
+                                                className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
+                                                onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
+                                                required
+                                            >
+                                                <option value="FULL_DAY">Full Day</option>
+                                                <option value="FIRST_HALF">First Half</option>
+                                                <option value="SECOND_HALF">Second Half</option>
+                                                <option value="WORK_FROM_HOME">Work from Home</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Start Date</label>
+                                        <DatePicker
+                                            date={formData.startDate}
+                                            onChange={(date) => setFormData({ ...formData, startDate: date })}
+                                            placeholder="Pick date"
                                             required
-                                        >
-                                            <option value="">Select type</option>
-                                            {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
+                                        />
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Duration</label>
-                                    <div className="relative">
-                                        <select
-                                            className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 appearance-none cursor-pointer outline-none"
-                                            onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">End Date</label>
+                                        <DatePicker
+                                            date={formData.endDate}
+                                            onChange={(date) => setFormData({ ...formData, endDate: date })}
+                                            placeholder="Pick date"
                                             required
-                                        >
-                                            <option value="FULL_DAY">Full Day</option>
-                                            <option value="FIRST_HALF">First Half</option>
-                                            <option value="SECOND_HALF">Second Half</option>
-                                            <option value="WORK_FROM_HOME">Work from Home</option>
-                                        </select>
+                                        />
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Start Date</label>
-                                    <DatePicker
-                                        date={formData.startDate}
-                                        onChange={(date) => setFormData({ ...formData, startDate: date })}
-                                        placeholder="Pick date"
+                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Reason for Absence</label>
+                                    <textarea
+                                        rows={3}
+                                        className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[13px] text-black font-medium focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 resize-none placeholder:text-black/10 outline-none"
+                                        placeholder="Enter your detailed reason here..."
+                                        onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                         required
-                                    />
+                                    ></textarea>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">End Date</label>
-                                    <DatePicker
-                                        date={formData.endDate}
-                                        onChange={(date) => setFormData({ ...formData, endDate: date })}
-                                        placeholder="Pick date"
-                                        required
-                                    />
-                                </div>
-                            </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Reason for Absence</label>
-                                <textarea
-                                    rows={3}
-                                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[13px] text-black font-medium focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 resize-none placeholder:text-black/10 outline-none"
-                                    placeholder="Enter your detailed reason here..."
-                                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                                    required
-                                ></textarea>
-                            </div>
-
-                            {isLOP && (
-                                <div className="p-6 bg-neutral-50 border-l-4 border-black rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
-                                    <div className="flex items-center gap-3">
-                                        <ShieldCheck size={18} className="text-black" />
-                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Policy: Critical Audit Required</p>
+                                {isLOP && (
+                                    <div className="p-6 bg-neutral-50 border-l-4 border-black rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <ShieldCheck size={18} className="text-black" />
+                                            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Policy: Critical Audit Required</p>
+                                        </div>
+                                        <p className="text-[12px] font-medium text-black/60 leading-relaxed italic">
+                                            Applying for <span className="font-black text-black"> {totalDays} working days</span> exceeds the threshold. This request is flagged as <span className="font-black text-black underline">Loss of Pay (LOP)</span> and requires joint authorization from <span className="font-black text-black uppercase">HR Registry & Super Administration</span>.
+                                        </p>
                                     </div>
-                                    <p className="text-[12px] font-medium text-black/60 leading-relaxed italic">
-                                        Applying for <span className="font-black text-black"> {totalDays} working days</span> exceeds the threshold. This request is flagged as <span className="font-black text-black underline">Loss of Pay (LOP)</span> and requires joint authorization from <span className="font-black text-black uppercase">HR Registry & Super Administration</span>.
-                                    </p>
-                                </div>
-                            )}
-
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
-                            >
-                                {loading ? (
-                                    <Loader2 size={18} className="animate-spin text-white" />
-                                ) : (
-                                    <>
-                                        {isLOP ? 'SUBMIT LOP DECLARATION' : 'SUBMIT DECLARATION'}
-                                        <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
-                                    </>
                                 )}
-                            </button>
-                        </form>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
+                                >
+                                    {loading ? (
+                                        <Loader2 size={18} className="animate-spin text-white" />
+                                    ) : (
+                                        <>
+                                            {isLOP ? 'SUBMIT LOP DECLARATION' : 'SUBMIT DECLARATION'}
+                                            <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             )}
