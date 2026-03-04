@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function DashboardPage() {
     const { user, logout } = useAuth();
@@ -54,7 +55,7 @@ export default function DashboardPage() {
     );
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10 max-w-[1700px] mx-auto text-black">
+        <div className="space-y-6 animate-fade-in pb-10 max-w-[1700px] mx-auto text-black overflow-x-hidden">
 
             {/* Top Stats Section */}
             <div className={`grid grid-cols-1 ${user?.role === 'EMPLOYEE' ? 'lg:grid-cols-12' : 'lg:grid-cols-12'} gap-6`}>
@@ -141,7 +142,13 @@ export default function DashboardPage() {
                             <div className="flex items-center gap-6">
                                 <div className="w-20 h-20 rounded-3xl bg-neutral-50 flex items-center justify-center border border-neutral-100 shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
                                     {user?.profileImage ? (
-                                        <img src={user.profileImage} alt="Profile" className="w-full h-full object-cover" />
+                                        <Image
+                                            src={user.profileImage}
+                                            alt="Profile"
+                                            width={80}
+                                            height={80}
+                                            className="w-full h-full object-cover"
+                                        />
                                     ) : (
                                         <User size={32} className="text-black/20" />
                                     )}

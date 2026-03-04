@@ -26,6 +26,8 @@ export default function LoginPage() {
                 email: response.data.email,
                 role: response.data.role,
                 department: response.data.department,
+                profileImage: response.data.profileImage,
+                employeeCode: response.data.employeeCode,
             });
             setLoginErrorState('NONE');
             toast.success('Access Granted');
@@ -79,7 +81,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="h-screen w-full flex overflow-hidden font-sans selection:bg-white selection:text-black bg-white">
+        <div className="h-screen w-full flex overflow-x-hidden font-sans selection:bg-white selection:text-black bg-white">
 
             {/* Main Full-Screen Split Layout */}
             <div className="w-full h-full flex flex-col lg:flex-row animate-fade-in">

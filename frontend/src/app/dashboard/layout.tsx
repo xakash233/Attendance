@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const currentPage = pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard';
 
     return (
-        <div className="flex min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white">
+        <div className="flex min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white overflow-x-hidden">
             <Toaster
                 position="top-right"
                 toastOptions={{
@@ -138,8 +138,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
 
             {/* Desktop Sidebar */}
-            <div className="hidden md:block w-[100px] lg:w-64 min-h-screen z-[100] border-r border-neutral-100 flex-shrink-0">
-                <Sidebar />
+            <div className="hidden md:block w-[100px] lg:w-64 shrink-0 relative z-[100]">
+                <div className="fixed top-0 left-0 bottom-0 w-[100px] lg:w-64 border-r border-neutral-100 bg-neutral-50 overflow-hidden">
+                    <Sidebar />
+                </div>
             </div>
 
             {/* Main Area */}

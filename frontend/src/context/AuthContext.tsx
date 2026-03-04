@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const login = (token: string, userData: User) => {
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         socket.connect();
         router.push('/dashboard');
@@ -46,6 +45,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         socket.disconnect();
         router.push('/login');
     }, [router]);
+
+    useEffect(() => {
+        if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+        }
+    }, [user]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');

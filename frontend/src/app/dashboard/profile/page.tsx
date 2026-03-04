@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Camera, Mail, Phone, Hash, Shield, Save, Loader2, Key, Lightbulb } from 'lucide-react';
+import { Camera, Mail, Hash, Shield, Save } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import api from '@/lib/axios';
@@ -9,9 +9,6 @@ import api from '@/lib/axios';
 export default function ProfilePage() {
     const { user, setUser } = useAuth();
     const [loading, setLoading] = useState(false);
-
-    const [passData, setPassData] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    const [passTipVisible, setPassTipVisible] = useState(false);
 
     const [formData, setFormData] = useState({
         name: user?.name || '',
@@ -85,31 +82,12 @@ export default function ProfilePage() {
         }
     };
 
-    const handlePasswordChange = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (passData.newPassword !== passData.confirmPassword) {
-            return toast.error("New keys do not match");
-        }
-        try {
-            setLoading(true);
-            await api.put('/users/change-password', passData);
-            setPassData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            toast.success("Access key authorized and changed", { icon: '🔐' });
-            setPassTipVisible(true);
-            setTimeout(() => setPassTipVisible(false), 10000);
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || "Protocol rejection");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     if (!user) return null;
 
     const userAvatarUrl = previewImage || `https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&size=200&bold=true`;
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-10">
+        <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-10 overflow-x-hidden">
             {/* Header */}
             <div>
                 <h2 className="text-2xl font-black uppercase tracking-tight text-black">My Profile</h2>
@@ -155,14 +133,22 @@ export default function ProfilePage() {
                                     <p className="text-xs font-semibold text-black truncate">{user.email}</p>
                                 </div>
                             </div>
-                            {/* Wait, user property has EmployeeCode depending on Context structure, assuming Context User type has it or we can fallback */}
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center flex-shrink-0">
                                     <Hash size={14} className="text-black/40" />
                                 </div>
-                                <div>
-                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest">Department</p>
-                                    <p className="text-xs font-semibold text-black">{user.department?.name || 'Unassigned'}</p>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest leading-none">Internal Registry</p>
+                                    <p className="text-xs font-semibold text-black truncate">{user.department?.name || 'Unassigned'}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-2">
+                                <div className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center flex-shrink-0">
+                                    <Shield size={14} className="text-black/40" />
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest leading-none">Staff ID / Rank</p>
+                                    <p className="text-xs font-semibold text-black truncate">{user.employeeCode || user.id.substring(0, 8)} | {user.role}</p>
                                 </div>
                             </div>
                         </div>
@@ -242,79 +228,6 @@ export default function ProfilePage() {
                                 >
                                     <Save size={16} />
                                     Save Profile Data
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    {/* Security Sub-card inside the flex column */}
-                    <div className="bg-white border border-neutral-100 rounded-3xl p-8 shadow-xl shadow-black/[0.02] mt-8 relative overflow-hidden">
-                        <div className="flex justify-between items-center mb-8 relative z-10">
-                            <div>
-                                <h3 className="text-base font-black text-black uppercase tracking-tight">Security Protocol</h3>
-                                <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest mt-1">Rotate your access key</p>
-                            </div>
-                            <div className="w-10 h-10 bg-neutral-50 rounded-full flex items-center justify-center text-black/20">
-                                <Key size={18} />
-                            </div>
-                        </div>
-
-                        <form onSubmit={handlePasswordChange} className="space-y-6 relative z-10">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Current Cipher</label>
-                                    <input
-                                        type="password"
-                                        value={passData.currentPassword}
-                                        onChange={(e) => setPassData({ ...passData, currentPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all"
-                                        required
-                                        autoComplete="off"
-                                    />
-                                </div>
-                                <div />
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">New Cipher</label>
-                                    <input
-                                        type="password"
-                                        value={passData.newPassword}
-                                        onChange={(e) => setPassData({ ...passData, newPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all"
-                                        required
-                                        autoComplete="new-password"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Confirm Cipher</label>
-                                    <input
-                                        type="password"
-                                        value={passData.confirmPassword}
-                                        onChange={(e) => setPassData({ ...passData, confirmPassword: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all"
-                                        required
-                                        autoComplete="new-password"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Easter Egg Pop-in Tip */}
-                            <div className={`transition-all duration-500 overflow-hidden ${passTipVisible ? 'max-h-40 opacity-100 scale-100' : 'max-h-0 opacity-0 scale-95'} bg-green-50 border border-green-200 rounded-2xl p-4 flex gap-4 items-start`}>
-                                <div className="w-8 h-8 rounded-full bg-green-200 text-green-700 flex items-center justify-center shrink-0">
-                                    <Lightbulb size={16} />
-                                </div>
-                                <div className="space-y-1 pt-1">
-                                    <p className="text-[11px] font-black uppercase tracking-widest text-green-800">Key Changed</p>
-                                    <p className="text-xs font-medium text-green-700">Tip: Always remember your password so you don&apos;t get locked out... Just kidding, but seriously write it down. 🧠🔐</p>
-                                </div>
-                            </div>
-
-                            <div className="pt-4 flex justify-end">
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="flex items-center justify-center gap-2 px-8 h-14 w-full md:w-auto border-2 border-black bg-transparent text-black text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-black hover:text-white transition-all active:scale-95 disabled:opacity-50"
-                                >
-                                    Rotate Access Key
                                 </button>
                             </div>
                         </form>
