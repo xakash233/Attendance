@@ -20,17 +20,17 @@ export const applyLeave = async (req, res, next) => {
         };
 
         // Broadcast to HR (Department specific)
-        await notificationService.broadcastToRole({
+        notificationService.broadcastToRole({
             ...notificationPayload,
             role: 'HR'
-        });
+        }).catch(err => console.error(err));
 
         // Broadcast to Super Admin (Global)
-        await notificationService.broadcastToRole({
+        notificationService.broadcastToRole({
             ...notificationPayload,
             role: 'SUPER_ADMIN',
             departmentId: null
-        });
+        }).catch(err => console.error(err));
 
         res.status(201).json(leaveRequest);
     } catch (error) {
@@ -67,7 +67,7 @@ export const hrDecision = async (req, res, next) => {
             };
         }
 
-        await notificationService.sendPersonalNotification({
+        notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
             title: `HR Decision: ${req.body.decision.replace(/_/g, ' ')}`,
@@ -75,16 +75,16 @@ export const hrDecision = async (req, res, next) => {
             type: 'LEAVE_STATUS',
             templateType,
             templateData
-        });
+        }).catch(err => console.error(err));
 
         // Notify Super Admins if Approved
         if (req.body.decision === 'HR_APPROVED') {
-            await notificationService.broadcastToRole({
+            notificationService.broadcastToRole({
                 role: 'SUPER_ADMIN',
                 title: 'Pending Final Approval',
                 message: `${user.name}'s request needs final verification.`,
                 type: 'LEAVE_FINAL_APPROVAL'
-            });
+            }).catch(err => console.error(err));
         }
 
         res.json(updated);
@@ -122,7 +122,7 @@ export const finalDecision = async (req, res, next) => {
             };
         }
 
-        await notificationService.sendPersonalNotification({
+        notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
             title: `Final Decision: ${req.body.decision.replace(/_/g, ' ')}`,
@@ -130,7 +130,7 @@ export const finalDecision = async (req, res, next) => {
             type: 'LEAVE_STATUS',
             templateType,
             templateData
-        });
+        }).catch(err => console.error(err));
 
         res.json(updated);
     } catch (error) {

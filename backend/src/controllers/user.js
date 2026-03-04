@@ -65,36 +65,24 @@ export const initUserCreation = async (req, res, next) => {
             }
         });
 
-        // Send OTP to the provided employee email
-        try {
-            await sendEmail({
-                email,
-                subject: 'Account Verification OTP',
-                message: `Your verification code is: ${otp}. This code is required to finalize your account setup.`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Account Setup</h2>
-                        <p style="color: #666; font-size: 14px;">A new employee account is being created for your email.</p>
-                        <div style="background: #000; color: #fff; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
-                            <span style="font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">${otp}</span>
-                        </div>
-                        <p style="color: #666; font-size: 13px;">Please share this code with the administrator to finalize your account.</p>
-                        <p style="font-size: 11px; color: #999; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">This security code expires in 10 minutes.</p>
+        // Send OTP email (Async, non-blocking)
+        sendEmail({
+            email,
+            subject: 'Account Registration Verification (OTP)',
+            message: `Your verification code is: ${otp}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
+                    <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Identity Verification</h2>
+                    <p style="color: #666;">Use the following security code to confirm the creation of a new node in the registry.</p>
+                    <div style="background: #000; color: #fff; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 0.25em;">
+                        ${otp}
                     </div>
-                `
-            });
-            res.status(200).json({ pendingId, message: 'OTP sent to employee email' });
-        } catch (mailError) {
-            console.error('CRITICAL: SMTP Connection Failure.');
-            console.log('------------------------------------');
-            console.log(`VERIFICATION OTP FOR ${email}: ${otp}`);
-            console.log('------------------------------------');
-            res.status(200).json({
-                pendingId,
-                message: 'OTP generated. (SMTP Connection failed, check server console for code)',
-                mailError: true
-            });
-        }
+                    <p style="font-size: 11px; color: #999;">This authentication token expires in 10 minutes.</p>
+                </div>
+            `
+        }).catch(err => console.error('Email failed to send asynchronously:', err));
+
+        res.status(200).json({ pendingId, message: 'OTP sent to employee email' });
     } catch (error) {
         next(error);
     }
@@ -148,32 +136,25 @@ export const verifyUserCreation = async (req, res, next) => {
         }));
         await prisma.leaveBalance.createMany({ data: leaveBalancesData });
 
-        // Send Final Credentials to the employee
-        try {
-            await sendEmail({
-                email,
-                subject: 'Welcome to Tectra Technologies - Your Account Details',
-                message: `Welcome ${name}! Your account has been finalized. Email: ${email}, Password: ${password}`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
-                        <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Account Activated</h2>
-                        <p style="color: #666;">Your account has been successfully created in the HR management system.</p>
-                        <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #eee;">
-                            <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Your Credentials</p>
-                            <p style="margin: 5px 0; font-size: 16px;"><strong>Email:</strong> ${email}</p>
-                            <p style="margin: 5px 0; font-size: 16px;"><strong>Password:</strong> ${password}</p>
-                        </div>
-                        <p style="color: #666; font-size: 14px;">You can now use these credentials to access the portal.</p>
-                        <p style="font-size: 11px; color: #999; margin-top: 30px;">Strict Security Protocol: Change your password after initial access.</p>
+        // Send Final Credentials to the employee (Async, non-blocking)
+        sendEmail({
+            email,
+            subject: 'Welcome to Tectra Technologies - Your Account Details',
+            message: `Welcome ${name}! Your account has been finalized. Email: ${email}, Password: ${password}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; color: #111; background: #fff; border-radius: 12px; border: 1px solid #eee;">
+                    <h2 style="color: #000; font-weight: 900; text-transform: uppercase;">Account Activated</h2>
+                    <p style="color: #666;">Your account has been successfully created in the HR management system.</p>
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #eee;">
+                        <p style="margin: 0 0 10px 0; color: #999; font-size: 11px; font-weight: 800; text-transform: uppercase;">Your Credentials</p>
+                        <p style="margin: 5px 0; font-size: 16px;"><strong>Email:</strong> ${email}</p>
+                        <p style="margin: 5px 0; font-size: 16px;"><strong>Password:</strong> ${password}</p>
                     </div>
-                `
-            });
-        } catch (mailError) {
-            console.error('CRITICAL: Final Credential Email Delivery Failure.');
-            console.log('------------------------------------');
-            console.log(`CREDENTIALS FOR ${name}: ${email} / ${password}`);
-            console.log('------------------------------------');
-        }
+                    <p style="color: #666; font-size: 14px;">You can now use these credentials to access the portal.</p>
+                    <p style="font-size: 11px; color: #999; margin-top: 30px;">Strict Security Protocol: Change your password after initial access.</p>
+                </div>
+            `
+        }).catch(err => console.error('Final email failed to send asynchronously:', err));
 
         // Clear pending store from DB
         await prisma.pendingUser.delete({ where: { id: pendingId } });

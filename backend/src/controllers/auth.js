@@ -119,7 +119,7 @@ export const forgotPassword = async (req, res, next) => {
             }
         });
 
-        await sendEmail({
+        sendEmail({
             email,
             subject: 'Password Recovery Protocol',
             message: `Your account recovery code is: ${otp}. Do not share this key with anyone.`,
@@ -131,7 +131,7 @@ export const forgotPassword = async (req, res, next) => {
                 </div>
                 <p style="font-size: 11px; color: #999;">Expires in 10 minutes. If you did not initiate this, secure your node immediately.</p>
             </div>`
-        });
+        }).catch(err => console.error(err));
 
         res.json({ message: 'Recovery code dispatched to registry email' });
     } catch (error) {
@@ -171,7 +171,7 @@ export const resetPassword = async (req, res, next) => {
 
         await prisma.passwordReset.deleteMany({ where: { email: email.toLowerCase() } });
 
-        await sendEmail({
+        sendEmail({
             email,
             subject: 'New System Cipher Dispatched',
             message: `Your new system cipher is: ${generatedPassword}. Please log in and change it immediately.`,
@@ -183,7 +183,7 @@ export const resetPassword = async (req, res, next) => {
                 </div>
                 <p style="font-size: 11px; color: #999; font-weight: bold;">Log in with this key and update your security settings via your profile.</p>
             </div>`
-        });
+        }).catch(err => console.error(err));
 
         res.json({ message: 'New complex cipher generated and dispatched to your email.' });
     } catch (error) {
