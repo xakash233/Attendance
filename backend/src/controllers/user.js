@@ -1,14 +1,12 @@
-const bcrypt = require('bcryptjs');
-const prisma = require('../config/prisma');
-const sendEmail = require('../utils/email');
-const crypto = require('crypto');
-
-
+import bcrypt from 'bcryptjs';
+import prisma from '../config/prisma.js';
+import sendEmail from '../utils/email.js';
+import crypto from 'crypto';
 
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private (SUPER_ADMIN, ADMIN)
-exports.getUsers = async (req, res, next) => {
+export const getUsers = async (req, res, next) => {
     try {
         const users = await prisma.user.findMany({
             include: { department: true }
@@ -22,7 +20,7 @@ exports.getUsers = async (req, res, next) => {
 // @desc    Step 1: Initialize User Creation & Send OTP
 // @route   POST /api/users/init-creation
 // @access  Private (SUPER_ADMIN, ADMIN)
-exports.initUserCreation = async (req, res, next) => {
+export const initUserCreation = async (req, res, next) => {
     const { name, email, password, role, departmentId, employeeCode } = req.body;
 
     try {
@@ -104,7 +102,7 @@ exports.initUserCreation = async (req, res, next) => {
 // @desc    Step 2: Verify OTP & Finalize Creation
 // @route   POST /api/users/verify-creation
 // @access  Private (SUPER_ADMIN, ADMIN)
-exports.verifyUserCreation = async (req, res, next) => {
+export const verifyUserCreation = async (req, res, next) => {
     const { pendingId, otp } = req.body;
 
     try {
@@ -199,7 +197,7 @@ exports.verifyUserCreation = async (req, res, next) => {
 // @desc    Get current user profile
 // @route   GET /api/users/profile
 // @access  Private
-exports.getUserProfile = async (req, res, next) => {
+export const getUserProfile = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
@@ -217,7 +215,7 @@ exports.getUserProfile = async (req, res, next) => {
 // @desc    Get dashboard analytics
 // @route   GET /api/users/analytics
 // @access  Private
-exports.getAnalytics = async (req, res, next) => {
+export const getAnalytics = async (req, res, next) => {
     try {
         const { role, id, departmentId } = req.user;
 

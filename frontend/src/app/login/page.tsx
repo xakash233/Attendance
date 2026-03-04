@@ -4,6 +4,7 @@ import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Shield, ArrowRight, Loader2, Key, Mail, ArrowLeft, Fingerprint, ShieldAlert, Cpu } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
     const [view, setView] = useState<'LOGIN' | 'FORGOT' | 'RESET'>('LOGIN');
@@ -76,7 +77,14 @@ export default function LoginPage() {
 
                     <div className="relative z-10 flex flex-col h-full">
                         <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-12">
-                            <img src="/logo/Tectra.png" alt="Logo" className="w-10 h-10 object-contain grayscale brightness-0" />
+                            <Image
+                                src="/logo/Tectra.png"
+                                alt="Logo"
+                                width={40}
+                                height={40}
+                                className="object-contain grayscale brightness-0"
+                                priority
+                            />
                         </div>
 
                         <div className="mt-8 space-y-6">
@@ -110,7 +118,14 @@ export default function LoginPage() {
                             <form onSubmit={handleLogin} className="space-y-10 animate-slide-up">
                                 <header className="space-y-3">
                                     <div className="lg:hidden w-12 h-12 bg-black rounded-xl flex items-center justify-center mb-6">
-                                        <img src="/logo/Tectra.png" alt="Logo" className="w-8 h-8 object-contain invert" />
+                                        <Image
+                                            src="/logo/Tectra.png"
+                                            alt="Logo"
+                                            width={32}
+                                            height={32}
+                                            className="object-contain invert"
+                                            priority
+                                        />
                                     </div>
                                     <h2 className="text-4xl font-black text-black tracking-tighter leading-none">Sign in</h2>
                                     <p className="text-[13px] font-medium text-black/30">Identify yourself to access the registry hub.</p>

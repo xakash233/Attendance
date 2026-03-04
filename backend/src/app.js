@@ -1,14 +1,30 @@
-const express = require('express');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
-const morgan = require('morgan');
-const helmet = require('helmet');
-const compression = require('compression');
-const path = require('path');
-const hpp = require('hpp');
-const { apiLimiter } = require('./middlewares/rateLimiter');
-const xss = require('./middlewares/xss');
-const errorHandler = require('./middleware/error');
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import morgan from 'morgan';
+import helmet from 'helmet';
+import compression from 'compression';
+import path from 'path';
+import hpp from 'hpp';
+import { fileURLToPath } from 'url';
+import { apiLimiter } from './middlewares/rateLimiter.js';
+import xss from './middlewares/xss.js';
+import errorHandler from './middleware/error.js';
+
+// Import Routes
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/user.js';
+import departmentRoutes from './routes/department.js';
+import attendanceRoutes from './routes/attendance.js';
+import leaveRoutes from './routes/leave.js';
+import biometricRoutes from './routes/biometric.js';
+import systemRoutes from './routes/system.js';
+import auditRoutes from './routes/audit.js';
+import healthRoutes from './routes/health.js';
+import notificationRoutes from './routes/notification.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -36,18 +52,6 @@ app.use(compression());
 // Static folder for file uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Import Routes
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
-const departmentRoutes = require('./routes/department');
-const attendanceRoutes = require('./routes/attendance');
-const leaveRoutes = require('./routes/leave');
-const biometricRoutes = require('./routes/biometric');
-const systemRoutes = require('./routes/system');
-const auditRoutes = require('./routes/audit');
-const healthRoutes = require('./routes/health');
-const notificationRoutes = require('./routes/notification');
-
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -68,4 +72,4 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-module.exports = app;
+export default app;

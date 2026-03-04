@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import auditService from '../services/audit/auditService.js';
+import { protect, authorize } from '../middleware/auth.js';
+
 const router = express.Router();
-const auditService = require('../services/audit/auditService');
-const { protect, authorize } = require('../middleware/auth');
 
 router.get('/', protect, authorize('SUPER_ADMIN'), async (req, res, next) => {
     try {
@@ -13,8 +14,8 @@ router.get('/', protect, authorize('SUPER_ADMIN'), async (req, res, next) => {
         });
         res.json({ success: true, data: logs });
     } catch (error) {
-         next(error);
+        next(error);
     }
 });
 
-module.exports = router;
+export default router;

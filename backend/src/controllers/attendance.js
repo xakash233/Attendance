@@ -1,9 +1,9 @@
-const prisma = require('../config/prisma');
+import prisma from '../config/prisma.js';
 
 // @desc    Manual Check-in
 // @route   POST /api/attendance/check-in
 // @access  Private (EMPLOYEE)
-exports.checkIn = async (req, res, next) => {
+export const checkIn = async (req, res, next) => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -21,8 +21,8 @@ exports.checkIn = async (req, res, next) => {
             return res.status(400).json({ message: 'Personnel already registered for today' });
         }
 
-        // Get settings for LATE detection
-        const settings = await prisma.systemSettings.findFirst() || { workStartTime: '09:00', gracePeriod: 15 };
+        // Office Timing: 10:00 AM to 07:00 PM. 1 Hour Break (01:00 PM to 02:00 PM)
+        const settings = await prisma.systemSettings.findFirst() || { workStartTime: '10:00', gracePeriod: 15 };
         const now = new Date();
         const [h, m] = settings.workStartTime.split(':').map(Number);
         const workStart = new Date(today);
@@ -64,7 +64,7 @@ exports.checkIn = async (req, res, next) => {
 // @desc    Manual Check-out
 // @route   POST /api/attendance/check-out
 // @access  Private (EMPLOYEE)
-exports.checkOut = async (req, res, next) => {
+export const checkOut = async (req, res, next) => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -82,10 +82,18 @@ exports.checkOut = async (req, res, next) => {
         if (attendance.checkOut) return res.status(400).json({ message: 'Session already finalized' });
 
         const now = new Date();
-        const workingHours = (now - attendance.checkIn) / (1000 * 60 * 60);
+        let workingHours = (now - attendance.checkIn) / (1000 * 60 * 60);
+
+        // Deduct 1 hour break if they worked across 01:00 PM to 02:00 PM
+        const breakStart = new Date(today); breakStart.setHours(13, 0, 0, 0);
+        const breakEnd = new Date(today); breakEnd.setHours(14, 0, 0, 0);
+
+        if (attendance.checkIn < breakStart && now > breakEnd) {
+            workingHours -= 1;
+        }
 
         let finalStatus = attendance.status;
-        if (workingHours > 9.5) { // Assuming 9.5h includes break for overtime
+        if (workingHours > 8.5) { // 8 hours shift + 0.5h buffer for overtime
             finalStatus = 'OVERTIME';
         } else if (workingHours < 4) {
             finalStatus = 'HALF_DAY';
@@ -120,7 +128,7 @@ exports.checkOut = async (req, res, next) => {
 // @desc    Get attendance history (Role Based)
 // @route   GET /api/attendance/history
 // @access  Private
-exports.getHistory = async (req, res, next) => {
+export const getHistory = async (req, res, next) => {
     const { role, id, departmentId } = req.user;
 
     try {

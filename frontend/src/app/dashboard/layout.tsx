@@ -9,6 +9,7 @@ import Link from 'next/link';
 import socket from '@/lib/socket';
 import api from '@/lib/axios';
 import { formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useAuth();
@@ -237,10 +238,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <p className="text-[12px] font-black tracking-tight text-black uppercase">{user.name}</p>
                                 <p className="text-[9px] text-black/30 font-bold uppercase tracking-widest italic">{user.role}</p>
                             </div>
-                            <img
+                            <Image
                                 src={`https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
-                                className="w-10 h-10 rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm"
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm"
                                 alt="User"
+                                unoptimized
                             />
                         </div>
                     </div>

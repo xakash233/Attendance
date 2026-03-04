@@ -1,7 +1,8 @@
-const leaveService = require('../services/leave/leaveService');
-const notificationService = require('../services/notification/notificationService');
+import leaveService from '../services/leave/leaveService.js';
+import notificationService from '../services/notification/notificationService.js';
+import prisma from '../config/prisma.js';
 
-exports.applyLeave = async (req, res, next) => {
+export const applyLeave = async (req, res, next) => {
     try {
         const leaveRequest = await leaveService.applyLeave({
             userId: req.user.id,
@@ -9,16 +10,26 @@ exports.applyLeave = async (req, res, next) => {
             ...req.body
         });
 
-        // Notify appropriate authority based on duration (> 2 days goes to Super Admin)
-        const isSuperAdminRoute = leaveRequest.totalDays > 2;
-        const notifyRole = isSuperAdminRoute ? 'SUPER_ADMIN' : 'HR';
+        // Notify authorities (Both HR and Super Admin)
+        const isCritical = leaveRequest.totalDays > 2;
+        const notificationPayload = {
+            title: isCritical ? 'Critical Leave Review (LOP Warning)' : 'Standard Leave Request',
+            message: `${req.user.name} requested ${leaveRequest.totalDays} days (${req.body.durationType || 'FULL_DAY'}). ${isCritical ? 'Note: This exceeds 2 days and may be subject to LOP.' : ''} Immediate review requested.`,
+            type: 'LEAVE_REQUEST',
+            departmentId: req.user.departmentId
+        };
 
+        // Broadcast to HR (Department specific)
         await notificationService.broadcastToRole({
-            role: notifyRole,
-            departmentId: isSuperAdminRoute ? null : req.user.departmentId,
-            title: isSuperAdminRoute ? 'Critical Leave Review Needed' : 'Standard Leave Request',
-            message: `${req.user.name} requested ${leaveRequest.totalDays} days (${req.body.durationType || 'FULL_DAY'}). Immediate review requested.`,
-            type: 'LEAVE_REQUEST'
+            ...notificationPayload,
+            role: 'HR'
+        });
+
+        // Broadcast to Super Admin (Global)
+        await notificationService.broadcastToRole({
+            ...notificationPayload,
+            role: 'SUPER_ADMIN',
+            departmentId: null
         });
 
         res.status(201).json(leaveRequest);
@@ -30,7 +41,7 @@ exports.applyLeave = async (req, res, next) => {
     }
 };
 
-exports.hrDecision = async (req, res, next) => {
+export const hrDecision = async (req, res, next) => {
     try {
         const { updated, user } = await leaveService.hrDecision({
             leaveId: req.params.id,
@@ -67,7 +78,7 @@ exports.hrDecision = async (req, res, next) => {
     }
 };
 
-exports.finalDecision = async (req, res, next) => {
+export const finalDecision = async (req, res, next) => {
     try {
         const { updated, user } = await leaveService.finalDecision({
             leaveId: req.params.id,
@@ -94,8 +105,7 @@ exports.finalDecision = async (req, res, next) => {
     }
 };
 
-exports.getHistory = async (req, res, next) => {
-    const prisma = require('../config/prisma');
+export const getHistory = async (req, res, next) => {
     try {
         const { role, id, departmentId } = req.user;
         let query = {};
@@ -117,8 +127,7 @@ exports.getHistory = async (req, res, next) => {
     }
 };
 
-exports.getLeaveTypes = async (req, res, next) => {
-    const prisma = require('../config/prisma');
+export const getLeaveTypes = async (req, res, next) => {
     try {
         const types = await prisma.leaveType.findMany();
         res.json(types);

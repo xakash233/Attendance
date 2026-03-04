@@ -1,12 +1,13 @@
-const express = require('express');
+import express from 'express';
+import prisma from '../config/prisma.js';
+
 const router = express.Router();
-const prisma = require('../config/prisma');
 
 router.get('/', async (req, res) => {
     try {
         // Test DB connection
         await prisma.$queryRaw`SELECT 1`;
-        
+
         res.status(200).json({
             status: 'OK',
             timestamp: new Date().toISOString(),
@@ -27,4 +28,4 @@ router.get('/', async (req, res) => {
     }
 });
 
-module.exports = router;
+export default router;

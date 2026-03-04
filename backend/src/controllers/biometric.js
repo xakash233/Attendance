@@ -1,11 +1,11 @@
-const biometricService = require('../services/biometric/biometricService');
-const auditService = require('../services/audit/auditService');
+import biometricService from '../services/biometric/biometricService.js';
+import auditService from '../services/audit/auditService.js';
 
 /**
  * Handle manual file upload (CSV, JSON, XML) and start sync
  * POST /api/biometric/sync
  */
-exports.syncBiometricUpload = async (req, res, next) => {
+export const syncBiometricUpload = async (req, res, next) => {
     try {
         if (!req.file && (!req.body.records || !req.body.records.length)) {
             return res.status(400).json({ success: false, message: 'Please upload a file or provide records payload.' });
@@ -33,7 +33,7 @@ exports.syncBiometricUpload = async (req, res, next) => {
  * Get sync logs
  * GET /api/biometric/logs
  */
-exports.getSyncLogs = async (req, res, next) => {
+export const getSyncLogs = async (req, res, next) => {
     try {
         const logs = await biometricService.getSyncLogs();
         res.status(200).json({ success: true, data: logs });
@@ -42,7 +42,7 @@ exports.getSyncLogs = async (req, res, next) => {
     }
 };
 
-exports.getLatestRecords = async (req, res, next) => {
+export const getLatestRecords = async (req, res, next) => {
     try {
         const records = await biometricService.getLatestRecords();
         res.status(200).json({ success: true, data: records });

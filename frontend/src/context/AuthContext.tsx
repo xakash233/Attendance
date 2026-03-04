@@ -26,6 +26,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    const login = (token: string, userData: User) => {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        socket.connect();
+        router.push('/dashboard');
+    };
+
+    const logout = React.useCallback(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+        socket.disconnect();
+        router.push('/login');
+    }, [router]);
+
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUser = localStorage.getItem('user');
@@ -50,23 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return () => {
             api.interceptors.response.eject(interceptor);
         };
-    }, []);
-
-    const login = (token: string, userData: User) => {
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        socket.connect();
-        router.push('/dashboard');
-    };
-
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-        socket.disconnect();
-        router.push('/login');
-    };
+    }, [logout]);
 
     return (
         <AuthContext.Provider value={{ user, login, logout, loading }}>

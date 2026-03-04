@@ -1,6 +1,6 @@
-const prisma = require('../../config/prisma');
-const notificationService = require('../notification/notificationService');
-const auditService = require('../audit/auditService');
+import prisma from '../../config/prisma.js';
+import notificationService from '../notification/notificationService.js';
+import auditService from '../audit/auditService.js';
 
 
 class LeaveService {
@@ -227,4 +227,4 @@ class LeaveService {
     }
 }
 
-module.exports = new LeaveService();
+export default new LeaveService();

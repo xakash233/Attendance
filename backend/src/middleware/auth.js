@@ -1,7 +1,7 @@
-const jwt = require('jsonwebtoken');
-const prisma = require('../config/prisma');
+import jwt from 'jsonwebtoken';
+import prisma from '../config/prisma.js';
 
-const protect = async (req, res, next) => {
+export const protect = async (req, res, next) => {
     let token;
 
     if (
@@ -33,7 +33,7 @@ const protect = async (req, res, next) => {
     }
 };
 
-const authorize = (...roles) => {
+export const authorize = (...roles) => {
     return (req, res, next) => {
         if (!roles.includes(req.user.role)) {
             return res.status(403).json({
@@ -43,5 +43,3 @@ const authorize = (...roles) => {
         next();
     };
 };
-
-module.exports = { protect, authorize };

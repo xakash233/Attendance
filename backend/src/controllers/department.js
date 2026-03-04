@@ -1,9 +1,9 @@
-const prisma = require('../config/prisma');
+import prisma from '../config/prisma.js';
 
 // @desc    Get all departments
 // @route   GET /api/departments
 // @access  Private (SUPER_ADMIN, ADMIN)
-exports.getDepartments = async (req, res, next) => {
+export const getDepartments = async (req, res, next) => {
     try {
         const departments = await prisma.department.findMany({
             include: { hr: true, _count: { select: { employees: true } } }
@@ -17,7 +17,7 @@ exports.getDepartments = async (req, res, next) => {
 // @desc    Create department
 // @route   POST /api/departments
 // @access  Private (SUPER_ADMIN)
-exports.createDepartment = async (req, res, next) => {
+export const createDepartment = async (req, res, next) => {
     const { name } = req.body;
     try {
         const department = await prisma.department.create({
@@ -35,7 +35,7 @@ exports.createDepartment = async (req, res, next) => {
 // @desc    Assign HR to department
 // @route   PUT /api/departments/:id/hr
 // @access  Private (SUPER_ADMIN)
-exports.assignHr = async (req, res, next) => {
+export const assignHr = async (req, res, next) => {
     const { hrId } = req.body;
     try {
         const department = await prisma.department.update({

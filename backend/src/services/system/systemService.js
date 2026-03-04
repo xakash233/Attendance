@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma');
+import prisma from '../../config/prisma.js';
 
 class SystemService {
     async getSettings() {
@@ -30,4 +30,4 @@ class SystemService {
     }
 }
 
-module.exports = new SystemService();
+export default new SystemService();

@@ -1,9 +1,10 @@
-const express = require('express');
+import express from 'express';
+import { getSettings, updateSettings } from '../controllers/system.js';
+import { protect, authorize } from '../middleware/auth.js';
+
 const router = express.Router();
-const { getSettings, updateSettings } = require('../controllers/system');
-const { protect, authorize } = require('../middleware/auth');
 
 router.get('/settings', protect, getSettings);
 router.put('/settings', protect, authorize('SUPER_ADMIN'), updateSettings);
 
-module.exports = router;
+export default router;

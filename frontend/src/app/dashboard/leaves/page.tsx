@@ -9,6 +9,7 @@ import {
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
     CheckCircle2, XCircle
 } from 'lucide-react';
+import DatePicker from '@/components/ui/DatePicker';
 
 export default function LeavesPage() {
     const [leaves, setLeaves] = useState([]);
@@ -23,6 +24,31 @@ export default function LeavesPage() {
         reason: '',
         durationType: 'FULL_DAY'
     });
+
+    const calculateDays = () => {
+        if (!formData.startDate || !formData.endDate) return 0;
+        const start = new Date(formData.startDate);
+        const end = new Date(formData.endDate);
+        let count = 0;
+        let curDate = new Date(start);
+
+        while (curDate <= end) {
+            const dayOfWeek = curDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sun(0) and Sat(6)
+                count++;
+            }
+            curDate.setDate(curDate.getDate() + 1);
+        }
+
+        if (formData.durationType === 'FIRST_HALF' || formData.durationType === 'SECOND_HALF') {
+            return count > 0 ? 0.5 : 0;
+        }
+
+        return count;
+    };
+
+    const totalDays = calculateDays();
+    const isLOP = totalDays > 2;
 
     const fetchData = useCallback(async () => {
         try {
@@ -238,7 +264,7 @@ export default function LeavesPage() {
             {/* Apply Modal */}
             {isApplyModalOpen && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 backdrop-blur-md bg-white/40 animate-fade-in">
-                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] overflow-hidden scale-100 animate-in zoom-in-95 duration-300">
+                    <div className="bg-white border border-black/5 max-w-lg w-full rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.1)] scale-100 animate-in zoom-in-95 duration-300">
                         <div className="p-8 border-b border-neutral-50 flex justify-between items-center bg-white shrink-0">
                             <div className="space-y-1">
                                 <h2 className="text-2xl font-black uppercase tracking-tight text-black">Apply for Absence</h2>
@@ -287,19 +313,19 @@ export default function LeavesPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Start Date</label>
-                                    <input
-                                        type="date"
-                                        className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all"
-                                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                    <DatePicker
+                                        date={formData.startDate}
+                                        onChange={(date) => setFormData({ ...formData, startDate: date })}
+                                        placeholder="Pick date"
                                         required
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">End Date</label>
-                                    <input
-                                        type="date"
-                                        className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all"
-                                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                    <DatePicker
+                                        date={formData.endDate}
+                                        onChange={(date) => setFormData({ ...formData, endDate: date })}
+                                        placeholder="Pick date"
                                         required
                                     />
                                 </div>
@@ -316,12 +342,31 @@ export default function LeavesPage() {
                                 ></textarea>
                             </div>
 
+                            {isLOP && (
+                                <div className="p-6 bg-neutral-50 border-l-4 border-black rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-4 duration-500 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <ShieldCheck size={18} className="text-black" />
+                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-black">Policy: Critical Audit Required</p>
+                                    </div>
+                                    <p className="text-[12px] font-medium text-black/60 leading-relaxed italic">
+                                        Applying for <span className="font-black text-black"> {totalDays} working days</span> exceeds the threshold. This request is flagged as <span className="font-black text-black underline">Loss of Pay (LOP)</span> and requires joint authorization from <span className="font-black text-black uppercase">HR Registry & Super Administration</span>.
+                                    </p>
+                                </div>
+                            )}
+
                             <button
                                 type="submit"
                                 disabled={loading}
                                 className="w-full h-16 bg-black text-white hover:bg-neutral-900 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 group"
                             >
-                                {loading ? <Loader2 size={18} className="animate-spin text-white" /> : <>SUBMIT DECLARATION <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" /></>}
+                                {loading ? (
+                                    <Loader2 size={18} className="animate-spin text-white" />
+                                ) : (
+                                    <>
+                                        {isLOP ? 'SUBMIT LOP DECLARATION' : 'SUBMIT DECLARATION'}
+                                        <ArrowRight size={18} strokeWidth={3} className="group-hover:translate-x-1 transition-transform" />
+                                    </>
+                                )}
                             </button>
                         </form>
                     </div>

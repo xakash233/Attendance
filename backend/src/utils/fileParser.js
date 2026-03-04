@@ -1,10 +1,10 @@
-const csv = require('csv-parser');
-const { XMLParser } = require('fast-xml-parser');
-const { Readable } = require('stream');
-const { parseISO, isValid } = require('date-fns');
+import csv from 'csv-parser';
+import { XMLParser } from 'fast-xml-parser';
+import { Readable } from 'stream';
+import { parseISO, isValid } from 'date-fns';
 
 // Helper to normalize dates to UTC
-const normalizeTimestamp = (timestamp) => {
+export const normalizeTimestamp = (timestamp) => {
     let dateObj;
 
     // Check if it's already a valid date object
@@ -108,7 +108,7 @@ const parseXmlBuffer = (buffer) => {
     }
 };
 
-const parseBiometricFile = async (fileBuffer, mimeType, filename) => {
+export const parseBiometricFile = async (fileBuffer, mimeType, filename) => {
     const isCsv = mimeType === 'text/csv' || filename.endsWith('.csv');
     const isJson = mimeType === 'application/json' || filename.endsWith('.json');
     const isXml = mimeType === 'text/xml' || mimeType === 'application/xml' || filename.endsWith('.xml');
@@ -122,9 +122,4 @@ const parseBiometricFile = async (fileBuffer, mimeType, filename) => {
     } else {
         throw new Error('Unsupported file format. Use CSV, JSON, or XML.');
     }
-};
-
-module.exports = {
-    parseBiometricFile,
-    normalizeTimestamp
 };

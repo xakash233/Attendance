@@ -1,8 +1,7 @@
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const prisma = require('../config/prisma');
-
-const sendEmail = require('../utils/email');
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import prisma from '../config/prisma.js';
+import sendEmail from '../utils/email.js';
 
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
@@ -15,7 +14,7 @@ const generateRefreshToken = (id) => {
 // @desc    Login user & get token
 // @route   POST /api/auth/login
 // @access  Public
-exports.login = async (req, res, next) => {
+export const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     try {
@@ -57,7 +56,7 @@ exports.login = async (req, res, next) => {
 // @desc    Refresh token
 // @route   POST /api/auth/refresh
 // @access  Public
-exports.refreshToken = async (req, res, next) => {
+export const refreshToken = async (req, res, next) => {
     const { refreshToken } = req.body;
 
     if (!refreshToken) {
@@ -85,7 +84,7 @@ exports.refreshToken = async (req, res, next) => {
 // @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
-exports.logout = async (req, res, next) => {
+export const logout = async (req, res, next) => {
     const { refreshToken } = req.body;
     try {
         await prisma.refreshToken.deleteMany({
@@ -100,7 +99,7 @@ exports.logout = async (req, res, next) => {
 // @desc    Forgot Password
 // @route   POST /api/auth/forgot-password
 // @access  Public
-exports.forgotPassword = async (req, res, next) => {
+export const forgotPassword = async (req, res, next) => {
     const { email } = req.body;
     try {
         const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
@@ -138,7 +137,7 @@ exports.forgotPassword = async (req, res, next) => {
 // @desc    Reset Password
 // @route   POST /api/auth/reset-password
 // @access  Public
-exports.resetPassword = async (req, res, next) => {
+export const resetPassword = async (req, res, next) => {
     const { email, otp, newPassword } = req.body;
     try {
         const reset = await prisma.passwordReset.findFirst({

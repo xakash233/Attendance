@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
     Users, LayoutDashboard, Briefcase,
@@ -29,7 +30,14 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         <aside className="fixed left-0 top-0 bottom-0 w-[100px] h-screen bg-neutral-50 border-r border-neutral-100 flex flex-col items-center py-10 gap-8 z-[120] transition-all">
             {/* Minimal Logo */}
             <div className="w-12 h-12 flex items-center justify-center p-1 relative group cursor-pointer">
-                <img src="/logo/Tectra.png" alt="Tectra Logo" className="w-full h-full object-contain filter grayscale brightness-0 opacity-20 group-hover:opacity-100 transition-all duration-500" />
+                <Image
+                    src="/logo/Tectra.png"
+                    alt="Tectra Logo"
+                    width={48}
+                    height={48}
+                    className="object-contain filter grayscale brightness-0 opacity-20 group-hover:opacity-100 transition-all duration-500"
+                    priority
+                />
             </div>
 
             {/* Navigation - Minimalist Style */}

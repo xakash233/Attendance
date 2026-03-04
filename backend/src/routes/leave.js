@@ -1,13 +1,14 @@
-const express = require('express');
-const router = express.Router();
-const {
+import express from 'express';
+import {
     applyLeave,
     hrDecision,
     finalDecision,
     getHistory,
     getLeaveTypes
-} = require('../controllers/leave');
-const { protect, authorize } = require('../middleware/auth');
+} from '../controllers/leave.js';
+import { protect, authorize } from '../middleware/auth.js';
+
+const router = express.Router();
 
 router.post('/apply', protect, authorize('EMPLOYEE'), applyLeave);
 router.put('/:id/hr-decision', protect, authorize('HR'), hrDecision);
@@ -15,4 +16,4 @@ router.put('/:id/final-decision', protect, authorize('SUPER_ADMIN'), finalDecisi
 router.get('/history', protect, getHistory);
 router.get('/types', protect, getLeaveTypes);
 
-module.exports = router;
+export default router;

@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import { getNotifications, markAsRead, markAllRead } from '../controllers/notification.js';
+import { protect } from '../middleware/auth.js';
+
 const router = express.Router();
-const { getNotifications, markAsRead, markAllRead } = require('../controllers/notification');
-const { protect } = require('../middleware/auth');
 
 // Protect all notification routes
 router.use(protect);
@@ -15,4 +16,4 @@ router.put('/read-all', markAllRead);
 // Mark single notification as read
 router.put('/:id/read', markAsRead);
 
-module.exports = router;
+export default router;

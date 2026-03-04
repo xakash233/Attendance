@@ -1,11 +1,10 @@
 // src/index.js
-const http = require('http');
-const dotenv = require('dotenv');
-const app = require('./app');
-const { initSocket } = require('./config/socket');
-
-// Load environment variables
-dotenv.config();
+import http from 'http';
+import 'dotenv/config';
+import app from './app.js';
+import { initSocket } from './config/socket.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const PORT = process.env.PORT || 5001;
 
@@ -16,7 +15,9 @@ const server = http.createServer(app);
 initSocket(server);
 
 // Start listening only when this file is run directly (local development)
-if (require.main === module) {
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isMain || process.env.NODE_ENV === 'development') {
   server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
@@ -30,4 +31,4 @@ process.on('unhandledRejection', (err, promise) => {
   }
 });
 
-module.exports = app;
+export default app;

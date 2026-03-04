@@ -159,8 +159,8 @@ model SystemSettings {
   id                  String   @id @default(uuid())
   biometricDeviceIP   String?
   syncInterval        String?
-  workStartTime       String   @default("09:00")
-  workEndTime         String   @default("18:00")
+  workStartTime       String   @default("10:00")
+  workEndTime         String   @default("19:00")
   gracePeriod         Int      @default(15)
   wfhMonthlyLimit     Int      @default(4)
   wfhConsecutiveLimit Int      @default(2)

@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma');
+import prisma from '../../config/prisma.js';
 
 class AuditService {
     /**
@@ -54,4 +54,4 @@ class AuditService {
     }
 }
 
-module.exports = new AuditService();
+export default new AuditService();

@@ -1,6 +1,6 @@
-const { parseBiometricFile } = require('../../utils/fileParser');
-const prisma = require('../../config/prisma');
-const auditService = require('../audit/auditService');
+import { parseBiometricFile } from '../../utils/fileParser.js';
+import prisma from '../../config/prisma.js';
+import auditService from '../audit/auditService.js';
 
 class BiometricService {
     /**
@@ -240,4 +240,4 @@ class BiometricService {
     }
 }
 
-module.exports = new BiometricService();
+export default new BiometricService();

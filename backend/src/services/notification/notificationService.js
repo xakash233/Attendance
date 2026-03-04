@@ -1,7 +1,7 @@
-const prisma = require('../../config/prisma');
-const sendEmail = require('../../utils/email');
-const { getIo } = require('../../config/socket');
-const auditService = require('../audit/auditService');
+import prisma from '../../config/prisma.js';
+import sendEmail from '../../utils/email.js';
+import { getIo } from '../../config/socket.js';
+import auditService from '../audit/auditService.js';
 
 class NotificationService {
     /**
@@ -142,4 +142,4 @@ class NotificationService {
     }
 }
 
-module.exports = new NotificationService();
+export default new NotificationService();

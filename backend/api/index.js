@@ -1,8 +1,8 @@
 // serverless entry point for Vercel
-require('dotenv').config();
-const app = require('../src/app');
+import 'dotenv/config';
+import app from '../src/app.js';
 
 // NOTE: Socket.io and long‑lived connections are NOT supported on Vercel Serverless.
 // Real-time notifications will gracefully delay/fallback unless using a 3rd party service.
 
-module.exports = app;
+export default app;

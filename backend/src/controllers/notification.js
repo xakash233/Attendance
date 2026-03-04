@@ -1,9 +1,9 @@
-const prisma = require('../config/prisma');
+import prisma from '../config/prisma.js';
 
 // @desc    Get user notifications
 // @route   GET /api/notifications
 // @access  Private
-exports.getNotifications = async (req, res, next) => {
+export const getNotifications = async (req, res, next) => {
     try {
         const notifications = await prisma.notification.findMany({
             where: { userId: req.user.id },
@@ -19,7 +19,7 @@ exports.getNotifications = async (req, res, next) => {
 // @desc    Mark notification as read
 // @route   PUT /api/notifications/:id/read
 // @access  Private
-exports.markAsRead = async (req, res, next) => {
+export const markAsRead = async (req, res, next) => {
     try {
         const notification = await prisma.notification.update({
             where: {
@@ -37,7 +37,7 @@ exports.markAsRead = async (req, res, next) => {
 // @desc    Mark all as read
 // @route   PUT /api/notifications/read-all
 // @access  Private
-exports.markAllRead = async (req, res, next) => {
+export const markAllRead = async (req, res, next) => {
     try {
         await prisma.notification.updateMany({
             where: { userId: req.user.id, isRead: false },

@@ -1,9 +1,9 @@
-const socketIo = require('socket.io');
+import { Server } from 'socket.io';
 
 let io;
 
-const initSocket = (server) => {
-    io = socketIo(server, {
+export const initSocket = (server) => {
+    io = new Server(server, {
         cors: {
             origin: process.env.FRONTEND_URL || "http://localhost:3000",
             methods: ["GET", "POST"],
@@ -16,7 +16,7 @@ const initSocket = (server) => {
         console.log('New client connected:', socket.id);
 
         socket.on('join', (userId) => {
-            socket.join(userId);
+            socket.join(`user_${userId}`);
             console.log(`User ${userId} joined their room`);
         });
 
@@ -28,11 +28,11 @@ const initSocket = (server) => {
     return io;
 };
 
-const getIo = () => {
+export const getIo = () => {
+    // Vercel check: If on serverless, io might not be available
     if (!io) {
-        throw new Error("Socket.io not initialized!");
+        console.warn("Socket.io not initialized or running on Serverless environment!");
+        return null;
     }
     return io;
 };
-
-module.exports = { initSocket, getIo };
