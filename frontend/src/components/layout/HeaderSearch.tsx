@@ -40,7 +40,15 @@ export default function HeaderSearch() {
     useEffect(() => {
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = '';
         }
+
+        // Cleanup on unmount just in case
+        return () => {
+            document.body.style.overflow = '';
+        };
     }, [isOpen]);
 
     useEffect(() => {
