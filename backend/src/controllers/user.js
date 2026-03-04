@@ -9,6 +9,7 @@ import crypto from 'crypto';
 export const getUsers = async (req, res, next) => {
     try {
         const users = await prisma.user.findMany({
+            omit: { password: true },
             include: { department: true }
         });
         res.json(users);
@@ -188,7 +189,8 @@ export const verifyUserCreation = async (req, res, next) => {
             }
         });
 
-        res.status(201).json(user);
+        const { password: _, ...safeUser } = user;
+        res.status(201).json(safeUser);
     } catch (error) {
         next(error);
     }
@@ -201,6 +203,7 @@ export const getUserProfile = async (req, res, next) => {
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
+            omit: { password: true },
             include: {
                 department: true,
                 leaveBalances: { include: { leaveType: true } }
