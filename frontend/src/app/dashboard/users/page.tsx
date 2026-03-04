@@ -207,7 +207,7 @@ export default function UsersPage() {
                                     {step === 1 ? 'Secure Registry Entry' : 'Authorization Protocol'}
                                 </p>
                             </div>
-                            <button onClick={resetModal} className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-100 hover:bg-neutral-50 hover:rotate-90 transition-all duration-300 group"><X size={18} className="text-black/20 group-hover:text-black" /></button>
+                            <button onClick={resetModal} className="w-10 h-10 flex items-center justify-center rounded-full border border-neutral-100 hover:bg-neutral-50 hover:rotate-90 transition-all duration-300 group"><X size={18} className="text-black group-hover:rotate-90 transition-transform" strokeWidth={3} /></button>
                         </div>
 
                         {/* Step 1: Form */}
