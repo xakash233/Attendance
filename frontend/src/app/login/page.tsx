@@ -11,7 +11,6 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
-    const [newPass, setNewPass] = useState('');
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
 
@@ -29,7 +28,11 @@ export default function LoginPage() {
             });
             toast.success('Access Granted');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Authorization Denied');
+            if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+                toast.error('Network Error: Hub server is offline or unreachable', { icon: '🔌' });
+            } else {
+                toast.error(error.response?.data?.message || 'Authorization Denied');
+            }
         } finally {
             setLoading(false);
         }
@@ -53,11 +56,11 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/auth/reset-password', { email, otp, newPassword: newPass });
-            toast.success('Password updated');
+            const res = await api.post('/auth/reset-password', { email, otp });
+            toast.success(res.data.message);
             setView('LOGIN');
         } catch (error: any) {
-            toast.error(error.response?.data?.message || 'Reset failed');
+            toast.error(error.response?.data?.message || 'Verification failed');
         } finally {
             setLoading(false);
         }
@@ -219,16 +222,10 @@ export default function LoginPage() {
                                         onChange={(e) => setOtp(e.target.value)}
                                         required
                                     />
-                                    <input
-                                        type="password"
-                                        className="w-full bg-neutral-50 h-14 rounded-xl px-4 text-sm font-bold tracking-widest text-center focus:ring-1 focus:ring-black/10 outline-none border border-neutral-100"
-                                        placeholder="NEW KEY"
-                                        value={newPass}
-                                        onChange={(e) => setNewPass(e.target.value)}
-                                        required
-                                    />
                                 </div>
-                                <button type="submit" className="w-full h-14 bg-black text-white rounded-xl font-bold uppercase tracking-widest text-[11px]">Update Access</button>
+                                <button type="submit" disabled={loading} className="w-full h-14 bg-black text-white rounded-xl font-bold uppercase tracking-widest text-[11px] disabled:opacity-50 flex items-center justify-center gap-2">
+                                    {loading ? <Loader2 size={16} className="animate-spin" /> : 'Generate Secure Cipher'}
+                                </button>
                             </form>
                         )}
                     </div>

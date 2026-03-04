@@ -238,6 +238,30 @@ export const updateUserProfile = async (req, res, next) => {
     }
 };
 
+// @desc    Change password
+// @route   PUT /api/users/change-password
+// @access  Private
+export const changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+
+        if (!(await bcrypt.compare(currentPassword, user.password))) {
+            return res.status(400).json({ message: 'Current authorization key is incorrect' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: { password: hashedPassword }
+        });
+
+        res.json({ message: 'Authorization key successfully updated' });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get dashboard analytics
 // @route   GET /api/users/analytics
 // @access  Private

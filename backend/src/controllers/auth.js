@@ -23,7 +23,11 @@ export const login = async (req, res, next) => {
             include: { department: true }
         });
 
-        if (user && (await bcrypt.compare(password, user.password))) {
+        if (!user) {
+            return res.status(401).json({ message: 'User account not found' });
+        }
+
+        if (await bcrypt.compare(password, user.password)) {
             const accessToken = generateToken(user.id);
             const refreshToken = generateRefreshToken(user.id);
 
@@ -47,7 +51,7 @@ export const login = async (req, res, next) => {
                 refreshToken
             });
         } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            res.status(401).json({ message: 'Incorrect cipher key provided' });
         }
     } catch (error) {
         next(error);
@@ -139,7 +143,7 @@ export const forgotPassword = async (req, res, next) => {
 // @route   POST /api/auth/reset-password
 // @access  Public
 export const resetPassword = async (req, res, next) => {
-    const { email, otp, newPassword } = req.body;
+    const { email, otp } = req.body;
     try {
         const reset = await prisma.passwordReset.findFirst({
             where: { email: email.toLowerCase(), otp },
@@ -150,7 +154,16 @@ export const resetPassword = async (req, res, next) => {
             return res.status(400).json({ message: 'Invalid or expired recovery key' });
         }
 
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        // Generate strong system password
+        const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*';
+        let generatedPassword = '';
+        for (let i = 0; i < 12; i++) {
+            generatedPassword += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        // Ensure complex requirements are visibly met
+        generatedPassword = `Tc#${generatedPassword}9!`;
+
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
         await prisma.user.update({
             where: { email: email.toLowerCase() },
             data: { password: hashedPassword }
@@ -158,7 +171,21 @@ export const resetPassword = async (req, res, next) => {
 
         await prisma.passwordReset.deleteMany({ where: { email: email.toLowerCase() } });
 
-        res.json({ message: 'Access key updated successfully. Node resynced.' });
+        await sendEmail({
+            email,
+            subject: 'New System Cipher Dispatched',
+            message: `Your new system cipher is: ${generatedPassword}. Please log in and change it immediately.`,
+            html: `<div style="font-family: sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto;">
+                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Access Restored</h2>
+                <p>Your authorization node has been reset with a new complex cipher.</p>
+                <div style="background: #000; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 24px; font-weight: 900; letter-spacing: 0.1em; word-break: break-all;">
+                    ${generatedPassword}
+                </div>
+                <p style="font-size: 11px; color: #999; font-weight: bold;">Log in with this key and update your security settings via your profile.</p>
+            </div>`
+        });
+
+        res.json({ message: 'New complex cipher generated and dispatched to your email.' });
     } catch (error) {
         next(error);
     }

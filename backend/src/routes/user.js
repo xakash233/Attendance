@@ -5,6 +5,7 @@ import {
     verifyUserCreation,
     getUserProfile,
     updateUserProfile,
+    changePassword,
     getAnalytics,
     globalSearch
 } from '../controllers/user.js';
@@ -17,6 +18,7 @@ router.post('/init-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), 
 router.post('/verify-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), verifyUserCreation);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateUserProfile);
+router.put('/change-password', protect, changePassword);
 router.get('/analytics', protect, getAnalytics);
 router.get('/search', protect, globalSearch);
 
