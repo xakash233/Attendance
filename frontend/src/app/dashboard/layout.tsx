@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
+import HeaderSearch from '@/components/layout/HeaderSearch';
 import { Toaster } from 'react-hot-toast';
 import { Search, Bell, ChevronDown, Menu, X, Home } from 'lucide-react';
 import Link from 'next/link';
@@ -163,15 +164,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     <div className="flex justify-end flex-1 items-center gap-6">
                         {/* Integrated Minimal Search */}
-                        <div className="hidden lg:flex items-center w-64">
-                            <div className="relative w-full group">
-                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-black/30 group-focus-within:text-black transition-colors" size={16} />
-                                <input
-                                    type="text"
-                                    placeholder="Search..."
-                                    className="w-full bg-neutral-50 pl-10 pr-4 py-2.5 rounded-full text-[11px] font-bold text-black focus:outline-none focus:ring-2 focus:ring-black/5 transition-all placeholder:text-black/20"
-                                />
-                            </div>
+                        <div className="hidden lg:flex items-center w-64 lg:w-80">
+                            <HeaderSearch />
                         </div>
 
                         <div className="relative">
