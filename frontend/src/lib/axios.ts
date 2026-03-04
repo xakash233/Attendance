@@ -5,12 +5,6 @@ const api = axios.create({
     withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-});
+// Using secure HttpOnly cookies, so we don't need to manually inject Bearer auth tokens from localStorage anymore
 
 export default api;
