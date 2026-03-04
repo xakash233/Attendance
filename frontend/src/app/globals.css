@@ -58,6 +58,18 @@ body {
   .sidebar-link:not(.active) {
     @apply text-white/40 hover:bg-white/5 hover:text-white;
   }
+
+  /* Utility classes */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
 }
 
 /* Custom Dark Silicon Scrollbar */
