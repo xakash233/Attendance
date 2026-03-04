@@ -36,12 +36,14 @@ export default function LoginPage() {
                 const errorMsg = error.response?.data?.message || 'Authorization Denied';
                 if (errorMsg.includes('User account not found')) {
                     setLoginErrorState('EMAIL');
+                    toast.error("Registry identity invalid", { icon: '⚠️' });
                 } else if (errorMsg.includes('Incorrect cipher key provided')) {
                     setLoginErrorState('PASSWORD');
+                    toast.error("Cipher mismatch. Please re-verify.", { icon: '⚠️' });
                 } else {
                     setLoginErrorState('NONE');
+                    toast.error(errorMsg, { icon: '⚠️' });
                 }
-                toast.error(errorMsg);
             }
         } finally {
             setLoading(false);
