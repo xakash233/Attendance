@@ -38,6 +38,14 @@ const config: Config = {
                 '3xl': '2rem',
                 '4xl': '3.5rem',
             },
+            keyframes: {
+                shimmer: {
+                    '100%': { transform: 'translateX(100%)' },
+                },
+            },
+            animation: {
+                shimmer: 'shimmer 1.5s infinite',
+            },
         },
     },
     plugins: [],
