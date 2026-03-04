@@ -170,7 +170,7 @@ export const verifyUserCreation = async (req, res, next) => {
             }
         });
 
-        const { password: _, ...safeUser } = user;
+        const { password: result, ...safeUser } = user;
         res.status(201).json(safeUser);
     } catch (error) {
         next(error);

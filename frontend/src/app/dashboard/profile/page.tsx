@@ -304,7 +304,7 @@ export default function ProfilePage() {
                                 </div>
                                 <div className="space-y-1 pt-1">
                                     <p className="text-[11px] font-black uppercase tracking-widest text-green-800">Key Changed</p>
-                                    <p className="text-xs font-medium text-green-700">Tip: Always remember your password so you don't get locked out... Just kidding, but seriously write it down. 🧠🔐</p>
+                                    <p className="text-xs font-medium text-green-700">Tip: Always remember your password so you don&apos;t get locked out... Just kidding, but seriously write it down. 🧠🔐</p>
                                 </div>
                             </div>
 

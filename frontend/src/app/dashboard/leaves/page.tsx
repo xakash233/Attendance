@@ -100,8 +100,13 @@ export default function LeavesPage() {
     };
 
     const handleHRDecision = async (id: string, decision: string) => {
+        let comments = '';
+        if (decision.startsWith('REJECTED')) {
+            comments = window.prompt('Please provide a reason for rejection (Policy: Max 2 days critical):') || '';
+            if (!comments) return; // Cancel if no reason provided
+        }
         try {
-            await api.put(`/leaves/${id}/hr-decision`, { decision });
+            await api.put(`/leaves/${id}/hr-decision`, { decision, comments });
             toast.success(`Request ${decision.toLowerCase().replace(/_/g, ' ')}`);
             fetchData();
         } catch (err: any) {
@@ -110,8 +115,13 @@ export default function LeavesPage() {
     };
 
     const handleFinalDecision = async (id: string, decision: string) => {
+        let comments = '';
+        if (decision.startsWith('REJECTED')) {
+            comments = window.prompt('Specify the specific policy violation for rejection:') || '';
+            if (!comments) return;
+        }
         try {
-            await api.put(`/leaves/${id}/final-decision`, { decision });
+            await api.put(`/leaves/${id}/final-decision`, { decision, comments });
             toast.success(`Approval finalized`);
             fetchData();
         } catch (err: any) {
@@ -169,7 +179,9 @@ export default function LeavesPage() {
                     <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm">
                         <Briefcase className="text-black/10" size={24} />
                         <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">My Balance</p>
-                        <p className="text-3xl font-black text-black uppercase tracking-tighter">Status: Active</p>
+                        <p className="text-3xl font-black text-black uppercase tracking-tighter">
+                            {user?.role === 'EMPLOYEE' ? '2 DAYS ALLOWED' : 'REGISTRY ACTIVE'}
+                        </p>
                     </div>
                     <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm">
                         <Calendar className="text-black/10" size={24} />
@@ -213,7 +225,18 @@ export default function LeavesPage() {
                                                     </div>
                                                     <div>
                                                         <p className="font-black text-black uppercase tracking-tight text-base">{leave.user.name}</p>
-                                                        <p className="text-[9px] text-black/30 font-bold tracking-widest mt-1 opacity-70 uppercase tracking-tighter italic">Emp: {leave.user.employeeCode}</p>
+                                                        <div className="flex flex-wrap gap-2 mt-1">
+                                                            <p className="text-[9px] text-black/30 font-bold tracking-widest opacity-70 uppercase italic">ID: {leave.user.employeeCode}</p>
+                                                            {(user?.role === 'HR' || user?.role === 'SUPER_ADMIN') && leave.user.leaveBalances && (
+                                                                <div className="flex gap-2">
+                                                                    {leave.user.leaveBalances.map((bal: any) => (
+                                                                        <span key={bal.id} className="text-[8px] font-black bg-neutral-100 px-2 py-0.5 rounded text-black/60 uppercase tracking-tighter">
+                                                                            {bal.leaveType.name}: {bal.remainingDays}D
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>

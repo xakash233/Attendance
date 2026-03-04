@@ -94,13 +94,33 @@ class NotificationService {
                         <p style="font-size: 15px; line-height: 1.6;">If there are any urgent matters during your absence, please coordinate with your team or reporting manager accordingly.</p>
                         <p style="font-size: 15px; line-height: 1.6;">We hope you have a comfortable and restful time away. If you require any assistance, feel free to contact the HR department.</p>
                         
-                        <p style="margin-top: 32px; font-size: 15px; line-height: 1.6;">Best regards,<br>
-                        <strong>HR Department</strong><br>
-                        Tectra Technologies</p>
+                        <p style="margin-top: 32px; font-size: 15px; line-height: 1.6; color: #111;">Regards,<br><strong>HR Department</strong><br>Tectra Technologies</p>
+                    </div>`;
+                }
+
+                if (templateType === 'LEAVE_REJECTION' && templateData) {
+                    finalHtml = `<div style="font-family: 'Inter', -apple-system, sans-serif; padding: 40px; border-radius: 24px; background-color: #ffffff; border: 1px solid #e5e7eb; max-width: 600px; margin: 20px auto; color: #111827; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02);">
+                        <div style="margin-bottom: 32px; display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 40px; height: 40px; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 18px;">T</div>
+                            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; color: #ef4444;">Policy Notice: Disapproved</span>
+                        </div>
                         
-                        <p style="margin-top: 40px; font-size: 11px; color: #9ca3af; border-top: 1px dashed #e5e7eb; padding-top: 16px; text-align: center;">
-                            This is an automated message from Tectra Technologies. Please do not reply directly to this email.
-                        </p>
+                        <p style="font-size: 16px;">Dear <strong>${templateData.userName}</strong>,</p>
+                        <p style="font-size: 16px; margin-bottom: 32px; color: #4b5563;">Your leave request for <strong>${templateData.totalDays} day(s)</strong> has been <span style="color: #ef4444; font-weight: 700;">REJECTED</span> by the administration.</p>
+                        
+                        <div style="background: #fdf2f2; padding: 24px; border-radius: 16px; border: 1px solid #fee2e2; margin-bottom: 32px;">
+                            <h3 style="margin: 0 0 12px 0; color: #991b1b; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 800;">Reason for Rejection</h3>
+                            <p style="margin: 0; color: #b91c1c; font-size: 15px; font-weight: 600; line-height: 1.5;">${templateData.rejectionReason}</p>
+                        </div>
+
+                        <div style="padding: 24px; background: #fafafa; border: 1px solid #f3f3f3; border-radius: 16px; margin-bottom: 32px;">
+                            <h4 style="margin: 0 0 12px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: #111;">Company Policy Information</h4>
+                            <p style="margin: 0; font-size: 13px; color: #666; line-height: 1.6;">As per standard company regulations at <strong>Tectra Technologies</strong>, only 2 days of critical leave are allowed per cycle before the request is classified as Paid Leave/LOP. Since your current balance or request exceeds these parameters, the authorization was declined.</p>
+                        </div>
+                        
+                        <p style="font-size: 14px; color: #6b7280; line-height: 1.5;">If you believe this is a clerical error, please contact the <strong>Management Registry</strong> immediately.</p>
+                        
+                        <p style="margin-top: 32px; font-size: 15px; line-height: 1.6; color: #111;">Regards,<br><strong>Registry Administration</strong><br>Tectra Technologies</p>
                     </div>`;
                 }
 

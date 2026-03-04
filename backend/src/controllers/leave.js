@@ -65,6 +65,13 @@ export const hrDecision = async (req, res, next) => {
                 totalDays,
                 reason
             };
+        } else if (req.body.decision.startsWith('REJECTED')) {
+            templateType = 'LEAVE_REJECTION';
+            templateData = {
+                userName: user.name,
+                totalDays,
+                rejectionReason: req.body.comments || 'Policy non-compliance or internal registry constraints.'
+            };
         }
 
         notificationService.sendPersonalNotification({
@@ -98,7 +105,7 @@ export const hrDecision = async (req, res, next) => {
 
 export const finalDecision = async (req, res, next) => {
     try {
-        const { updated, user, leaveType, durationType, totalDays, startDate, endDate, reason, wasPendingHR, departmentId } = await leaveService.finalDecision({
+        const { updated, user, leaveType, durationType, totalDays, startDate, endDate, reason } = await leaveService.finalDecision({
             leaveId: req.params.id,
             decision: req.body.decision,
             comments: req.body.comments,
@@ -119,6 +126,13 @@ export const finalDecision = async (req, res, next) => {
                 endDate: new Date(endDate).toLocaleDateString('en-GB'),
                 totalDays,
                 reason
+            };
+        } else if (req.body.decision.startsWith('REJECTED')) {
+            templateType = 'LEAVE_REJECTION';
+            templateData = {
+                userName: user.name,
+                totalDays,
+                rejectionReason: req.body.comments || 'Direct intervention by Super Administration based on company leave threshold policy.'
             };
         }
 
@@ -154,7 +168,17 @@ export const getHistory = async (req, res, next) => {
 
         const history = await prisma.leaveRequest.findMany({
             where: query,
-            include: { user: true, leaveType: true, department: true },
+            include: {
+                user: {
+                    include: {
+                        leaveBalances: {
+                            include: { leaveType: true }
+                        }
+                    }
+                },
+                leaveType: true,
+                department: true
+            },
             orderBy: { createdAt: 'desc' }
         });
         res.json(history);

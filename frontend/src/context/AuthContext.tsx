@@ -13,6 +13,7 @@ type User = {
     phone?: string;
     bio?: string;
     profileImage?: string;
+    employeeCode?: string;
 };
 
 type AuthContextType = {

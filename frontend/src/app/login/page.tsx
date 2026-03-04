@@ -79,23 +79,13 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen w-full bg-[#050505] flex items-center justify-center p-0 lg:p-6 relative overflow-hidden font-sans selection:bg-white selection:text-black">
+        <div className="h-screen w-full flex overflow-hidden font-sans selection:bg-white selection:text-black bg-white">
 
-            {/* Extremely subtle ambient glows */}
-            <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-neutral-800/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen"></div>
-            <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-neutral-800/20 blur-[120px] rounded-full pointer-events-none mix-blend-screen"></div>
+            {/* Main Full-Screen Split Layout */}
+            <div className="w-full h-full flex flex-col lg:flex-row animate-fade-in">
 
-            {/* Main App Container */}
-            <div className="w-full max-w-[1240px] h-full lg:h-[780px] flex flex-col lg:flex-row bg-[#ffffff] lg:rounded-[2.5rem] overflow-hidden relative z-10 lg:shadow-[0_0_80px_rgba(0,0,0,0.8)] border-0 lg:border lg:border-white/5 animate-fade-in">
-
-                {/* LEFT PANEL / MOBILE HEADER (Black) */}
-                <div className="w-full lg:w-[45%] bg-[#080808] flex flex-col justify-between p-8 pt-10 lg:p-16 relative overflow-hidden shrink-0 min-h-[40vh] lg:min-h-0">
-
-                    {/* Abstract Top-Right Glow inside the black panel */}
-                    <div className="absolute -top-40 -right-40 w-[400px] h-[400px] bg-white/[0.04] blur-[80px] rounded-full pointer-events-none"></div>
-
-                    {/* Noise texture for premium look */}
-                    <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')" }}></div>
+                {/* LEFT PANEL (Black) - Full Height */}
+                <div className="w-full lg:w-[40%] bg-[#000000] flex flex-col justify-between p-10 lg:p-20 relative shrink-0 h-[30vh] lg:h-full">
 
                     <div className="relative z-10 flex flex-col h-full items-center lg:items-start justify-center lg:justify-start">
                         <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.1)] mb-8 lg:mb-16 will-change-transform hover:scale-105 transition-transform duration-500">
@@ -137,11 +127,8 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* RIGHT PANEL - THE FORM (Bottom Sheet overlay on Mobile) */}
-                <div className="w-full lg:w-[55%] flex-1 bg-white flex flex-col p-8 lg:p-20 relative rounded-t-[3rem] lg:rounded-none -mt-[3rem] lg:mt-0 z-20 shadow-[0_-20px_40px_rgba(0,0,0,0.2)] lg:shadow-none">
-
-                    {/* Notch for mobile bottom sheet look */}
-                    <div className="w-12 h-1.5 bg-neutral-200 rounded-full mx-auto mb-10 lg:hidden"></div>
+                {/* RIGHT PANEL - THE FORM (White) */}
+                <div className="w-full lg:w-[60%] flex-1 bg-white flex flex-col p-8 lg:p-20 relative z-20 h-full">
 
                     <div className="max-w-[400px] w-full mx-auto flex-1 flex flex-col justify-center">
 
