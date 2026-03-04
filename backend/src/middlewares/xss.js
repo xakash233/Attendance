@@ -31,9 +31,18 @@ const clean = (data) => {
 
 const xssSanitizer = () => {
     return (req, res, next) => {
-        if (req.body) req.body = clean(req.body);
-        if (req.query) req.query = clean(req.query);
-        if (req.params) req.params = clean(req.params);
+        if (req.body && typeof req.body === 'object') {
+            const cleaned = clean(req.body);
+            Object.assign(req.body, cleaned);
+        }
+        if (req.query && typeof req.query === 'object') {
+            const cleaned = clean(req.query);
+            Object.assign(req.query, cleaned);
+        }
+        if (req.params && typeof req.params === 'object') {
+            const cleaned = clean(req.params);
+            Object.assign(req.params, cleaned);
+        }
         next();
     };
 };
