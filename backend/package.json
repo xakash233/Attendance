@@ -1,30 +1,23 @@
 {
   "name": "backend",
   "version": "1.0.0",
-<<<<<<< HEAD
   "private": true,
-=======
-  "description": "Attendance Backend",
->>>>>>> b9003a2 (update backend dependencies)
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-<<<<<<< HEAD
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push",
     "seed": "node prisma/seed.js",
     "lint": "eslint .",
-    "vercel-build": "prisma generate"
-=======
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:push": "prisma db push",
+    "vercel-build": "prisma generate",
     "test": "echo \"Error: no test specified\" && exit 1"
->>>>>>> b9003a2 (update backend dependencies)
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
@@ -52,7 +45,6 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.0",
     "nodemailer": "^8.0.1",
-    "package-name": "^0.1.0",
     "prisma": "^6.19.2",
     "rate-limiter-flexible": "^9.1.1",
     "serverless-http": "^4.0.0",
@@ -60,7 +52,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "eslint": "^10.0.2",
+    "eslint": "^9.0.0",
     "nodemon": "^3.1.14"
   }
 }

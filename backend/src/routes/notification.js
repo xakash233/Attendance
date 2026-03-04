@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-
 const { getNotifications, markAsRead, markAllRead } = require('../controllers/notification');
-const { protect } = require('../middleware/auth'); // fixed path
+const { protect } = require('../middleware/auth');
 
 // Protect all notification routes
 router.use(protect);
