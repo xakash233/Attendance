@@ -12,6 +12,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loginErrorState, setLoginErrorState] = useState<'NONE' | 'EMAIL' | 'PASSWORD'>('NONE');
     const { login } = useAuth();
 
     const handleLogin = async (e: React.FormEvent) => {
@@ -26,12 +27,21 @@ export default function LoginPage() {
                 role: response.data.role,
                 department: response.data.department,
             });
+            setLoginErrorState('NONE');
             toast.success('Access Granted');
         } catch (error: any) {
             if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
                 toast.error('Network Error: Hub server is offline or unreachable', { icon: '🔌' });
             } else {
-                toast.error(error.response?.data?.message || 'Authorization Denied');
+                const errorMsg = error.response?.data?.message || 'Authorization Denied';
+                if (errorMsg.includes('User account not found')) {
+                    setLoginErrorState('EMAIL');
+                } else if (errorMsg.includes('Incorrect cipher key provided')) {
+                    setLoginErrorState('PASSWORD');
+                } else {
+                    setLoginErrorState('NONE');
+                }
+                toast.error(errorMsg);
             }
         } finally {
             setLoading(false);
@@ -140,13 +150,16 @@ export default function LoginPage() {
                                         <div className="relative">
                                             <input
                                                 type="email"
-                                                className="w-full bg-neutral-50 border border-neutral-100 h-14 rounded-xl px-12 text-[14px] font-medium text-black focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white transition-all placeholder:text-black/10 outline-none"
+                                                className={`w-full h-14 rounded-xl px-12 text-[14px] font-medium text-black focus:outline-none transition-all placeholder:text-black/10 ${loginErrorState === 'EMAIL' ? 'bg-red-50 border-2 border-red-500 text-red-900 focus:bg-white focus:ring-4 focus:ring-red-500/10' : 'bg-neutral-50 border border-neutral-100 focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white'}`}
                                                 placeholder="alias@tectra.com"
                                                 value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
+                                                onChange={(e) => {
+                                                    setEmail(e.target.value);
+                                                    if (loginErrorState === 'EMAIL') setLoginErrorState('NONE');
+                                                }}
                                                 required
                                             />
-                                            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" />
+                                            <Mail size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${loginErrorState === 'EMAIL' ? 'text-red-500' : 'text-black/20 group-focus-within:text-black'}`} />
                                         </div>
                                     </div>
 
@@ -158,13 +171,17 @@ export default function LoginPage() {
                                         <div className="relative">
                                             <input
                                                 type="password"
-                                                className="w-full bg-neutral-50 border border-neutral-100 h-14 rounded-xl px-12 text-[14px] font-medium tracking-widest text-black focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white transition-all placeholder:text-black/10 outline-none"
+                                                className={`w-full h-14 rounded-xl px-12 text-[14px] font-medium tracking-widest text-black focus:outline-none transition-all placeholder:text-black/10 ${loginErrorState === 'PASSWORD' ? 'bg-red-50 border-2 border-red-500 text-red-900 focus:bg-white focus:ring-4 focus:ring-red-500/10' : 'bg-neutral-50 border border-neutral-100 focus:ring-1 focus:ring-black/10 focus:border-black/20 focus:bg-white'}`}
                                                 placeholder="••••••••"
                                                 value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
+                                                onChange={(e) => {
+                                                    setPassword(e.target.value);
+                                                    if (loginErrorState === 'PASSWORD') setLoginErrorState('NONE');
+                                                }}
                                                 required
+                                                autoComplete="current-password"
                                             />
-                                            <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" />
+                                            <Key size={16} className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${loginErrorState === 'PASSWORD' ? 'text-red-500' : 'text-black/20 group-focus-within:text-black'}`} />
                                         </div>
                                     </div>
                                 </div>
