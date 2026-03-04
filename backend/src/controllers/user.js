@@ -215,6 +215,29 @@ export const getUserProfile = async (req, res, next) => {
     }
 };
 
+// @desc    Update current user profile
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateUserProfile = async (req, res, next) => {
+    try {
+        const { name, phone, bio, profileImage } = req.body;
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                name,
+                phone,
+                bio,
+                profileImage
+            },
+            omit: { password: true },
+            include: { department: true }
+        });
+        res.json(user);
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get dashboard analytics
 // @route   GET /api/users/analytics
 // @access  Private

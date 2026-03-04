@@ -36,23 +36,14 @@ export const login = async (req, res, next) => {
                 }
             });
 
-            // Set cookies
-            const isProd = process.env.NODE_ENV === 'production';
-            const cookieOptions = {
-                httpOnly: true,
-                secure: isProd,
-                sameSite: isProd ? 'none' : 'lax',
-            };
-
-            res.cookie('token', accessToken, { ...cookieOptions, maxAge: 15 * 60 * 1000 });
-            res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
-
             res.json({
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
-                department: user.department
+                department: user.department,
+                accessToken,
+                refreshToken
             });
         } else {
             res.status(401).json({ message: 'Invalid email or password' });
@@ -66,7 +57,7 @@ export const login = async (req, res, next) => {
 // @route   POST /api/auth/refresh
 // @access  Public
 export const refreshToken = async (req, res, next) => {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const { refreshToken } = req.body;
 
     if (!refreshToken) {
         return res.status(401).json({ message: 'Refresh token is required' });
@@ -84,15 +75,7 @@ export const refreshToken = async (req, res, next) => {
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
         const accessToken = generateToken(decoded.id);
 
-        const isProd = process.env.NODE_ENV === 'production';
-        res.cookie('token', accessToken, {
-            httpOnly: true,
-            secure: isProd,
-            sameSite: isProd ? 'none' : 'lax',
-            maxAge: 15 * 60 * 1000
-        });
-
-        res.json({ success: true });
+        res.json({ accessToken });
     } catch (error) {
         next(error);
     }
@@ -102,23 +85,11 @@ export const refreshToken = async (req, res, next) => {
 // @route   POST /api/auth/logout
 // @access  Private
 export const logout = async (req, res, next) => {
-    const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const { refreshToken } = req.body;
     try {
-        if (refreshToken) {
-            await prisma.refreshToken.deleteMany({
-                where: { token: refreshToken }
-            });
-        }
-
-        const isProd = process.env.NODE_ENV === 'production';
-        const cookieOptions = {
-            httpOnly: true,
-            secure: isProd,
-            sameSite: isProd ? 'none' : 'lax',
-        };
-
-        res.clearCookie('token', cookieOptions);
-        res.clearCookie('refreshToken', cookieOptions);
+        await prisma.refreshToken.deleteMany({
+            where: { token: refreshToken }
+        });
         res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
         next(error);

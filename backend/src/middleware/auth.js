@@ -4,14 +4,12 @@ import prisma from '../config/prisma.js';
 export const protect = async (req, res, next) => {
     let token;
 
-    if (req.cookies && req.cookies.token) {
-        token = req.cookies.token;
-    } else if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-        token = req.headers.authorization.split(' ')[1];
-    }
-
-    if (token) {
+    if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer')
+    ) {
         try {
+            token = req.headers.authorization.split(' ')[1];
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             req.user = await prisma.user.findUnique({
@@ -26,12 +24,12 @@ export const protect = async (req, res, next) => {
 
             next();
         } catch (error) {
-            console.error('Token verification error:', error);
-            // If token expired, we could handle it via refresh token endpoint, 
-            // but middleware should just reject.
+            console.error(error);
             return res.status(401).json({ message: 'Not authorized, token failed' });
         }
-    } else {
+    }
+
+    if (!token) {
         return res.status(401).json({ message: 'Not authorized, no token' });
     }
 };
