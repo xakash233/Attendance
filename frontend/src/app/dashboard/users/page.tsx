@@ -215,7 +215,7 @@ export default function UsersPage() {
                         {/* Step 1: Form */}
                         {step === 1 && (
                             <div className="overflow-y-auto no-scrollbar">
-                                <form onSubmit={handleInitCreation} className="p-8 space-y-6">
+                                <form onSubmit={handleInitCreation} className="p-8 space-y-6" autoComplete="off">
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Full Name</label>
                                         <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="John Doe" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
@@ -266,7 +266,7 @@ export default function UsersPage() {
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Initial Cipher</label>
                                         <div className="relative">
-                                            <input type="password" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
+                                            <input type="password" autoComplete="new-password" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl p-4 text-[12px] text-black font-bold focus:ring-2 focus:ring-black/[0.02] focus:border-black/5 outline-none transition-all" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
                                             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-20">
                                                 <Key size={14} />
                                             </div>

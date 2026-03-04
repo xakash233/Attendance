@@ -145,7 +145,7 @@ export default function DepartmentsPage() {
                         </div>
 
                         <div className="overflow-y-auto no-scrollbar">
-                            <form onSubmit={handleCreate} className="p-8 space-y-6">
+                            <form onSubmit={handleCreate} className="p-8 space-y-6" autoComplete="off">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Department Name</label>
                                     <input
