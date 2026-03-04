@@ -279,7 +279,7 @@ export default function LeavesPage() {
                         </div>
 
                         <form onSubmit={handleApply} className="p-8 space-y-6">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Leave Type</label>
                                     <div className="relative">
@@ -310,7 +310,7 @@ export default function LeavesPage() {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black tracking-widest text-black/40 uppercase ml-1">Start Date</label>
                                     <DatePicker

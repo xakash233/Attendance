@@ -18,7 +18,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+
+    // Close dropdowns on route change
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+        setIsProfileMenuOpen(false);
+    }, [pathname]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -130,7 +137,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             />
 
             {/* Desktop Sidebar */}
-            <div className="hidden md:block w-[100px] min-h-screen z-[100] border-r border-neutral-100">
+            <div className="hidden md:block w-[100px] lg:w-64 min-h-screen z-[100] border-r border-neutral-100 flex-shrink-0">
                 <Sidebar />
             </div>
 
@@ -138,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1 flex flex-col min-w-0 bg-white">
 
                 {/* Minimal Header */}
-                <header className="sticky top-0 z-50 h-[80px] bg-white/90 backdrop-blur-md flex items-center justify-between px-8 md:px-12 border-b border-neutral-100">
+                <header className="sticky top-0 z-50 h-[80px] bg-white/90 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 md:px-8 lg:px-12 border-b border-neutral-100">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -232,26 +239,57 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                         <div className="h-6 w-[1px] bg-black/10 hidden sm:block"></div>
 
-                        {/* Minimal Account Box */}
-                        <div className="flex items-center gap-4 cursor-pointer group">
-                            <div className="text-right hidden sm:block">
-                                <p className="text-[12px] font-black tracking-tight text-black uppercase">{user.name}</p>
-                                <p className="text-[9px] text-black/30 font-bold uppercase tracking-widest italic">{user.role}</p>
+                        <div className="relative">
+                            {/* Minimal Account Box */}
+                            <div
+                                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                className="flex items-center gap-4 cursor-pointer group"
+                            >
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-[12px] font-black tracking-tight text-black uppercase">{user.name}</p>
+                                    <p className="text-[9px] text-black/30 font-bold uppercase tracking-widest italic">{user.role}</p>
+                                </div>
+                                <Image
+                                    src={`https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm"
+                                    alt="User"
+                                    unoptimized
+                                />
+                                <ChevronDown size={14} className="text-black/30 group-hover:text-black transition-colors" />
                             </div>
-                            <Image
-                                src={`https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
-                                width={40}
-                                height={40}
-                                className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm"
-                                alt="User"
-                                unoptimized
-                            />
+
+                            {/* Profile Dropdown Menu */}
+                            {isProfileMenuOpen && (
+                                <div className="absolute right-0 mt-4 w-48 bg-white border border-black/5 rounded-2xl shadow-xl overflow-hidden animate-fade-in z-[200]">
+                                    <div className="p-4 border-b border-neutral-50 flex flex-col items-center">
+                                        <p className="font-bold text-xs uppercase text-black">{user.name}</p>
+                                        <p className="text-[10px] text-black/40 line-clamp-1">{user.email}</p>
+                                    </div>
+                                    <div className="py-2 flex flex-col">
+                                        <Link href="/dashboard/profile" className="px-4 py-2 text-xs font-bold text-black/60 hover:text-black hover:bg-neutral-50 transition-colors uppercase">
+                                            My Profile
+                                        </Link>
+                                        <Link href="/dashboard/settings" className="px-4 py-2 text-xs font-bold text-black/60 hover:text-black hover:bg-neutral-50 transition-colors uppercase">
+                                            Settings
+                                        </Link>
+                                        <div className="w-full h-[1px] bg-neutral-100 my-1"></div>
+                                        <button
+                                            onClick={logout}
+                                            className="px-4 py-2 text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 text-left transition-colors uppercase"
+                                        >
+                                            Logout
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </header>
 
                 {/* Minimal Breadcrumbs */}
-                <div className="px-8 md:px-12 pt-8 pb-2 text-[10px] font-bold text-black/30 flex items-center gap-2 uppercase tracking-widest">
+                <div className="px-4 sm:px-6 md:px-8 lg:px-12 pt-8 pb-2 text-[10px] font-bold text-black/30 flex items-center gap-2 uppercase tracking-widest">
                     <Link href="/dashboard" className="hover:text-black transition-colors flex items-center gap-1">
                         <Home size={12} /> Home
                     </Link>
@@ -260,25 +298,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
 
                 {/* Main Content Area */}
-                <main className="flex-1 px-8 md:px-12 pb-20 overflow-x-hidden pt-6">
+                <main className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 pb-20 overflow-x-hidden pt-6">
                     {children}
                 </main>
             </div>
 
-            {/* Mobile Menu */}
-            {isMobileMenuOpen && (
+            {/* Mobile Menu Overlay & Drawer */}
+            <div
+                className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+            >
                 <div
-                    className="fixed inset-0 bg-white/60 backdrop-blur-md z-[200] md:hidden"
-                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`fixed inset-y-0 left-0 w-[240px] bg-white border-r border-black/5 shadow-2xl transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    <div
-                        className="w-[100px] h-full bg-neutral-50 border-r border-black/5 flex flex-col items-center py-6 shadow-2xl"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
-                    </div>
+                    <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
                 </div>
-            )}
+            </div>
         </div>
     );
 }

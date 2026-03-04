@@ -8,6 +8,15 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
     title: "Tectra Technologies | Attendance System",
     description: "Advanced HRMS and Attendance Management System",
+    icons: {
+        icon: [
+            { url: '/favicon.png', type: 'image/png' },
+            { url: '/logo/Tectra.png', type: 'image/png' },
+        ],
+        apple: [
+            { url: '/logo/Tectra.png', type: 'image/png' }
+        ]
+    }
 };
 
 export default function RootLayout({

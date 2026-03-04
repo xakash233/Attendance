@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
                     <div className="space-y-1 relative z-10">
                         <p className="text-[10px] font-bold text-black uppercase tracking-[0.2em]">Current Time</p>
-                        <h3 className="text-6xl font-black tracking-tighter tabular-nums text-black drop-shadow-sm">
+                        <h3 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter tabular-nums text-black drop-shadow-sm">
                             {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' })}
                         </h3>
                     </div>
@@ -337,7 +337,7 @@ const StatBox = ({ title, value, desc, icon: Icon, trend, trendInverse }: any) =
                 )}
             </div>
             <div className="space-y-2 relative z-10">
-                <h3 className="text-5xl font-black text-black tracking-tighter tabular-nums leading-none">{value}</h3>
+                <h3 className="text-3xl lg:text-5xl font-black text-black tracking-tighter tabular-nums leading-none">{value}</h3>
                 <p className="text-[11px] font-black text-black/40 uppercase tracking-[0.2em]">{title}</p>
             </div>
         </div>

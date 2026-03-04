@@ -27,39 +27,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
 
     const login = (token: string, userData: User) => {
-        // HTTP-Only cookies are set automatically by the backend.
-        // We only need to update memory state to reflect authentication.
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         socket.connect();
         router.push('/dashboard');
     };
 
-    const logout = React.useCallback(async () => {
-        try {
-            await api.post('/auth/logout');
-        } catch (err) { }
+    const logout = React.useCallback(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setUser(null);
         socket.disconnect();
         router.push('/login');
     }, [router]);
 
     useEffect(() => {
-        const checkAuth = async () => {
-            try {
-                // This request automatically sends HttpOnly cookies globally.
-                const response = await api.get('/users/profile');
-                if (response.data) {
-                    setUser(response.data);
-                    socket.connect();
-                }
-            } catch (error) {
-                setUser(null);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        checkAuth();
+        const token = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
+        if (token && storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            setUser(parsedUser);
+            socket.connect();
+        }
+        setLoading(false);
 
         // Global response interceptor to handle unauthorized access
         const interceptor = api.interceptors.response.use(

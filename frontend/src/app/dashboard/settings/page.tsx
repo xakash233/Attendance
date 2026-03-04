@@ -12,7 +12,7 @@ export default function SettingsPage() {
         <div className="space-y-16 animate-fade-in pb-20 max-w-[1700px] mx-auto text-black">
             {/* Simple Light Header */}
             <header className="space-y-4">
-                <h1 className="text-6xl font-black tracking-tighter uppercase leading-none text-black">
+                <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none text-black">
                     System Hub
                 </h1>
                 <p className="text-[11px] font-black uppercase tracking-[0.4em] text-black/20 italic">
@@ -93,9 +93,9 @@ export default function SettingsPage() {
 }
 
 const SettingItem = ({ title, desc, value, icon: Icon }: any) => (
-    <div className="flex items-center justify-between p-7 bg-neutral-50/[0.5] hover:bg-neutral-50 rounded-[2rem] border border-transparent hover:border-black/5 transition-all cursor-pointer group/item">
-        <div className="flex gap-6 items-center">
-            <div className="w-14 h-14 bg-white text-black/20 rounded-2xl flex items-center justify-center group-hover/item:bg-black group-hover/item:text-white transition-all shadow-sm border border-neutral-100 group-hover/item:border-black/5">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-7 bg-neutral-50/[0.5] hover:bg-neutral-50 rounded-[2rem] border border-transparent hover:border-black/5 transition-all cursor-pointer group/item">
+        <div className="flex gap-4 sm:gap-6 items-center">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-white text-black/20 rounded-2xl flex items-center justify-center group-hover/item:bg-black group-hover/item:text-white transition-all shadow-sm border border-neutral-100 group-hover/item:border-black/5 flex-shrink-0">
                 <Icon size={24} strokeWidth={2.5} />
             </div>
             <div>
