@@ -1,21 +1,17 @@
-import createDOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
-
-const window = new JSDOM('').window;
-const DOMPurify = createDOMPurify(window);
+import xss from 'xss';
 
 /**
- * Middleware to sanitize deeply nested objects replacing the buggy xss-clean
+ * Middleware to sanitize deeply nested objects
  */
 const clean = (data) => {
     let isObject = false;
-    if (typeof data === 'object') {
+    if (typeof data === 'object' && data !== null) {
         isObject = true;
     }
 
     if (!isObject) {
         if (typeof data === 'string') {
-            return DOMPurify.sanitize(data);
+            return xss(data);
         }
         return data;
     }
