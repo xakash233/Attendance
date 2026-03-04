@@ -250,10 +250,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <p className="text-[9px] text-black/30 font-bold uppercase tracking-widest italic">{user.role}</p>
                                 </div>
                                 <Image
-                                    src={`https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
+                                    src={user.profileImage || `https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
                                     width={40}
                                     height={40}
-                                    className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm"
+                                    className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm h-10 w-10"
                                     alt="User"
                                     unoptimized
                                 />

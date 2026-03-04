@@ -1,38 +1,88 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Camera, Mail, Phone, Hash, Shield, Save } from 'lucide-react';
+import { Camera, Mail, Phone, Hash, Shield, Save, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import api from '@/lib/axios';
 
 export default function ProfilePage() {
-    const { user } = useAuth();
+    const { user, setUser } = useAuth();
     const [isEditing, setIsEditing] = useState(false);
+    const [loading, setLoading] = useState(false);
 
-    // Fallback states for UI since PRISMA currently only has name, email, role, employeeCode
     const [formData, setFormData] = useState({
         name: user?.name || '',
         email: user?.email || '',
-        phone: '+1 (555) 000-0000', // Mock data
-        bio: 'Senior Software Engineer with 5+ years of experience in full-stack development. Passionate about building scalable applications.', // Mock data
+        phone: user?.phone || '',
+        bio: user?.bio || '',
     });
 
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [previewImage, setPreviewImage] = useState<string | null>(user?.profileImage || null);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                bio: user.bio || '',
+            });
+            if (user.profileImage) {
+                setPreviewImage(user.profileImage);
+            }
+        }
+    }, [user]);
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            setPreviewImage(url);
-            toast.success("Profile photo updated (Preview)");
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error("File is too large (max 5MB)");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64String = reader.result as string;
+                setPreviewImage(base64String);
+                try {
+                    setLoading(true);
+                    const res = await api.put('/users/profile', { profileImage: base64String });
+                    const updatedUser = { ...user, ...res.data };
+                    // @ts-ignore
+                    setUser(updatedUser);
+                    localStorage.setItem('user', JSON.stringify(updatedUser));
+                    toast.success("Profile photo saved immediately");
+                } catch (err) {
+                    toast.error("Failed to upload photo");
+                } finally {
+                    setLoading(false);
+                }
+            };
+            reader.readAsDataURL(file);
         }
     };
 
-    const handleSave = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Here we would normally dispatch to an API, e.g. /api/users/profile
-        toast.success("Profile details updated successfully!");
-        setIsEditing(false);
+        try {
+            setLoading(true);
+            const res = await api.put('/users/profile', {
+                name: formData.name,
+                phone: formData.phone,
+                bio: formData.bio
+            });
+            const updatedUser = { ...user, ...res.data };
+            // @ts-ignore
+            setUser(updatedUser);
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            toast.success("Profile details updated successfully!");
+            setIsEditing(false);
+        } catch (error) {
+            toast.error("Failed to update profile details");
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!user) return null;
