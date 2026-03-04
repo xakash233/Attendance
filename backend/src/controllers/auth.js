@@ -42,6 +42,7 @@ export const login = async (req, res, next) => {
                 email: user.email,
                 role: user.role,
                 department: user.department,
+                profileImage: user.profileImage,
                 accessToken,
                 refreshToken
             });
