@@ -28,6 +28,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust Vercel Proxy for correct client IP detection (needed for rate limiting)
+app.set('trust proxy', 1);
+
 // Security and other middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
