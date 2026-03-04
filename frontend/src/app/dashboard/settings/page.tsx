@@ -6,17 +6,19 @@ import {
     History as HistoryIcon, Activity as ActivityIcon, Globe, Wifi, Mail,
     ChevronRight, ArrowRight, ShieldCheck, Cpu
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsPage() {
+    const { user } = useAuth();
     return (
         <div className="space-y-16 animate-fade-in pb-20 max-w-[1700px] mx-auto text-black">
             {/* Simple Light Header */}
             <header className="space-y-4">
                 <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none text-black">
-                    System Hub
+                    Settings
                 </h1>
                 <p className="text-[11px] font-black uppercase tracking-[0.4em] text-black/20 italic">
-                    Core Configuration & Audit Archives
+                    Manage your preferences
                 </p>
             </header>
 
@@ -65,28 +67,35 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* Notifications Section - Strict Black Integration */}
-                <div className="bg-black p-12 xl:col-span-2 border-none rounded-[4rem] shadow-2xl relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/[0.03] rounded-full blur-[120px] -mr-64 -mt-64 group-hover:bg-white/[0.05] transition-all duration-700"></div>
+                {/* Admin Only System Core - Hidden Behind Security Symbol */}
+                {(user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN') && (
+                    <div className="bg-black p-12 xl:col-span-2 border-none rounded-[4rem] shadow-2xl relative overflow-hidden group mt-8">
+                        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/[0.03] rounded-full blur-[120px] -mr-64 -mt-64 group-hover:bg-white/[0.05] transition-all duration-700"></div>
 
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 pb-12 border-b border-white/5 relative z-10 gap-8">
-                        <h3 className="flex items-center gap-6 text-4xl font-black uppercase tracking-tighter text-white">
-                            <Bell size={44} strokeWidth={2.5} className="group-hover:animate-bounce" /> Hub Services
-                        </h3>
-                        <span className="text-[10px] font-black bg-white/5 text-white/40 px-6 py-2.5 rounded-2xl border border-white/10 uppercase tracking-[0.3em] italic">System Core Active</span>
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-16 pb-12 border-b border-white/5 relative z-10 gap-8">
+                            <div className="space-y-4">
+                                <h3 className="flex items-center gap-6 text-4xl font-black uppercase tracking-tighter text-white">
+                                    <Shield size={44} strokeWidth={2.5} className="group-hover:text-white/80 transition-colors" /> System Hub
+                                </h3>
+                                <p className="text-[11px] font-black uppercase tracking-[0.4em] text-white/40 italic">
+                                    Core Configuration & Audit Archives
+                                </p>
+                            </div>
+                            <span className="text-[10px] font-black bg-white/5 text-white/40 px-6 py-2.5 rounded-2xl border border-white/10 uppercase tracking-[0.3em] italic">Admin Access Level</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 relative z-10">
+                            <ChannelCard name="Live Sync" status="Operational" desc="Provides real-time updates across the registry hub." icon={Wifi} />
+                            <ChannelCard name="Mail Proxy" status="On-line" desc="Dispatches all leaf and verification communications." icon={Mail} />
+                            <ChannelCard name="Archive Bot" status="Operational" desc="Summarizes daily operational metrics for audits." icon={HistoryIcon} />
+                        </div>
+
+                        <button className="relative z-10 w-full mt-14 py-7 bg-white text-black rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-3xl hover:bg-neutral-100 transition-all flex items-center justify-center gap-4 active:scale-95 group/btn overflow-hidden">
+                            <span className="relative z-10">Initialize System Reboot</span>
+                            <ArrowRight size={22} strokeWidth={3} className="relative z-10 group-hover/btn:translate-x-6 transition-transform duration-500" />
+                        </button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10 relative z-10">
-                        <ChannelCard name="Live Sync" status="Operational" desc="Provides real-time updates across the registry hub." icon={Wifi} />
-                        <ChannelCard name="Mail Proxy" status="On-line" desc="Dispatches all leaf and verification communications." icon={Mail} />
-                        <ChannelCard name="Archive Bot" status="Operational" desc="Summarizes daily operational metrics for audits." icon={HistoryIcon} />
-                    </div>
-
-                    <button className="relative z-10 w-full mt-14 py-7 bg-white text-black rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-3xl hover:bg-neutral-100 transition-all flex items-center justify-center gap-4 active:scale-95 group/btn overflow-hidden">
-                        <span className="relative z-10">Initialize System Reboot</span>
-                        <ArrowRight size={22} strokeWidth={3} className="relative z-10 group-hover/btn:translate-x-6 transition-transform duration-500" />
-                    </button>
-                </div>
+                )}
             </div>
         </div>
     );
