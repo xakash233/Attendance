@@ -1,4 +1,4 @@
-const prisma = require('./src/config/prisma');
+import prisma from './src/config/prisma.js';
 
 async function checkEnum() {
     try {
@@ -19,3 +19,4 @@ async function checkEnum() {
 }
 
 checkEnum();
+

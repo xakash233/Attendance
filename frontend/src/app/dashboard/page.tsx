@@ -32,7 +32,7 @@ export default function DashboardPage() {
                 api.get('/leaves/history')
             ]);
             setStats(statsRes.data);
-            setRecentActivity(activityRes.data.data);
+            setRecentActivity(activityRes.data);
             setRecentLeaves(leavesRes.data.slice(0, 5));
         } catch (error) {
             console.error('Failed to fetch dashboard data', error);

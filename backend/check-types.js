@@ -1,4 +1,4 @@
-const prisma = require('./src/config/prisma');
+import prisma from './src/config/prisma.js';
 
 async function check() {
     const types = await prisma.leaveType.findMany();
@@ -7,3 +7,4 @@ async function check() {
 }
 
 check();
+

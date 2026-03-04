@@ -29,14 +29,10 @@ export const syncBiometricUpload = async (req, res, next) => {
     }
 };
 
-/**
- * Get sync logs
- * GET /api/biometric/logs
- */
 export const getSyncLogs = async (req, res, next) => {
     try {
         const logs = await biometricService.getSyncLogs();
-        res.status(200).json({ success: true, data: logs });
+        res.status(200).json(logs);
     } catch (error) {
         next(error);
     }
@@ -45,8 +41,9 @@ export const getSyncLogs = async (req, res, next) => {
 export const getLatestRecords = async (req, res, next) => {
     try {
         const records = await biometricService.getLatestRecords();
-        res.status(200).json({ success: true, data: records });
+        res.status(200).json(records);
     } catch (error) {
         next(error);
     }
 };
+
