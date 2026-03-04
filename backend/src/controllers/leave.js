@@ -43,7 +43,7 @@ export const applyLeave = async (req, res, next) => {
 
 export const hrDecision = async (req, res, next) => {
     try {
-        const { updated, user } = await leaveService.hrDecision({
+        const { updated, user, leaveType, durationType, totalDays, startDate, endDate, reason } = await leaveService.hrDecision({
             leaveId: req.params.id,
             decision: req.body.decision,
             comments: req.body.comments,
@@ -51,12 +51,30 @@ export const hrDecision = async (req, res, next) => {
         });
 
         // Notify Employee (Dashboard and Email)
+        let templateData = null;
+        let templateType = null;
+
+        if (req.body.decision === 'HR_APPROVED') {
+            templateType = 'LEAVE_APPROVAL';
+            templateData = {
+                userName: user.name,
+                leaveType: leaveType.name,
+                durationType: durationType.replace(/_/g, ' '),
+                startDate: new Date(startDate).toLocaleDateString('en-GB'),
+                endDate: new Date(endDate).toLocaleDateString('en-GB'),
+                totalDays,
+                reason
+            };
+        }
+
         await notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
             title: `HR Decision: ${req.body.decision.replace(/_/g, ' ')}`,
             message: `Your leave request for ${updated.totalDays} day(s) has been ${req.body.decision.toLowerCase().replace(/_/g, ' ')} by your manager ${req.user.name}.`,
-            type: 'LEAVE_STATUS'
+            type: 'LEAVE_STATUS',
+            templateType,
+            templateData
         });
 
         // Notify Super Admins if Approved
@@ -80,7 +98,7 @@ export const hrDecision = async (req, res, next) => {
 
 export const finalDecision = async (req, res, next) => {
     try {
-        const { updated, user } = await leaveService.finalDecision({
+        const { updated, user, leaveType, durationType, totalDays, startDate, endDate, reason, wasPendingHR, departmentId } = await leaveService.finalDecision({
             leaveId: req.params.id,
             decision: req.body.decision,
             comments: req.body.comments,
@@ -88,12 +106,30 @@ export const finalDecision = async (req, res, next) => {
         });
 
         // Notify Employee (Dashboard and Email)
+        let templateData = null;
+        let templateType = null;
+
+        if (req.body.decision === 'FINAL_APPROVED') {
+            templateType = 'LEAVE_APPROVAL';
+            templateData = {
+                userName: user.name,
+                leaveType: leaveType.name,
+                durationType: durationType.replace(/_/g, ' '),
+                startDate: new Date(startDate).toLocaleDateString('en-GB'),
+                endDate: new Date(endDate).toLocaleDateString('en-GB'),
+                totalDays,
+                reason
+            };
+        }
+
         await notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
             title: `Final Decision: ${req.body.decision.replace(/_/g, ' ')}`,
             message: `Your leave request for ${updated.totalDays} day(s) has received a final ${req.body.decision.toLowerCase().replace(/_/g, ' ')} by the Super Administration.`,
-            type: 'LEAVE_STATUS'
+            type: 'LEAVE_STATUS',
+            templateType,
+            templateData
         });
 
         res.json(updated);

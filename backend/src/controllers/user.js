@@ -308,3 +308,53 @@ export const getAnalytics = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Global Search (Users + Modules)
+// @route   GET /api/users/search
+// @access  Private
+export const globalSearch = async (req, res, next) => {
+    try {
+        const { query } = req.query;
+        if (!query || query.length < 2) {
+            return res.json({ users: [], modules: [] });
+        }
+
+        const { role } = req.user;
+        let users = [];
+
+        // Only let authorized roles search for other real users in the system specifically
+        if (['SUPER_ADMIN', 'ADMIN', 'HR'].includes(role)) {
+            users = await prisma.user.findMany({
+                where: {
+                    OR: [
+                        { name: { contains: query, mode: 'insensitive' } },
+                        { email: { contains: query, mode: 'insensitive' } },
+                        { employeeCode: { contains: query, mode: 'insensitive' } }
+                    ]
+                },
+                take: 5,
+                select: { id: true, name: true, employeeCode: true, profileImage: true, role: true }
+            });
+        }
+
+        // Hardcode searchable modules
+        const availableModules = [
+            { name: "Attendance", path: "/dashboard/attendance", icon: "Clock", description: "View and manage records" },
+            { name: "Biometric Logs", path: "/dashboard/biometric", icon: "Database", description: "Raw device feeds" },
+            { name: "Leaves", path: "/dashboard/leaves", icon: "Calendar", description: "Absence management" },
+            { name: "Settings", path: "/dashboard/settings", icon: "Settings", description: "System hub & config" },
+            { name: "Staff Management", path: "/dashboard/users", icon: "Users", description: "Personnel registry" },
+            { name: "Departments", path: "/dashboard/departments", icon: "Briefcase", description: "Unit organization" },
+            { name: "My Profile", path: "/dashboard/profile", icon: "User", description: "Personal Identity info" }
+        ];
+
+        const modules = availableModules.filter(m =>
+            m.name.toLowerCase().includes(query.toLowerCase()) ||
+            m.description.toLowerCase().includes(query.toLowerCase())
+        );
+
+        res.json({ users, modules });
+    } catch (error) {
+        next(error);
+    }
+};

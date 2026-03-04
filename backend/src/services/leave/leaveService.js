@@ -117,7 +117,7 @@ class LeaveService {
         return await prisma.$transaction(async (tx) => {
             const leaveRequest = await tx.leaveRequest.findUnique({
                 where: { id: leaveId },
-                include: { user: true }
+                include: { user: true, leaveType: true }
             });
 
             if (!leaveRequest) throw new Error('Request not found');
@@ -140,7 +140,7 @@ class LeaveService {
                 details: { comments, stage: 'HR' }
             }, tx);
 
-            return { updated, user: leaveRequest.user };
+            return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
         });
     }
 
@@ -148,7 +148,7 @@ class LeaveService {
         const result = await prisma.$transaction(async (tx) => {
             const leaveRequest = await tx.leaveRequest.findUnique({
                 where: { id: leaveId },
-                include: { user: true }
+                include: { user: true, leaveType: true }
             });
 
             if (!leaveRequest) throw new Error('Request not found');
@@ -205,7 +205,7 @@ class LeaveService {
                 details: { comments, stage: 'FINAL', overriden: wasPendingHR }
             }, tx);
 
-            return { updated, user: leaveRequest.user, wasPendingHR, departmentId: leaveRequest.departmentId };
+            return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, wasPendingHR, departmentId: leaveRequest.departmentId, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
         });
 
         // Notify HR if Super Admin overrode their pending request
