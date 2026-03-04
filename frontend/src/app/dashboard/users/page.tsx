@@ -100,96 +100,98 @@ export default function UsersPage() {
     );
 
     return (
-        <div className="space-y-12 animate-fade-in pb-20 max-w-[1600px] text-black">
-            {/* Strict Header */}
-            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
-                <div className="space-y-4">
-                    <h1 className="text-4xl font-black tracking-tighter uppercase leading-none text-black">
-                        Staff Management
-                    </h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Authorized Accounts</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></div>
+        <>
+            <div className="space-y-12 animate-fade-in pb-20 max-w-[1600px] text-black">
+                {/* Strict Header */}
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-10">
+                    <div className="space-y-4">
+                        <h1 className="text-4xl font-black tracking-tighter uppercase leading-none text-black">
+                            Staff Management
+                        </h1>
+                        <div className="flex items-center gap-4">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Authorized Accounts</span>
+                            <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></div>
+                        </div>
+                    </div>
+                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && (
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="bg-black text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all shadow-2xl active:scale-95 w-full md:w-auto hover:bg-neutral-900"
+                        >
+                            <UserPlus size={20} strokeWidth={3} />
+                            Add Personnel
+                        </button>
+                    )}
+                </header>
+
+                {/* Registry Search */}
+                <div className="flex flex-col sm:flex-row gap-6">
+                    <div className="flex-1 relative group">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search personnel audit..."
+                            className="w-full bg-neutral-50 border border-neutral-100 pl-14 pr-6 py-5 rounded-2xl text-[12px] font-bold focus:ring-4 focus:ring-black/[0.02] focus:border-black/5 transition-all placeholder:text-black/10 outline-none"
+                        />
                     </div>
                 </div>
-                {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && (
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-black text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center gap-4 transition-all shadow-2xl active:scale-95 w-full md:w-auto hover:bg-neutral-900"
-                    >
-                        <UserPlus size={20} strokeWidth={3} />
-                        Add Personnel
-                    </button>
-                )}
-            </header>
 
-            {/* Registry Search */}
-            <div className="flex flex-col sm:flex-row gap-6">
-                <div className="flex-1 relative group">
-                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search personnel audit..."
-                        className="w-full bg-neutral-50 border border-neutral-100 pl-14 pr-6 py-5 rounded-2xl text-[12px] font-bold focus:ring-4 focus:ring-black/[0.02] focus:border-black/5 transition-all placeholder:text-black/10 outline-none"
-                    />
-                </div>
-            </div>
-
-            {/* Personnel Table */}
-            <div className="bg-white border border-black/5 rounded-[2.5rem] overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="bg-neutral-50/[0.5] text-black/30 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-black/5">
-                                <th className="px-10 py-8">Audited Profile</th>
-                                <th className="px-10 py-8">Identifier</th>
-                                <th className="px-10 py-8">Unit Hub</th>
-                                <th className="px-10 py-8">Clearance</th>
-                                <th className="px-10 py-8 text-right">Audit</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-sm">
-                            {users.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="p-32 text-center text-black/10 font-bold uppercase tracking-widest text-xs italic">
-                                        No active personnel detected
-                                    </td>
+                {/* Personnel Table */}
+                <div className="bg-white border border-black/5 rounded-[2.5rem] overflow-hidden shadow-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead>
+                                <tr className="bg-neutral-50/[0.5] text-black/30 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-black/5">
+                                    <th className="px-10 py-8">Audited Profile</th>
+                                    <th className="px-10 py-8">Identifier</th>
+                                    <th className="px-10 py-8">Unit Hub</th>
+                                    <th className="px-10 py-8">Clearance</th>
+                                    <th className="px-10 py-8 text-right">Audit</th>
                                 </tr>
-                            ) : (
-                                users.map((u: any) => (
-                                    <tr key={u.id} className="border-b border-black/5 hover:bg-neutral-50/[0.3] transition-colors group">
-                                        <td className="px-10 py-8">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-12 h-12 rounded-2xl bg-neutral-50 text-black/40 flex items-center justify-center text-xs font-black border border-neutral-100 group-hover:bg-black group-hover:text-white transition-all shadow-sm">
-                                                    {u.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div>
-                                                    <p className="font-black text-black uppercase tracking-tight text-base group-hover:translate-x-1 transition-transform">{u.name}</p>
-                                                    <p className="text-[10px] text-black/30 font-bold mt-1 opacity-70 tracking-tighter italic lowercase">{u.email}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-10 py-8">
-                                            <span className="font-black text-[11px] text-black/60 uppercase tracking-widest bg-neutral-50 px-4 py-1.5 rounded-lg border border-neutral-100 italic">ID: {u.employeeCode}</span>
-                                        </td>
-                                        <td className="px-10 py-8 text-black font-black text-[11px] uppercase tracking-widest opacity-60 italic">
-                                            {u.department?.name || 'Central Unit'}
-                                        </td>
-                                        <td className="px-10 py-8">
-                                            <span className="px-4 py-1.5 bg-black text-white rounded-lg text-[9px] font-black uppercase tracking-widest italic group-hover:bg-neutral-800 transition-colors">
-                                                {u.role}
-                                            </span>
-                                        </td>
-                                        <td className="px-10 py-8 text-right">
-                                            <button className="p-3 bg-neutral-50 text-black/20 hover:text-black hover:bg-neutral-100 rounded-xl transition-all border border-neutral-100">
-                                                <MoreVertical size={20} />
-                                            </button>
+                            </thead>
+                            <tbody className="text-sm">
+                                {users.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="p-32 text-center text-black/10 font-bold uppercase tracking-widest text-xs italic">
+                                            No active personnel detected
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    users.map((u: any) => (
+                                        <tr key={u.id} className="border-b border-black/5 hover:bg-neutral-50/[0.3] transition-colors group">
+                                            <td className="px-10 py-8">
+                                                <div className="flex items-center gap-6">
+                                                    <div className="w-12 h-12 rounded-2xl bg-neutral-50 text-black/40 flex items-center justify-center text-xs font-black border border-neutral-100 group-hover:bg-black group-hover:text-white transition-all shadow-sm">
+                                                        {u.name.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-black text-black uppercase tracking-tight text-base group-hover:translate-x-1 transition-transform">{u.name}</p>
+                                                        <p className="text-[10px] text-black/30 font-bold mt-1 opacity-70 tracking-tighter italic lowercase">{u.email}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-10 py-8">
+                                                <span className="font-black text-[11px] text-black/60 uppercase tracking-widest bg-neutral-50 px-4 py-1.5 rounded-lg border border-neutral-100 italic">ID: {u.employeeCode}</span>
+                                            </td>
+                                            <td className="px-10 py-8 text-black font-black text-[11px] uppercase tracking-widest opacity-60 italic">
+                                                {u.department?.name || 'Central Unit'}
+                                            </td>
+                                            <td className="px-10 py-8">
+                                                <span className="px-4 py-1.5 bg-black text-white rounded-lg text-[9px] font-black uppercase tracking-widest italic group-hover:bg-neutral-800 transition-colors">
+                                                    {u.role}
+                                                </span>
+                                            </td>
+                                            <td className="px-10 py-8 text-right">
+                                                <button className="p-3 bg-neutral-50 text-black/20 hover:text-black hover:bg-neutral-100 rounded-xl transition-all border border-neutral-100">
+                                                    <MoreVertical size={20} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -317,6 +319,6 @@ export default function UsersPage() {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }
