@@ -195,3 +195,18 @@ export const getLeaveTypes = async (req, res, next) => {
         next(error);
     }
 };
+
+export const cancelLeave = async (req, res, next) => {
+    try {
+        const updated = await leaveService.cancelLeave({
+            leaveId: req.params.id,
+            userId: req.user.id
+        });
+        res.json(updated);
+    } catch (error) {
+        if (['unauthorized', 'not found', 'already', 'cannot'].some(msg => error.message.toLowerCase().includes(msg))) {
+            return res.status(error.message.includes('unauthorized') ? 403 : 400).json({ message: error.message });
+        }
+        next(error);
+    }
+};

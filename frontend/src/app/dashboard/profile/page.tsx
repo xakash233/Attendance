@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Camera, Mail, Hash, Shield, Save } from 'lucide-react';
+import { Camera, Mail, Hash, Shield, Save, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import api from '@/lib/axios';
+import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 
 export default function ProfilePage() {
     const { user, setUser } = useAuth();
@@ -18,6 +19,14 @@ export default function ProfilePage() {
     });
 
     const [previewImage, setPreviewImage] = useState<string | null>(user?.profileImage || null);
+
+    useEffect(() => {
+        if (user?.name) {
+            window.dispatchEvent(new CustomEvent('dashboard-title-update', {
+                detail: user.name
+            }));
+        }
+    }, [user]);
 
     useEffect(() => {
         if (user) {
@@ -87,19 +96,21 @@ export default function ProfilePage() {
     const userAvatarUrl = previewImage || `https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&size=200&bold=true`;
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 animate-fade-in pb-10 overflow-x-hidden">
-            {/* Header */}
-            <div>
-                <h2 className="text-2xl font-black uppercase tracking-tight text-black">My Profile</h2>
-                <p className="text-xs font-bold text-black/40 uppercase tracking-widest mt-1">Manage your professional identity</p>
+        <div className="max-w-7xl mx-auto space-y-10 animate-fade-in pb-20 px-4 sm:px-6 lg:px-8">
+            {/* SaaS Header */}
+            <div className="flex flex-col gap-2">
+                <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none">Personnel Profile</h1>
+                <p className="text-[13px] font-medium text-slate-500 italic">Centralized identity management and professional audit registry.</p>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 {/* Left side: Profile Card */}
-                <div className="w-full lg:w-[320px] flex-shrink-0">
-                    <div className="bg-white border border-neutral-100 rounded-3xl p-8 flex flex-col items-center shadow-xl shadow-black/[0.02]">
-                        <div className="relative group cursor-pointer mb-6">
-                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-lg relative">
+                <div className="lg:col-span-4 space-y-8">
+                    <div className="card p-10 flex flex-col items-center border border-slate-200 bg-white relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-full h-24 bg-slate-950/5 group-hover:bg-slate-950/10 transition-colors" />
+
+                        <div className="relative group/avatar cursor-pointer mb-8 mt-4">
+                            <div className="w-40 h-40 rounded-3xl overflow-hidden border-4 border-white shadow-2xl shadow-black/10 relative z-10 transition-transform group-hover/avatar:scale-[1.02]">
                                 <Image
                                     src={userAvatarUrl}
                                     alt={user.name}
@@ -108,47 +119,54 @@ export default function ProfilePage() {
                                     unoptimized
                                 />
                             </div>
-                            <label className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
-                                <Camera size={20} className="mb-1" />
-                                <span className="text-[10px] uppercase font-bold tracking-widest">Update</span>
+                            <label className="absolute inset-0 z-20 bg-slate-950/80 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-all cursor-pointer text-white">
+                                <Camera size={28} strokeWidth={2.5} className="mb-2" />
+                                <span className="text-[10px] uppercase font-black tracking-widest">Update Matrix</span>
                                 <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                             </label>
+                            {loading && (
+                                <div className="absolute inset-0 z-30 bg-white/80 backdrop-blur-md rounded-3xl flex items-center justify-center">
+                                    <Loader2 size={32} className="text-slate-950 animate-spin" />
+                                </div>
+                            )}
                         </div>
 
-                        <h3 className="text-lg font-black text-black uppercase tracking-tight text-center">{user.name}</h3>
-                        <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full border border-black/10 bg-neutral-50 text-[10px] font-bold uppercase tracking-widest text-black/60">
-                            <Shield size={12} className="mr-1.5" />
-                            {user.role.replace('_', ' ')}
+                        <div className="text-center space-y-2 relative z-10">
+                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-tight">{user.name}</h3>
+                            <div className="inline-flex items-center px-4 py-1.5 rounded-xl bg-slate-950 border border-slate-950 text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-black/20">
+                                <Shield size={14} strokeWidth={2.5} className="mr-2" />
+                                {user.role.replace(/_/g, ' ')} Privilege
+                            </div>
                         </div>
 
-                        <div className="w-full h-[1px] bg-neutral-100 my-8"></div>
+                        <div className="w-full h-px bg-slate-100 my-10 relative z-10" />
 
-                        <div className="w-full space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center flex-shrink-0">
-                                    <Mail size={14} className="text-black/40" />
+                        <div className="w-full space-y-6 relative z-10">
+                            <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 group-hover:bg-white transition-colors">
+                                    <Mail size={18} />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest selection:bg-black selection:text-white">Email</p>
-                                    <p className="text-xs font-semibold text-black truncate">{user.email}</p>
+                                    <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">Communication Line</p>
+                                    <p className="text-[14px] font-black text-slate-900 truncate italic">{user.email}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center flex-shrink-0">
-                                    <Hash size={14} className="text-black/40" />
+                            <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 group-hover:bg-white transition-colors">
+                                    <Hash size={18} />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest leading-none">Internal Registry</p>
-                                    <p className="text-xs font-semibold text-black truncate">{user.department?.name || 'Unassigned'}</p>
+                                    <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">Organizational Hub</p>
+                                    <p className="text-[14px] font-black text-slate-900 truncate italic">{user.department?.name || 'Central Command'}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 pt-2">
-                                <div className="w-8 h-8 rounded-full bg-neutral-50 flex items-center justify-center flex-shrink-0">
-                                    <Shield size={14} className="text-black/40" />
+                            <div className="flex items-start gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
+                                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 text-slate-400 group-hover:bg-white transition-colors">
+                                    <Shield size={18} />
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[9px] uppercase font-bold text-black/40 tracking-widest leading-none">Staff ID / Rank</p>
-                                    <p className="text-xs font-semibold text-black truncate">{user.employeeCode || user.id.substring(0, 8)} | {user.role}</p>
+                                    <p className="text-[10px] uppercase font-black text-slate-400 tracking-[0.2em] mb-1">Registry Code</p>
+                                    <p className="text-[14px] font-black text-slate-900 truncate uppercase tabular-nums">{user.employeeCode || 'SYS-ADMIN-01'}</p>
                                 </div>
                             </div>
                         </div>
@@ -157,80 +175,96 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Right side: Edit Form */}
-                <div className="flex-1">
-                    <div className="bg-white border border-neutral-100 rounded-3xl p-8 shadow-xl shadow-black/[0.02] flex flex-col h-full">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h3 className="text-base font-black text-black uppercase tracking-tight">Personal Information</h3>
-                                <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest mt-1">Refine your identity</p>
-                            </div>
+                <div className="lg:col-span-8 flex flex-col gap-10">
+                    <div className="card p-10 border border-slate-200 bg-white shadow-black/5 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50/50 rounded-bl-full -mr-32 -mt-32 pointer-events-none" />
+
+                        <div className="mb-10 relative z-10">
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Identity Parameters</h3>
+                            <p className="text-[13px] font-medium text-slate-500 mt-2 italic">Refine your professional metadata and declaration.</p>
                         </div>
 
-                        <form onSubmit={handleSave} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Full Name</label>
+                        <form onSubmit={handleSave} className="space-y-8 relative z-10" autoComplete="off">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Legal Identity</label>
                                     <input
                                         type="text"
                                         value={formData.name}
                                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all hover:bg-white"
+                                        className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-[14px] font-black text-slate-900 focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all placeholder:text-slate-300 border-b-2"
                                         required
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Email Address</label>
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Universal Access Email</label>
                                     <input
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all hover:bg-white"
+                                        className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-[14px] font-black text-slate-900 focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all placeholder:text-slate-300 border-b-2"
                                         required
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Phone Number</label>
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Communication Channel</label>
                                     <input
                                         type="text"
                                         value={formData.phone}
                                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all hover:bg-white"
+                                        className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-[14px] font-black text-slate-900 focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all placeholder:text-slate-300 border-b-2"
+                                        placeholder="Ex: +1 (555) 000-0000"
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Role/Designation</label>
-                                    <input
-                                        type="text"
-                                        disabled={true}
-                                        value={user.role.replace('_', ' ')}
-                                        className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold opacity-60 cursor-not-allowed"
-                                    />
+                                <div className="space-y-3">
+                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Clearance Protocol</label>
+                                    <div className="w-full px-6 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-[14px] font-black text-slate-400 uppercase cursor-not-allowed italic">
+                                        {user.role.replace(/_/g, ' ')} ACCESS
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-2 pt-2">
-                                <label className="text-[10px] font-bold text-black/50 uppercase tracking-widest ml-1">Professional Bio</label>
+                            <div className="space-y-3">
+                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Professional Declaration (Bio)</label>
                                 <textarea
                                     value={formData.bio}
                                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                    className="w-full px-4 py-3 bg-neutral-50 rounded-xl border border-neutral-100 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 transition-all min-h-[120px] resize-y hover:bg-white leading-relaxed"
+                                    className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-[14px] font-medium text-slate-900 focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all min-h-[160px] resize-none leading-relaxed placeholder:text-slate-300 border-b-2"
+                                    placeholder="Briefly describe your high-level role and professional trajectory..."
                                 ></textarea>
                             </div>
 
-                            <div className="pt-4 flex justify-end mt-auto">
+                            <div className="pt-6 flex justify-end">
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="flex items-center justify-center gap-2 px-8 h-14 w-full md:w-auto bg-black text-white text-[11px] font-black uppercase tracking-widest rounded-xl hover:bg-neutral-800 transition-all shadow-lg shadow-black/10 active:scale-95 disabled:opacity-50"
+                                    className="btn-primary min-w-[240px] h-[60px] shadow-2xl shadow-black/10 transition-transform active:scale-95"
                                 >
-                                    <Save size={16} />
-                                    Save Profile Data
+                                    {loading ? (
+                                        <Loader2 size={24} className="animate-spin" />
+                                    ) : (
+                                        <>
+                                            <Save size={20} strokeWidth={2.5} />
+                                            Save Registry Updates
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
+                    </div>
+
+                    {/* Attendance Analysis Section */}
+                    <div className="space-y-8">
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">Temporal Performance Analysis</h3>
+                            <p className="text-[13px] font-medium text-slate-500 italic">Audit tracking of system interaction and attendance logs.</p>
+                        </div>
+                        <div className="card p-4 border border-slate-200 bg-white overflow-hidden shadow-black/5">
+                            <AttendanceCalendar />
+                        </div>
                     </div>
                 </div>
             </div>

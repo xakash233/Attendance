@@ -67,20 +67,15 @@ export default function BiometricPage() {
     };
 
     return (
-        <div className="space-y-12 animate-fade-in pb-20 max-w-[1700px]">
-            {/* Header */}
-            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
-                <div className="space-y-4">
-                    <h1 className="text-4xl font-black tracking-tighter uppercase leading-none text-black">
-                        Attendance Sync
-                    </h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Biometric System</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                    </div>
+        <div className="space-y-8 animate-fade-in pb-20">
+            {/* SaaS Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight text-slate-900">Biometric Intercept</h1>
+                    <p className="text-[13px] font-medium text-slate-500 mt-1">Synchronize local biometric records with the central intelligence cloud.</p>
                 </div>
 
-                <div className="flex items-center gap-4 w-full lg:w-auto">
+                <div className="flex items-center gap-4 w-full md:w-auto">
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -91,86 +86,113 @@ export default function BiometricPage() {
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={syncing}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-4 py-6 px-12 bg-white text-black font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+                        className="btn-primary w-full md:w-auto flex items-center justify-center gap-3"
                     >
-                        {syncing ? <Loader2 size={18} className="animate-spin" /> : <Upload size={18} strokeWidth={3} />}
-                        {syncing ? 'UPLOADING...' : 'UPLOAD RECORDS (CSV/JSON)'}
+                        {syncing ? <Loader2 size={18} className="animate-spin text-white" /> : <Upload size={18} strokeWidth={3} />}
+                        {syncing ? 'UPLOADING...' : 'IMPORT RECORDS RESOURCE'}
                     </button>
                 </div>
-            </header>
+            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Device Config */}
-                <div className="bg-white border border-black/5 p-10 rounded-[2.5rem] flex flex-col justify-between">
-                    <div className="space-y-10">
-                        <div className="p-5 bg-white/5 text-black/20 rounded-2xl w-fit border border-black/5">
-                            <Cpu size={32} />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Device Status Card */}
+                <div className="card p-8 flex flex-col justify-between border border-slate-200">
+                    <div className="space-y-8">
+                        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm border border-indigo-100">
+                            <Cpu size={24} />
                         </div>
-                        <h3 className="text-2xl font-black uppercase tracking-tight text-black italic">Device Status</h3>
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Device IP</span>
-                                <span className="text-[11px] font-black text-black italic">192.168.1.100</span>
+                        <div>
+                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Active Gateway</h3>
+                            <p className="text-[12px] font-black uppercase tracking-widest text-slate-400 mt-1">Core Synchronization Hub</p>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Gateway Static IP</span>
+                                <span className="text-[12px] font-black text-indigo-600 tabular-nums">192.168.1.100</span>
                             </div>
-                            <div className="flex justify-between items-center border-b border-black/5 pb-4">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Sync Frequency</span>
-                                <span className="text-[11px] font-black text-black italic">Real-time</span>
+                            <div className="flex justify-between items-center py-2 border-b border-slate-50">
+                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Refresh Cadence</span>
+                                <span className="text-[12px] font-black text-slate-900">Real-time Stream</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-[10px] uppercase font-black tracking-widest text-black/20">Status</span>
-                                <span className="text-[10px] font-black text-green-500 flex items-center gap-2 uppercase tracking-[0.2em]"><Wifi size={14} /> ACTIVE</span>
+                            <div className="flex justify-between items-center py-2">
+                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Heartbeat</span>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">Live / Synchronized</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="mt-12 p-6 bg-white/[0.02] rounded-2xl border border-black/5 flex items-center gap-4">
-                        <Activity size={20} className="text-blue-500" />
+                    <div className="mt-10 p-5 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-4">
+                        <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <Activity size={16} className="text-indigo-600" />
+                        </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-black">System Heartbeat</p>
-                            <p className="text-[9px] text-black/20 font-bold uppercase tracking-tighter">Syncing logs every 60m...</p>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-900">Auto-Log Inactive</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Next poll in 45m</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Logs Table */}
-                <div className="bg-white border border-black/5 rounded-[2.5rem] lg:col-span-2 overflow-hidden flex flex-col">
-                    <div className="p-10 border-b border-black/5 flex justify-between items-center bg-white/[0.02]">
-                        <h3 className="text-xl font-black uppercase tracking-tight flex items-center gap-4 text-black">
-                            <History size={24} className="text-black/20" /> Sync History
-                        </h3>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-black/40 italic">Past Syncs</span>
+                {/* History Matrix */}
+                <div className="lg:col-span-3 card border border-slate-200 overflow-hidden flex flex-col">
+                    <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
+                                <History size={20} />
+                            </div>
+                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Synchronization Matrix</h3>
+                        </div>
+                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 bg-white px-4 py-1.5 rounded-lg border border-slate-100 shadow-sm">Audit Persistence</span>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-white text-black uppercase text-[10px] font-black tracking-[0.3em]">
-                                    <th className="px-10 py-6">Timestamp</th>
-                                    <th className="px-10 py-6">Status</th>
-                                    <th className="px-10 py-6 text-right">Records Synced</th>
+                                <tr className="border-b border-slate-100 bg-slate-50/20">
+                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Timestamp Persistence</th>
+                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Operational Integrity</th>
+                                    <th className="px-8 py-5 text-right text-[11px] font-black uppercase tracking-widest text-slate-400">Dataset Volume</th>
                                 </tr>
                             </thead>
-                            <tbody className="text-sm">
+                            <tbody>
                                 {logs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="p-32 text-center font-black uppercase text-black/10 tracking-[0.4em] text-xs">
-                                            No synchronization events logged
+                                        <td colSpan={3} className="py-24 text-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200 mb-2">
+                                                    <Server size={32} />
+                                                </div>
+                                                <p className="font-black uppercase tracking-widest text-[11px] text-slate-400 italic">No historical log entries detected.</p>
+                                            </div>
                                         </td>
                                     </tr>
                                 ) : (
                                     logs.map((log: any) => (
-                                        <tr key={log.id} className="border-b border-black/5 hover:bg-white/[0.02] transition-colors group">
-                                            <td className="px-10 py-8 font-black text-[11px] text-black/60 group-hover:text-black transition-colors italic">
-                                                {new Date(log.syncedAt).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).toUpperCase()}
+                                        <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                                            <td className="px-8 py-6">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
+                                                    <span className="font-black text-[13px] text-slate-700 tracking-tight tabular-nums uppercase">
+                                                        {new Date(log.syncedAt).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).toUpperCase()}
+                                                    </span>
+                                                </div>
                                             </td>
-                                            <td className="px-10 py-8">
-                                                <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${log.status === 'SUCCESS' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
-                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                                                    {log.status}
+                                            <td className="px-8 py-6">
+                                                <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm' : 'bg-rose-50 text-rose-600 border-rose-100 shadow-sm'}`}>
+                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={12} className="shrink-0" /> : <AlertCircle size={12} className="shrink-0" />}
+                                                    {log.status === 'SUCCESS' ? 'Verified Stream' : 'Intercept Error'}
                                                 </span>
                                             </td>
-                                            <td className="px-10 py-8 text-right font-black text-black text-lg tracking-tighter italic">
-                                                {log.recordsCount} <span className="text-[9px] text-black/10 not-italic uppercase tracking-widest">RECORDS</span>
+                                            <td className="px-8 py-6 text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-xl font-black text-slate-900 tabular-nums">
+                                                        {log.recordsCount.toLocaleString()}
+                                                    </span>
+                                                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Records Identified</span>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

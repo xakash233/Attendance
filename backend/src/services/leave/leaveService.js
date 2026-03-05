@@ -82,8 +82,8 @@ class LeaveService {
                 // Note: Needs more complex monthly aggregation check here for full robustness
             }
 
-            // 3. Create Request - Route based on duration (> 2 days goes to Super Admin)
-            const initialStatus = totalDays > 2 ? 'PENDING_SUPERADMIN' : 'PENDING_HR';
+            // 3. Create Request - Always route to HR pending first
+            const initialStatus = 'PENDING_HR';
 
             const leaveRequest = await tx.leaveRequest.create({
                 data: {
@@ -224,6 +224,65 @@ class LeaveService {
         }
 
         return result;
+    }
+
+    async cancelLeave({ leaveId, userId }) {
+        return await prisma.$transaction(async (tx) => {
+            const leaveRequest = await tx.leaveRequest.findUnique({
+                where: { id: leaveId },
+                include: { user: true, leaveType: true }
+            });
+
+            if (!leaveRequest) throw new Error('Request not found');
+            if (leaveRequest.userId !== userId) throw new Error('Unauthorized');
+            if (leaveRequest.status === 'CANCELLED') throw new Error('Leave already cancelled');
+            if (leaveRequest.status === 'REJECTED_BY_HR' || leaveRequest.status === 'REJECTED_BY_SUPERADMIN') {
+                throw new Error('Cannot cancel a rejected request');
+            }
+
+            // Restore balance if it was FINAL_APPROVED and not WFH
+            if (leaveRequest.status === 'FINAL_APPROVED' && leaveRequest.durationType !== 'WORK_FROM_HOME') {
+                await tx.leaveBalance.update({
+                    where: {
+                        userId_leaveTypeId: {
+                            userId: leaveRequest.userId,
+                            leaveTypeId: leaveRequest.leaveTypeId
+                        }
+                    },
+                    data: {
+                        balance: { increment: leaveRequest.totalDays },
+                        used: { decrement: leaveRequest.totalDays }
+                    }
+                });
+            }
+
+            const updated = await tx.leaveRequest.update({
+                where: { id: leaveId },
+                data: {
+                    status: 'CANCELLED',
+                    comments: 'Cancelled by employee'
+                }
+            });
+
+            await auditService.logAction({
+                userId,
+                action: 'LEAVE_CANCELLED',
+                entity: 'LeaveRequest',
+                entityId: leaveId,
+                details: { stage: 'EMPLOYEE_CANCELLATION' }
+            }, tx);
+
+            // Notify HR about cancellation
+            notificationService.broadcastToRole({
+                role: 'HR',
+                departmentId: leaveRequest.departmentId,
+                title: 'Leave Cancelled',
+                message: `${leaveRequest.user.name} cancelled their leave request.`,
+                type: 'LEAVE_CANCELLATION'
+            }).catch(e => console.error(e));
+
+            return updated;
+        });
     }
 }
 

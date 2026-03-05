@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import {
     Users, UserCheck, Clock, Calendar, TrendingUp, TrendingDown,
     AlertCircle, Briefcase, Search, Filter, ArrowRight, Sun, Settings, Moon,
-    Send, User, CheckCircle, Database, LayoutDashboard, Globe, MoreHorizontal
+    Send, User, CheckCircle, Database, LayoutDashboard, Globe, MoreHorizontal, Hash
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
@@ -17,6 +17,7 @@ export default function DashboardPage() {
     const [stats, setStats] = useState<any>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [recentLeaves, setRecentLeaves] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -27,388 +28,296 @@ export default function DashboardPage() {
 
     const fetchDashboardData = useCallback(async () => {
         try {
-            const [statsRes, activityRes, leavesRes] = await Promise.all([
+            const [statsRes, activityRes, leavesRes, employeesRes] = await Promise.all([
                 api.get('/users/analytics'),
-                api.get('/biometric/records'),
-                api.get('/leaves/history')
+                api.get('/biometric/records').catch(() => ({ data: [] })),
+                api.get('/leaves/history').catch(() => ({ data: [] })),
+                user?.role !== 'EMPLOYEE' ? api.get('/users').catch(() => ({ data: [] })) : Promise.resolve({ data: [] })
             ]);
             setStats(statsRes.data);
-            setRecentActivity(activityRes.data);
-            setRecentLeaves(leavesRes.data.slice(0, 5));
+            setRecentActivity(activityRes.data || []);
+            setRecentLeaves(leavesRes.data || []);
+            setEmployees(employeesRes.data || []);
         } catch (error) {
             console.error('Failed to fetch dashboard data', error);
-            logout();
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, [user]);
 
     useEffect(() => {
         fetchDashboardData();
     }, [fetchDashboardData]);
 
+    const isAdminRole = user?.role !== 'EMPLOYEE';
+    const displayedEmployees = useMemo(() => employees.slice(0, 6), [employees]);
+    const displayedLeaves = useMemo(() => recentLeaves.slice(0, 5), [recentLeaves]);
+
     if (loading) return (
         <div className="flex flex-col items-center justify-center min-h-[55vh] space-y-6 animate-fade-in text-black">
             <div className="w-16 h-1 bg-black rounded-full animate-pulse shadow-[0_0_20px_rgba(0,0,0,0.1)]"></div>
-            <p className="text-xs font-bold uppercase tracking-widest text-black/60">Loading Dashboard...</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-black/60">Loading Intelligence...</p>
         </div>
     );
 
     return (
-        <div className="space-y-6 animate-fade-in pb-10 max-w-[1700px] mx-auto text-black overflow-x-hidden">
-
-            {/* Top Stats Section */}
-            <div className={`grid grid-cols-1 ${user?.role === 'EMPLOYEE' ? 'lg:grid-cols-12' : 'lg:grid-cols-12'} gap-6`}>
-
-                {/* Time & Date Card - Light Modern */}
-                <div className={`${user?.role === 'EMPLOYEE' ? 'lg:col-span-12 xl:col-span-4' : 'lg:col-span-3'} card bg-white p-8 flex flex-col justify-between border-gray-100 shadow-2xl min-h-[350px] group overflow-hidden relative`}>
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-black/[0.02] rounded-full blur-3xl group-hover:bg-black/[0.05] transition-all"></div>
-
-                    <div className="space-y-1 relative z-10">
-                        <p className="text-[10px] font-bold text-black uppercase tracking-[0.2em]">Current Time</p>
-                        <h3 className="text-4xl md:text-5xl lg:text-7xl font-black tracking-tighter tabular-nums text-black drop-shadow-sm">
-                            {currentTime.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit' })}
-                        </h3>
-                    </div>
-
-                    <div className="space-y-2 relative z-10">
-                        <p className="text-[10px] font-bold text-black/60 uppercase tracking-[0.2em]">Today&apos;s Date</p>
-                        <h2 className="text-2xl lg:text-3xl font-black text-black tracking-tight leading-none">
-                            {currentTime.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </h2>
-                    </div>
-
-                    <div className="flex flex-col gap-3 relative z-10">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-black/20 italic">Hub Node: {user?.role.replace('_', ' ')} ACTIVE</p>
-                        <Link href="/dashboard/profile" className="w-full py-5 bg-black hover:bg-neutral-900 text-white rounded-[1.5rem] font-bold uppercase tracking-wider text-[11px] transition-all flex items-center justify-center gap-3 shadow-xl active:scale-95 group">
-                            <User size={18} className="transition-transform group-hover:scale-110" />
-                            View Digital Identity
-                        </Link>
-                    </div>
+        <div className="animate-fade-in space-y-8">
+            {/* SaaS Dashboard Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight text-slate-900">Dashboard Intelligence</h1>
+                    <p className="text-[13px] font-medium text-slate-500 mt-1">
+                        Welcome back, <span className="text-black font-black underline decoration-black/10 underline-offset-4">{user?.name}</span>. Registry status is operational.
+                    </p>
                 </div>
 
-                {user?.role !== 'EMPLOYEE' ? (
-                    /* Main Stat Boxes for Admins */
-                    <div className="lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <StatBox
-                            title="Employees"
-                            value={stats?.totalEmployees || 0}
-                            desc="+2 joined"
-                            icon={Users}
-                            trend="up"
-                        />
-                        <StatBox
-                            title="On Time"
-                            value={stats?.onTimeToday || 0}
-                            desc="Present"
-                            icon={CheckCircle}
-                            trend="up"
-                        />
-                        <StatBox
-                            title="Absent"
-                            value={stats?.absentToday || 0}
-                            desc="Not Logged"
-                            icon={AlertCircle}
-                            trend="down"
-                        />
-                        <StatBox
-                            title="Late Arrivals"
-                            value={stats?.lateToday || 0}
-                            desc="After 09:15"
-                            icon={Clock}
-                            trend="up"
-                            trendInverse
-                        />
-                        <StatBox
-                            title="Pending Leaves"
-                            value={stats?.totalLeaveRequests || 0}
-                            desc="Applications"
-                            icon={Calendar}
-                            trend="down"
-                        />
-                        <StatBox
-                            title="Active Tasks"
-                            value={stats?.totalTasks || 0}
-                            desc="Logistics"
-                            icon={Briefcase}
-                            trend="up"
-                        />
+                <div className="flex items-center gap-3">
+                    <div className="bg-white border border-slate-200 rounded-lg px-4 py-2 flex items-center gap-3 shadow-sm">
+                        <Calendar size={16} className="text-slate-400" />
+                        <span className="text-[13px] font-bold text-slate-700 whitespace-nowrap">
+                            {currentTime.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
                     </div>
-                ) : (
-                    /* Personal Profile Overview for Employees */
-                    <div className="lg:col-span-12 xl:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="card bg-white p-10 border-gray-100 shadow-2xl flex flex-col justify-center gap-8 relative overflow-hidden group">
-                            <div className="absolute top-0 left-0 w-full h-1 bg-black"></div>
-                            <div className="flex items-center gap-6">
-                                <div className="w-20 h-20 rounded-3xl bg-neutral-50 flex items-center justify-center border border-neutral-100 shadow-inner group-hover:scale-105 transition-transform overflow-hidden">
-                                    {user?.profileImage ? (
-                                        <Image
-                                            src={user.profileImage}
-                                            alt="Profile"
-                                            width={80}
-                                            height={80}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <User size={32} className="text-black/20" />
-                                    )}
-                                </div>
-                                <div className="space-y-1">
-                                    <h2 className="text-3xl font-black text-black tracking-tight uppercase leading-none">{user?.name}</h2>
-                                    <p className="text-xs font-bold text-black/40 uppercase tracking-widest">{user?.department?.name || 'Technical Registry'}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-100">
-                                    <p className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em] mb-1">Employee ID</p>
-                                    <p className="text-sm font-black text-black tracking-widest">{user?.employeeCode || user?.id?.substring(0, 8).toUpperCase()}</p>
-                                </div>
-                                <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-100">
-                                    <p className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em] mb-1">Authorization</p>
-                                    <p className="text-sm font-black text-black tracking-widest">{user?.role}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="card bg-white p-10 border-gray-100 shadow-2xl flex flex-col justify-between relative overflow-hidden group">
-                            <div className="space-y-1">
-                                <h3 className="text-xl font-black text-black uppercase tracking-tight">Security Protocol</h3>
-                                <p className="text-[10px] font-bold text-black/30 uppercase tracking-widest leading-relaxed">Always maintain cryptographic integrity of your access credentials.</p>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-black/60">
-                                    <span>Sync Status</span>
-                                    <span className="text-black font-black flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-black animate-pulse"></div>
-                                        CONNECTED
-                                    </span>
-                                </div>
-                                <Link href="/dashboard/leaves" className="w-full py-5 border border-black/10 hover:bg-neutral-50 rounded-2xl flex items-center justify-center gap-3 transition-all font-black text-[10px] uppercase tracking-widest">
-                                    <Calendar size={16} />
-                                    Access Absence Register
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                </div>
             </div>
 
-            {
-                user?.role !== 'EMPLOYEE' && (
-                    <>
-                        {/* Charts Section - Admin Only */}
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-8 card bg-white border-gray-100 shadow-2xl p-10">
-                                <div className="flex justify-between items-center mb-12">
-                                    <div className="space-y-1">
-                                        <h2 className="text-2xl font-black text-black uppercase tracking-tight">Weekly Attendance</h2>
-                                        <p className="text-[10px] font-bold text-black/40 uppercase tracking-widest italic">Attendance trends for the past week</p>
+            {!isAdminRole ? (
+                /* Employee Dashboard View - Clean & Simple */
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-8 space-y-8">
+                        {/* Profile Info Card */}
+                        <div className="card flex flex-col md:flex-row items-center gap-8 p-8 border border-slate-200">
+                            <div className="w-24 h-24 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                                {user?.profileImage ? (
+                                    <Image src={user.profileImage} alt="Profile" width={96} height={96} className="rounded-2xl object-cover" />
+                                ) : (
+                                    <User size={40} className="text-slate-300" />
+                                )}
+                            </div>
+                            <div className="flex-1 text-center md:text-left">
+                                <h2 className="text-[20px] font-black tracking-tight text-slate-900 leading-none">{user?.name}</h2>
+                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-2">{user?.department?.name || 'Operations Unit'}</p>
+                                <div className="flex flex-wrap gap-2 mt-5 justify-center md:justify-start">
+                                    <div className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                                        <Hash size={12} />
+                                        {user?.employeeCode}
                                     </div>
-                                    <button className="p-3 bg-[#f4f4f5] hover:bg-slate-100 text-black/60 rounded-xl transition-all border border-slate-100"><Filter size={18} /></button>
-                                </div>
-
-                                <div className="h-64 flex items-end justify-between gap-6 px-4">
-                                    {[40, 60, 45, 75, 95, 65, 80].map((h, i) => (
-                                        <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                                            <div
-                                                className={`w-full rounded-2xl transition-all duration-700 ${i === 4 ? 'bg-black shadow-xl shadow-black/10' : 'bg-neutral-100 group-hover:bg-neutral-200'}`}
-                                                style={{ height: `${h}%` }}
-                                            ></div>
-                                            <span className="mt-6 text-[11px] font-black text-black/60 tracking-tighter uppercase whitespace-nowrap">Day {i + 1}</span>
-                                        </div>
-                                    ))}
+                                    <div className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200">
+                                        {user?.role?.replace('_', ' ')}
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="lg:col-span-4 card bg-white border-gray-100 shadow-2xl p-10">
-                                <h2 className="text-2xl font-black text-black uppercase tracking-tight mb-10">Department Stats</h2>
-                                <div className="space-y-8">
-                                    {['Sales', 'Tech', 'Admin', 'HR'].map((dept, i) => (
-                                        <div key={dept} className="space-y-3">
-                                            <div className="flex justify-between text-[11px] font-bold uppercase tracking-widest">
-                                                <span className="text-black">{dept}</span>
-                                                <span className="text-black/40 lowercase italic font-medium">{[85, 92, 78, 95][i]}% accuracy</span>
-                                            </div>
-                                            <div className="w-full h-2.5 bg-neutral-50 border border-neutral-100 rounded-full overflow-hidden p-0.5">
-                                                <div
-                                                    className="h-full bg-black rounded-full transition-all duration-1000 shadow-sm"
-                                                    style={{ width: `${[85, 92, 78, 95][i]}%` }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    ))}
+                        {/* Quick Stats */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="card group p-8 border border-slate-200">
+                                <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl w-fit mb-6 group-hover:bg-emerald-600 group-hover:text-white transition-all shadow-sm">
+                                    <CheckCircle size={24} />
                                 </div>
-                                <button className="w-full mt-12 py-5 border border-black/10 hover:bg-neutral-50 text-black/60 font-bold rounded-2xl text-[11px] uppercase tracking-[0.2em] transition-all">
-                                    View Detailed Sync
+                                <h3 className="text-3xl font-black text-slate-900">Active</h3>
+                                <p className="text-[11px] font-black text-slate-400 mt-1 uppercase tracking-[0.2em] italic leading-none">Identity Status</p>
+                            </div>
+                            <div className="card group p-8 border border-slate-200">
+                                <div className="p-4 bg-slate-900 text-white rounded-2xl w-fit mb-6 group-hover:bg-slate-800 transition-all shadow-xl shadow-black/10">
+                                    <Briefcase size={24} />
+                                </div>
+                                <h3 className="text-3xl font-black text-slate-900">{recentLeaves.length}</h3>
+                                <p className="text-[11px] font-black text-slate-400 mt-1 uppercase tracking-[0.2em] italic leading-none">History Logs</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="lg:col-span-4">
+                        <div className="card h-full p-8 border border-slate-200">
+                            <h3 className="text-[13px] font-black text-slate-400 mb-6 tracking-widest uppercase">Quick Operations</h3>
+                            <div className="grid grid-cols-1 gap-3">
+                                <Link href="/dashboard/leaves" className="btn-secondary w-full justify-between items-center px-4 py-4 rounded-xl">
+                                    Request Leave Access <ArrowRight size={16} />
+                                </Link>
+                                <Link href="/dashboard/profile" className="btn-secondary w-full justify-between items-center px-4 py-4 rounded-xl">
+                                    Profile Intelligence <ArrowRight size={16} />
+                                </Link>
+                                <button onClick={logout} className="btn-secondary w-full justify-between items-center px-4 py-4 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-600 border-rose-100">
+                                    Terminate Session <ArrowRight size={16} />
                                 </button>
                             </div>
                         </div>
-
-                        {/* eSSL Biometric Feed - Admin Only */}
-                        <div className="card bg-white border-none shadow-2xl overflow-hidden p-0 transition-all">
-                            <div className="p-8 border-b border-gray-50 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-3 h-3 rounded-full bg-black animate-pulse"></div>
-                                    <h2 className="text-2xl font-black text-black uppercase tracking-tight">Live Attendance Feed</h2>
-                                </div>
-                                <Link href="/dashboard/biometric" className="text-[11px] font-black text-black uppercase tracking-widest hover:bg-neutral-100 px-6 py-2 border border-black/10 rounded-xl transition-all">Historical Logs</Link>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="bg-[#f4f4f5]/50 text-[11px] font-black tracking-widest uppercase text-black/60">
-                                            <th className="px-10 py-6">Employee</th>
-                                            <th className="px-10 py-6">Employee ID</th>
-                                            <th className="px-10 py-6">Department</th>
-                                            <th className="px-10 py-6">Punch Time</th>
-                                            <th className="px-10 py-6 text-right">IP Address</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-sm">
-                                        {recentActivity.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-10 py-12 text-center text-black/40 font-bold uppercase tracking-widest text-[10px]">
-                                                    No recent activity detected
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            recentActivity.map((record) => (
-                                                <tr key={record.id} className="border-b border-gray-50 hover:bg-[#f4f4f5]/50 transition-colors group">
-                                                    <td className="px-10 py-8">
-                                                        <div className="flex items-center gap-5">
-                                                            <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-black/40 flex items-center justify-center font-black text-xs group-hover:bg-black group-hover:text-white transition-all border border-neutral-200 italic">
-                                                                {(record.user?.name || '??').substring(0, 2).toUpperCase()}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-black text-black uppercase tracking-tight">{record.user?.name || 'Unknown User'}</p>
-                                                                <p className="text-[9px] text-black/40 uppercase tracking-widest font-black italic">Verified Punch</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-10 py-8">
-                                                        <span className="font-black text-[11px] text-black/60 uppercase tracking-widest bg-neutral-50 px-4 py-1.5 rounded-lg border border-neutral-100">
-                                                            {record.employeeCode}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-10 py-8 text-black/60 font-bold uppercase text-[10px] tracking-widest">
-                                                        {record.user?.department?.name || 'No Department'}
-                                                    </td>
-                                                    <td className="px-10 py-8 text-black font-black tabular-nums">
-                                                        {new Date(record.timestamp).toLocaleString('en-US', {
-                                                            hour: '2-digit',
-                                                            minute: '2-digit',
-                                                            second: '2-digit',
-                                                            hour12: true
-                                                        })}
-                                                    </td>
-                                                    <td className="px-10 py-8 text-right font-black text-black/30 text-[10px] uppercase tracking-widest">
-                                                        {record.deviceIP || '192.168.1.100'}
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        {/* Recent Absence Requests - Admin Only */}
-                        <div className="card bg-white border-none shadow-2xl overflow-hidden p-0 transition-all">
-                            <div className="p-8 border-b border-gray-50 flex justify-between items-center">
-                                <div className="flex items-center gap-4">
-                                    <Briefcase className="text-black/20" size={24} />
-                                    <h2 className="text-2xl font-black text-black uppercase tracking-tight">Recent Absence Requests</h2>
-                                </div>
-                                <Link href="/dashboard/leaves" className="text-[11px] font-black text-black uppercase tracking-widest hover:bg-neutral-100 px-6 py-2 border border-black/10 rounded-xl transition-all">Management Hub</Link>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="bg-[#f4f4f5]/50 text-[11px] font-black tracking-widest uppercase text-black/60">
-                                            <th className="px-10 py-6">Applicant</th>
-                                            <th className="px-10 py-6">Leave Type</th>
-                                            <th className="px-10 py-6">Period</th>
-                                            <th className="px-10 py-6">Days</th>
-                                            <th className="px-10 py-6 text-right">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-sm">
-                                        {recentLeaves.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-10 py-12 text-center text-black/40 font-bold uppercase tracking-widest text-[10px]">
-                                                    No pending absence requests
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            recentLeaves.map((leave) => (
-                                                <tr key={leave.id} className="border-b border-gray-50 hover:bg-[#f4f4f5]/50 transition-colors group">
-                                                    <td className="px-10 py-8">
-                                                        <div className="flex items-center gap-5">
-                                                            <div className="w-10 h-10 rounded-xl bg-neutral-100 text-black/40 flex items-center justify-center font-black text-xs border border-neutral-200 uppercase">
-                                                                {(leave.user?.name || '??').substring(0, 2)}
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-black text-black uppercase tracking-tight">{leave.user?.name}</p>
-                                                                <p className="text-[9px] text-black/40 uppercase font-bold tracking-widest">{leave.department?.name}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-10 py-8 text-black/60 font-black text-[10px] uppercase tracking-widest italic">
-                                                        {leave.leaveType?.name}
-                                                    </td>
-                                                    <td className="px-10 py-8 text-black font-bold uppercase text-[10px]">
-                                                        {new Date(leave.startDate).toLocaleDateString()} - {new Date(leave.endDate).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="px-10 py-8 tabular-nums font-black text-black">
-                                                        {leave.totalDays} DAYS
-                                                    </td>
-                                                    <td className="px-10 py-8 text-right">
-                                                        <span className={`px-4 py-2 rounded-lg text-[10px] font-bold tracking-widest border ${leave.status === 'FINAL_APPROVED' ? 'bg-neutral-50 border-black/10 text-black' :
-                                                            leave.status === 'REJECTED_BY_HR' || leave.status === 'REJECTED_BY_SUPERADMIN' ? 'bg-neutral-100 border-black/20 text-black/40 line-through' :
-                                                                'bg-neutral-50 text-black/40 border-neutral-100'
-                                                            }`}>
-                                                            {leave.status.replace(/_/g, ' ').toLowerCase()}
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </>
-                )
-            }
-        </div>
-    );
-}
-
-const StatBox = ({ title, value, desc, icon: Icon, trend, trendInverse }: any) => {
-    const isUp = trend === 'up';
-    const isBad = trendInverse ? isUp : !isUp;
-
-    return (
-        <div className="card bg-white p-8 border-gray-100 shadow-2xl group hover:scale-[1.03] transition-all cursor-default relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-black/[0.01] rounded-full blur-2xl group-hover:bg-black/[0.03] transition-all"></div>
-
-            <div className="flex justify-between items-start mb-10 relative z-10">
-                <div className="p-4 bg-neutral-50 text-black/40 rounded-2xl group-hover:bg-black group-hover:text-white transition-all shadow-inner border border-neutral-100 group-hover:scale-110">
-                    <Icon size={28} strokeWidth={2.5} />
-                </div>
-                {trend && (
-                    <div className={`flex items-center gap-1.5 text-[10px] font-bold tracking-widest px-3 py-1 rounded-full border ${isBad ? 'border-neutral-200 text-black/30' : 'border-black/10 text-black'}`}>
-                        {isUp ? <TrendingUp size={12} strokeWidth={3} /> : <TrendingDown size={12} strokeWidth={3} />}
-                        {desc.toLowerCase()}
                     </div>
-                )}
-            </div>
-            <div className="space-y-2 relative z-10">
-                <h3 className="text-3xl lg:text-5xl font-black text-black tracking-tighter tabular-nums leading-none">{value}</h3>
-                <p className="text-[11px] font-black text-black/40 uppercase tracking-[0.2em]">{title}</p>
-            </div>
+                </div>
+            ) : (
+                /* Admin & HR Dashboard View - Full SaaS Overhaul */
+                <div className="space-y-8">
+                    {/* Horizontal SaaS Stats Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {[
+                            { title: 'Personnel Count', value: stats?.totalEmployees || employees.length || 0, icon: Users, color: 'slate', trend: '+12%' },
+                            { title: 'On-Time Today', value: stats?.onTimeToday || '94%', icon: UserCheck, color: 'emerald', trend: '+2.4%' },
+                            { title: 'Pending Audit', value: stats?.totalLeaveRequests || stats?.pendingLeaves || 0, icon: Clock, color: 'amber', trend: '-5%' },
+                            { title: 'Network Stream', value: 'Live', icon: Globe, color: 'slate', trend: 'Active' }
+                        ].map((stat, i) => (
+                            <div key={i} className="card p-8 flex items-center justify-between group cursor-default border border-slate-200 hover:shadow-xl hover:shadow-black/5 transition-all">
+                                <div className="flex flex-col">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">{stat.title}</p>
+                                    <div className="flex items-baseline gap-3 mt-2">
+                                        <h3 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{stat.value}</h3>
+                                        {i < 3 && (
+                                            <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg ${stat.trend.startsWith('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                                                {stat.trend}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-sm ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                    stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                        'bg-slate-950 text-white shadow-xl shadow-black/20'
+                                    }`}>
+                                    <stat.icon size={24} strokeWidth={2.5} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+                        {/* Main Content: Personnel Directory - Clean Lead101 Table */}
+                        <div className="xl:col-span-9 card overflow-hidden border border-slate-200">
+                            <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                <div>
+                                    <h2 className="text-[20px] font-black text-slate-900 tracking-tight leading-none">Personnel Directory</h2>
+                                    <p className="text-[13px] font-medium text-slate-500 mt-2 italic">Real-time authentication status of the organization.</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <div className="relative group">
+                                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-black transition-colors" />
+                                        <input
+                                            type="text"
+                                            placeholder="Audit Search..."
+                                            className="bg-slate-50 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-[13px] font-bold focus:outline-none focus:ring-4 focus:ring-black/5 focus:border-black transition-all w-full md:w-64 placeholder:text-slate-300"
+                                        />
+                                    </div>
+                                    <button className="p-3 bg-white border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
+                                        <Filter size={20} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="overflow-x-auto no-scrollbar">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                                            <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Biological Identity</th>
+                                            <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Department Hub</th>
+                                            <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">System Code</th>
+                                            <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-right">Matrix Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {employees.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="px-8 py-20 text-center">
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <Database size={40} className="text-slate-100" />
+                                                        <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest italic">Zero historical registry records found</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            displayedEmployees.map((emp) => (
+                                                <tr key={emp.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                    <td className="px-8 py-6">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-2xl bg-slate-950 text-white flex items-center justify-center font-black text-[13px] shadow-xl shadow-black/10 uppercase border border-white/10">
+                                                                {emp.name.substring(0, 2)}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[14px] font-black text-slate-900 uppercase tracking-tight leading-none">{emp.name}</p>
+                                                                <p className="text-[11px] font-medium text-slate-400 mt-1">{emp.email}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <div className="inline-flex items-center px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200">
+                                                            {emp.department?.name || 'Unit Central'}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        <span className="text-[12px] font-black font-mono text-slate-900 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                                                            {emp.employeeCode}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        <Link href={`/dashboard/users/${emp.id}`} className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-black hover:underline underline-offset-4 transition-all opacity-0 group-hover:opacity-100">
+                                                            Open Profile <ArrowRight size={14} className="ml-1" />
+                                                        </Link>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex justify-center">
+                                <Link href="/dashboard/users" className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-black transition-all flex items-center gap-3 group">
+                                    Display Full Organizational Directory <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                                </Link>
+                            </div>
+                        </div>
+
+                        {/* Sidebar: Attention Required - SaaS Style */}
+                        <div className="xl:col-span-3 space-y-6">
+                            <div className="card border border-slate-200 p-8 shadow-sm">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-[16px] font-black text-slate-900 tracking-tight flex items-center gap-3 leading-none">
+                                        <AlertCircle size={20} className="text-black" /> Audit Stream
+                                    </h3>
+                                    <span className="bg-slate-900 text-white px-3 py-1 rounded-lg text-[10px] font-black">{displayedLeaves.length}</span>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {displayedLeaves.length === 0 ? (
+                                        <div className="py-16 text-center">
+                                            <CheckCircle size={32} className="mx-auto text-slate-100 mb-4" />
+                                            <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest italic">All Nodes Synchronized</p>
+                                        </div>
+                                    ) : (
+                                        displayedLeaves.map((leave) => (
+                                            <div key={leave.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 hover:border-black/10 hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all cursor-pointer group">
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <p className="text-[13px] font-black text-slate-900 uppercase tracking-tight group-hover:text-black">{leave.user?.name}</p>
+                                                    <div className={`w-2.5 h-2.5 rounded-full ${leave.status.includes('PENDING') ? 'bg-amber-400' : 'bg-emerald-500'} shadow-sm`}></div>
+                                                </div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{leave.leaveType?.name || 'Absence Code'}</p>
+                                                <div className="text-[10px] text-slate-500 mt-4 flex items-center gap-3 bg-white px-3 py-1.5 rounded-lg border border-slate-100 w-fit">
+                                                    <Calendar size={14} className="text-slate-400" />
+                                                    <span className="font-bold underline decoration-slate-200 underline-offset-2">
+                                                        {new Date(leave.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <Link href="/dashboard/leaves" className="btn-primary w-full mt-8 py-4 bg-slate-950 hover:bg-black rounded-xl text-[12px]">
+                                    Audit Management Hub
+                                </Link>
+                            </div>
+
+                            <div className="card bg-slate-950 p-8 text-white relative overflow-hidden group border-none">
+                                <div className="absolute -right-4 -bottom-4 opacity-5 transform scale-150 group-hover:rotate-12 transition-transform duration-700">
+                                    <Database size={100} />
+                                </div>
+                                <h4 className="text-[16px] font-black tracking-tight leading-tight">Biometric Node Sync</h4>
+                                <p className="text-[12px] font-medium text-white/50 mt-4 leading-relaxed">Cross-reference all personnel matrix data with biometric synchronization hubs for integrity.</p>
+                                <button className="mt-8 w-full text-[11px] font-black uppercase tracking-widest bg-white text-black py-4 rounded-xl shadow-2xl hover:bg-slate-50 active:scale-95 transition-all">
+                                    Initiate Node Sync
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

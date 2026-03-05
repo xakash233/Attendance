@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -8,6 +8,7 @@ import {
     Clock, Download, Filter, Search, Calendar,
     ArrowRight, Loader2, ArrowDownLeft, ArrowUpRight, History, User
 } from 'lucide-react';
+import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 
 export default function AttendancePage() {
     const [history, setHistory] = useState([]);
@@ -53,141 +54,137 @@ export default function AttendancePage() {
         }
     };
 
+    const filteredHistory = useMemo(() => {
+        return history.filter((record: any) =>
+            record.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            record.status?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [history, searchTerm]);
+
     if (loading && history.length === 0) return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 text-black">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
             <Loader2 className="w-8 h-8 text-black animate-spin" />
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-black/20">Loading records...</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-300">Synchronizing Telemetry...</p>
         </div>
     );
 
-    const filteredHistory = history.filter((record: any) =>
-        record.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.status?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     return (
-        <div className="space-y-12 animate-fade-in pb-20 max-w-[1700px] text-black">
-            {/* Strict Header */}
+        <div className="space-y-12 animate-fade-in pb-20 max-w-[1700px]">
+            {/* SaaS Header */}
             <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
-                <div className="space-y-4">
-                    <h1 className="text-4xl font-black tracking-tighter uppercase leading-none text-black">
-                        Attendance Records
-                    </h1>
-                    <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black/20">Daily Attendance Tracking</span>
-                        <div className="w-1.5 h-1.5 rounded-full bg-black animate-pulse"></div>
-                    </div>
+                <div className="space-y-2">
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900 leading-none">Attendance Orchestration</h1>
+                    <p className="text-[13px] font-medium text-slate-500 italic">Temporal audit and biometric synchronization terminal.</p>
                 </div>
 
                 {user?.role === 'EMPLOYEE' && (
-                    <div className="flex items-center gap-6 w-full lg:w-auto">
+                    <div className="flex items-center gap-4 w-full lg:w-auto">
                         <button
                             onClick={() => handleManualAction('in')}
-                            className="flex-1 lg:flex-none flex items-center justify-center gap-4 py-6 px-12 bg-black text-white font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all shadow-2xl active:scale-95 hover:bg-neutral-900"
+                            className="btn-primary flex-1 lg:flex-none h-[60px] px-10 rounded-2xl shadow-2xl shadow-black/10 transition-all hover:scale-[1.02] active:scale-95"
                         >
                             <ArrowDownLeft size={20} strokeWidth={3} />
-                            CLOCK IN
+                            Clock Baseline In
                         </button>
                         <button
                             onClick={() => handleManualAction('out')}
-                            className="flex-1 lg:flex-none flex items-center justify-center gap-4 py-6 px-12 bg-white border border-black text-black font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95 hover:bg-neutral-50"
+                            className="flex-1 lg:flex-none h-[60px] px-10 bg-white border-2 border-slate-200 text-slate-950 font-black text-[12px] uppercase tracking-widest rounded-2xl hover:bg-slate-50 transition-all active:scale-95 flex items-center justify-center gap-3"
                         >
-                            CLOCK OUT
-                            <ArrowUpRight size={20} className="text-black/20" />
+                            <ArrowUpRight size={20} strokeWidth={3} className="text-slate-200" />
+                            Clock Cycle Out
                         </button>
                     </div>
                 )}
             </header>
 
             {/* Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm hover:shadow-md transition-shadow">
-                    <History className="text-black/10" size={24} />
-                    <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">History State</p>
-                    <p className="text-2xl font-black text-black tracking-tighter uppercase">Total Records</p>
-                </div>
-                <div className="bg-white border border-black/5 p-8 rounded-3xl space-y-4 shadow-sm hover:shadow-md transition-shadow">
-                    <Clock className="text-black/10" size={24} />
-                    <p className="text-[10px] font-bold tracking-widest text-black/40 uppercase">Sync Status</p>
-                    <p className="text-2xl font-black text-black tracking-tighter uppercase italic">Real-Time</p>
-                </div>
-            </div>
+            <AttendanceCalendar />
 
-            {/* Controls */}
-            <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1 relative group">
-                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-black/20 group-focus-within:text-black transition-colors" size={18} />
+            {/* Matrix Search */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="md:col-span-3 relative group">
+                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-black transition-colors" size={18} />
                     <input
                         type="text"
-                        placeholder="Search records..."
+                        placeholder="Search temporal frequency records..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-white border border-black/5 pl-14 pr-6 py-5 rounded-2xl text-[12px] font-medium focus:ring-4 focus:ring-black/[0.02] focus:border-black/10 transition-all placeholder:text-black/20 outline-none"
+                        className="w-full bg-white border border-slate-200 pl-14 pr-6 py-4 rounded-2xl text-[14px] font-bold text-slate-900 focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all shadow-sm placeholder:text-slate-300 border-b-2"
                     />
                 </div>
+                <button className="flex items-center justify-center gap-3 px-6 py-4 bg-white border border-slate-200 rounded-2xl text-[13px] font-black text-slate-600 hover:bg-slate-50 transition-all shadow-sm border-b-2">
+                    <Filter size={20} />
+                    Filter Matrix
+                </button>
             </div>
 
             {/* History Table */}
-            <div className="bg-white border border-black/5 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
+            <div className="card overflow-hidden border border-slate-200">
+                <div className="overflow-x-auto no-scrollbar">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-neutral-50/[0.5] text-black/30 uppercase text-[10px] font-bold tracking-[0.2em] border-b border-black/5">
-                                <th className="px-10 py-8">Date</th>
-                                {user?.role !== 'EMPLOYEE' && <th className="px-10 py-8">Employee</th>}
-                                <th className="px-10 py-8 text-center">Clock In</th>
-                                <th className="px-10 py-8 text-center">Clock Out</th>
-                                <th className="px-10 py-8 text-center">Status</th>
-                                <th className="px-10 py-8 text-right">Work Hours</th>
+                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                                <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400">Temporal Node</th>
+                                {user?.role !== 'EMPLOYEE' && <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400">Personnel</th>}
+                                <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Inception</th>
+                                <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Termination</th>
+                                <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Status Matrix</th>
+                                <th className="px-8 py-6 text-[11px] font-black uppercase tracking-widest text-slate-400 text-right">Unit Total</th>
                             </tr>
                         </thead>
-                        <tbody className="text-sm">
+                        <tbody className="divide-y divide-slate-50">
                             {filteredHistory.length === 0 ? (
                                 <tr>
-                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="p-32 text-center text-black/10 font-bold uppercase tracking-widest text-xs">
-                                        No telemetry records found
+                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-8 py-32 text-center text-slate-100">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <History size={48} />
+                                            <p className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-400 italic">No telemetry data detected in system cache.</p>
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (
                                 filteredHistory.map((record: any) => (
-                                    <tr key={record.id} className="border-b border-black/5 hover:bg-neutral-50/[0.3] transition-colors group">
-                                        <td className="px-10 py-8">
-                                            <div className="flex items-center gap-6">
-                                                <div className="w-12 h-12 rounded-2xl bg-neutral-50 text-black/20 flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all border border-black/5">
-                                                    <Calendar size={20} />
+                                    <tr key={record.id} className="hover:bg-slate-50/20 transition-colors group">
+                                        <td className="px-8 py-7">
+                                            <div className="flex items-center gap-5">
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-950 text-white flex items-center justify-center shadow-xl shadow-black/10 border border-white/5 transition-all">
+                                                    <Calendar size={20} strokeWidth={2.5} />
                                                 </div>
-                                                <p className="font-black text-black tracking-tight text-base italic uppercase">
-                                                    {new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                </p>
+                                                <div>
+                                                    <p className="text-[15px] font-black text-slate-900 tracking-tighter leading-none italic uppercase">
+                                                        {new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                    </p>
+                                                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Registry / {new Date(record.date).getFullYear()}</p>
+                                                </div>
                                             </div>
                                         </td>
                                         {user?.role !== 'EMPLOYEE' && (
-                                            <td className="px-10 py-8">
+                                            <td className="px-8 py-7">
                                                 <div className="flex items-center gap-4">
-                                                    <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-[10px] font-black text-black/40">
-                                                        <User size={14} />
+                                                    <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover:bg-slate-950 group-hover:text-white transition-all">
+                                                        <User size={16} />
                                                     </div>
                                                     <div>
-                                                        <p className="text-[12px] font-black text-black uppercase">{record.user.name}</p>
-                                                        <p className="text-[9px] font-medium text-black/30 lowercase italic tracking-normal">{record.user.department?.name || 'no department'}</p>
+                                                        <p className="text-[13px] font-black text-slate-900 uppercase leading-none">{record.user.name}</p>
+                                                        <p className="text-[10px] font-medium text-slate-400 lowercase italic mt-1">{record.user.department?.name || 'hub unassigned'}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                         )}
-                                        <td className="px-10 py-8 text-center tabular-nums font-black text-black/40 group-hover:text-black transition-colors tracking-widest text-lg italic">
+                                        <td className="px-8 py-7 text-center tabular-nums font-black text-slate-400 group-hover:text-black transition-colors tracking-widest text-lg italic leading-none">
                                             {record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
                                         </td>
-                                        <td className="px-10 py-8 text-center tabular-nums font-black text-black/40 group-hover:text-black transition-colors tracking-widest text-lg italic">
+                                        <td className="px-8 py-7 text-center tabular-nums font-black text-slate-400 group-hover:text-black transition-colors tracking-widest text-lg italic leading-none">
                                             {record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
                                         </td>
-                                        <td className="px-10 py-8 text-center">
-                                            <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getStatusStyle(record.status)}`}>
-                                                {record.status}
+                                        <td className="px-8 py-7 text-center">
+                                            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border shadow-sm ${getStatusStyle(record.status)}`}>
+                                                {record.status.replace(/_/g, ' ')}
                                             </span>
                                         </td>
-                                        <td className="px-10 py-8 text-right">
-                                            <span className="text-xl font-black text-black tracking-tighter italic">
-                                                {record.workingHours.toFixed(1)} <span className="text-[10px] text-black/20 uppercase not-italic font-bold">HRS</span>
+                                        <td className="px-8 py-7 text-right">
+                                            <span className="text-2xl font-black text-slate-950 tracking-tighter italic">
+                                                {record.workingHours.toFixed(1)} <span className="text-[10px] text-slate-200 uppercase not-italic font-black ml-1">UNITS</span>
                                             </span>
                                         </td>
                                     </tr>

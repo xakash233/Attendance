@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import HeaderSearch from '@/components/layout/HeaderSearch';
 import { Toaster } from 'react-hot-toast';
-import { Search, Bell, ChevronDown, Menu, X, Home } from 'lucide-react';
+import { Search, Bell, ChevronDown, Menu, X, Home, LogOut, User, Clock } from 'lucide-react';
 import Link from 'next/link';
 import socket from '@/lib/socket';
 import api from '@/lib/axios';
@@ -16,14 +16,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { user, loading, logout } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
+    const [dynamicTitle, setDynamicTitle] = useState<string | null>(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
 
-    // Close dropdowns on route change
+    // Listen for custom title updates from child components
     useEffect(() => {
+        const handleTitleUpdate = (e: any) => setDynamicTitle(e.detail);
+        window.addEventListener('dashboard-title-update', handleTitleUpdate);
+        return () => {
+            window.removeEventListener('dashboard-title-update', handleTitleUpdate);
+        };
+    }, []);
+
+    // Reset dynamic title on navigation
+    useEffect(() => {
+        setDynamicTitle(null);
         setIsMobileMenuOpen(false);
         setIsProfileMenuOpen(false);
     }, [pathname]);
@@ -110,20 +121,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const portalName = getPortalName(user?.role);
 
-    const currentPage = pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard';
+    const segments = pathname.split('/').filter(Boolean);
+    const lastSegment = segments[segments.length - 1] || 'Dashboard';
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastSegment);
+
+    let displayPage = dynamicTitle || lastSegment.replace(/-/g, ' ');
+
+    if (isUUID && !dynamicTitle) {
+        if (segments.includes('users')) displayPage = 'Personnel Profile';
+        else if (segments.includes('departments')) displayPage = 'Department Unit';
+        else displayPage = 'Registry Node';
+    }
+
     const isMainDashboard = pathname === '/dashboard';
-    const displayTitle = isMainDashboard ? portalName : currentPage;
 
     // Sync browser tab title
     useEffect(() => {
         if (!loading && user) {
-            const formattedPage = currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
+            const formattedPage = displayPage.charAt(0).toUpperCase() + displayPage.slice(1);
             document.title = isMainDashboard ? portalName : `${formattedPage} | ${portalName}`;
         }
         return () => {
             document.title = "Tectra Technologies | Attendance System";
         };
-    }, [user, portalName, currentPage, isMainDashboard, loading]);
+    }, [user, portalName, displayPage, isMainDashboard, loading]);
 
     if (loading || !user) {
         return (
@@ -135,178 +156,141 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
     return (
-        <div className="flex min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white overflow-x-hidden">
-            <Toaster
-                position="top-right"
-                toastOptions={{
-                    style: {
-                        background: '#000',
-                        color: '#fff',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '1rem',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        letterSpacing: '0.05em'
-                    },
-                    success: {
-                        iconTheme: {
-                            primary: '#fff',
-                            secondary: '#000',
-                        },
-                    },
-                    error: {
-                        iconTheme: {
-                            primary: '#fff',
-                            secondary: '#000',
-                        },
-                    }
-                }}
-            />
+        <div className="flex h-screen bg-slate-50 overflow-hidden selection:bg-slate-950 selection:text-white">
+            <Toaster position="top-right" />
 
-            {/* Desktop Sidebar */}
-            <div className="hidden md:block w-[100px] lg:w-64 shrink-0 relative z-[100]">
-                <div className="fixed top-0 left-0 bottom-0 w-[100px] lg:w-64 border-r border-neutral-100 bg-neutral-50 overflow-hidden">
-                    <Sidebar />
-                </div>
+            {/* Desktop Sidebar Orchestrator */}
+            <div className="hidden md:block w-[280px] shrink-0 relative z-[100] border-r border-slate-200">
+                <Sidebar />
             </div>
 
-            {/* Main Area */}
-            <div className="flex-1 flex flex-col min-w-0 bg-white">
+            {/* Mobile Workspace Overlay */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[200] md:hidden animate-fade-in"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
 
-                {/* Minimal Header */}
-                <header className="sticky top-0 z-50 h-[80px] bg-white/90 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 md:px-8 lg:px-12 border-b border-neutral-100">
+            {/* Mobile Workspace Drawer */}
+            <div className={`fixed inset-y-0 left-0 w-[280px] bg-white z-[210] md:hidden transition-transform duration-500 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
+            </div>
+
+            {/* Main Terminal Area */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-screen relative">
+
+                {/* Refined Terminal Header */}
+                <header className="h-[80px] bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[80] px-6 lg:px-12 flex items-center justify-between shadow-xl shadow-black/[0.02]">
                     <div className="flex items-center gap-6">
                         <button
-                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="p-2 md:hidden hover:bg-black/5 rounded-xl transition-colors"
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="p-3 md:hidden hover:bg-slate-100 rounded-2xl text-slate-400 hover:text-slate-950 transition-all active:scale-95"
                         >
-                            {isMobileMenuOpen ? <X size={24} className="text-black" /> : <Menu size={24} className="text-black" />}
+                            <Menu size={22} />
                         </button>
 
-                        <div className="flex items-center gap-6 group cursor-default">
-                            <h1 className="text-xl font-black uppercase tracking-tighter text-black">{displayTitle}</h1>
-                            <div className="h-4 w-[1px] bg-black/10 hidden md:block"></div>
-                            <div className="hidden md:flex items-center gap-3">
-                                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shadow-md border border-neutral-800">
-                                    <span className="text-white font-black text-sm uppercase">T</span>
-                                </div>
-                                <span className="text-[10px] font-black tracking-[0.2em] text-black uppercase">{portalName}</span>
-                            </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-1.5 h-6 bg-slate-950 rounded-full" />
+                            <span className="text-[12px] font-black text-slate-950 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 uppercase tracking-[0.2em] shadow-sm">
+                                {displayPage.charAt(0).toUpperCase() + displayPage.slice(1)} Node
+                            </span>
                         </div>
                     </div>
 
-                    <div className="flex justify-end flex-1 items-center gap-6">
-                        {/* Integrated Minimal Search */}
-                        <div className="hidden lg:flex items-center w-64 lg:w-80">
+                    <div className="flex items-center gap-4 lg:gap-8 flex-1 justify-end">
+                        <div className="hidden lg:block w-full max-w-md">
                             <HeaderSearch />
                         </div>
 
+                        {/* Audit Alerts */}
                         <div className="relative">
                             <button
                                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                                className={`p-2.5 rounded-full transition-all relative ${isNotificationOpen ? 'bg-black text-white' : 'bg-neutral-50 text-black hover:bg-neutral-100'}`}
+                                className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all relative border ${isNotificationOpen ? 'bg-slate-950 text-white border-slate-950 shadow-xl shadow-black/20' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-950 hover:bg-slate-50'}`}
                             >
-                                <Bell size={18} />
+                                <Bell size={20} strokeWidth={2.5} />
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-black rounded-full border-2 border-white ring-2 ring-black/5"></span>
+                                    <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-slate-950 border-2 border-white rounded-full animate-pulse"></span>
                                 )}
                             </button>
 
                             {isNotificationOpen && (
-                                <div className="absolute right-0 mt-4 w-[380px] bg-white border border-black/5 rounded-[2rem] shadow-2xl overflow-hidden animate-fade-in z-[200]">
-                                    <div className="p-8 border-b border-neutral-50 flex justify-between items-center bg-white">
-                                        <div>
-                                            <h3 className="font-black text-[10px] uppercase tracking-[0.2em] text-black">Audit Registry</h3>
-                                            <p className="text-[10px] font-bold text-black/30 mt-0.5">{unreadCount} pending alerts</p>
+                                <div className="absolute right-0 mt-4 w-80 lg:w-[400px] bg-white border border-slate-200 rounded-[2rem] shadow-2xl shadow-black/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[200]">
+                                    <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <h3 className="font-black text-[11px] text-slate-900 uppercase tracking-[0.3em]">Audit Protocol</h3>
                                         </div>
-                                        <button
-                                            onClick={markAllAsRead}
-                                            className="text-[9px] font-black uppercase tracking-widest text-black/20 hover:text-black transition-colors"
-                                        >
-                                            Purge
-                                        </button>
+                                        <button onClick={markAllAsRead} className="text-[10px] font-black text-slate-400 hover:text-slate-950 uppercase tracking-widest transition-colors">Clear Matrix</button>
                                     </div>
-                                    <div className="max-h-[450px] overflow-y-auto no-scrollbar">
+                                    <div className="max-h-[400px] overflow-y-auto no-scrollbar">
                                         {notifications.length === 0 ? (
-                                            <div className="p-20 text-center">
-                                                <Bell className="w-8 h-8 text-black/5 mx-auto mb-4" />
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-black/10 italic">Feed cleared</p>
+                                            <div className="p-20 text-center space-y-4">
+                                                <Bell size={40} className="mx-auto text-slate-100" />
+                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-300 italic">No Registry Alerts Detected</p>
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <div
-                                                    key={notif.id}
-                                                    onClick={() => !notif.isRead && markAsRead(notif.id)}
-                                                    className={`p-8 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition-colors cursor-pointer group ${!notif.isRead ? 'bg-neutral-50/[0.3]' : 'opacity-40'}`}
-                                                >
-                                                    <div className="flex gap-4">
-                                                        <div className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${!notif.isRead ? 'bg-black animate-pulse' : 'bg-transparent'}`}></div>
-                                                        <div className="flex-1 space-y-2">
-                                                            <div className="flex justify-between items-start">
-                                                                <h4 className="text-[12px] font-black uppercase tracking-tight text-black flex-1 line-clamp-1">{notif.title}</h4>
-                                                            </div>
-                                                            <p className="text-[11px] font-medium text-black/40 leading-relaxed">{notif.message}</p>
-                                                            <p className="text-[9px] font-bold text-black/20 uppercase tracking-widest mt-4 pt-4 border-t border-neutral-50 group-hover:border-neutral-100 transition-colors italic">
-                                                                {formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}
-                                                            </p>
-                                                        </div>
+                                                <div key={notif.id} className={`p-6 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors cursor-pointer group relative ${!notif.isRead ? 'bg-slate-50/30' : ''}`}>
+                                                    {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-950" />}
+                                                    <h4 className="text-[14px] font-black text-slate-900 leading-tight uppercase tracking-tight group-hover:tracking-normal transition-all">{notif.title}</h4>
+                                                    <p className="text-[12px] text-slate-500 mt-2 line-clamp-2 italic font-medium">{notif.message}</p>
+                                                    <div className="flex items-center gap-2 mt-4">
+                                                        <Clock size={12} className="text-slate-300" />
+                                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
                                                     </div>
                                                 </div>
                                             ))
                                         )}
                                     </div>
-                                    <div className="p-6 bg-neutral-50 border-t border-neutral-100">
-                                        <button className="w-full py-4 text-[9px] font-black uppercase tracking-[0.3em] text-black/40 hover:text-black transition-all">
-                                            Access Archives
-                                        </button>
-                                    </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="h-6 w-[1px] bg-black/10 hidden sm:block"></div>
-
+                        {/* Personnel Anchor */}
                         <div className="relative">
-                            {/* Minimal Account Box */}
-                            <div
+                            <button
                                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                className="flex items-center gap-4 cursor-pointer group"
+                                className="flex items-center gap-4 pl-2 pr-5 py-2 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 transition-all group shadow-sm hover:shadow-black/5"
                             >
-                                <div className="text-right hidden sm:block">
-                                    <p className="text-[12px] font-black tracking-tight text-black uppercase">{user.name}</p>
-                                    <p className="text-[9px] text-black/30 font-bold uppercase tracking-widest italic">{user.role}</p>
+                                <div className="relative">
+                                    <Image
+                                        src={user?.profileImage || `https://ui-avatars.com/api/?name=${user?.name}&background=000&color=fff&bold=true&size=128`}
+                                        width={44}
+                                        height={44}
+                                        className="rounded-xl object-cover border-2 border-slate-50 shadow-xl shadow-black/10 group-hover:scale-110 transition-transform"
+                                        alt="Personnel avatar"
+                                        unoptimized
+                                    />
+                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
                                 </div>
-                                <Image
-                                    src={user.profileImage || `https://ui-avatars.com/api/?name=${user.name}&background=000&color=fff&bold=true`}
-                                    width={40}
-                                    height={40}
-                                    className="rounded-full object-cover border-2 border-transparent group-hover:border-black/20 transition-all shadow-sm h-10 w-10"
-                                    alt="User"
-                                    unoptimized
-                                />
-                                <ChevronDown size={14} className="text-black/30 group-hover:text-black transition-colors" />
-                            </div>
+                                <div className="hidden lg:block text-left">
+                                    <p className="text-[14px] font-black text-slate-950 leading-none">{user?.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest italic">{user?.role} NODE</p>
+                                </div>
+                                <ChevronDown size={16} strokeWidth={2.5} className={`text-slate-300 transition-transform duration-300 ml-2 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                            </button>
 
-                            {/* Profile Dropdown Menu */}
                             {isProfileMenuOpen && (
-                                <div className="absolute right-0 mt-4 w-48 bg-white border border-black/5 rounded-2xl shadow-xl overflow-hidden animate-fade-in z-[200]">
-                                    <div className="p-4 border-b border-neutral-50 flex flex-col items-center">
-                                        <p className="font-bold text-xs uppercase text-black">{user.name}</p>
-                                        <p className="text-[10px] text-black/40 line-clamp-1">{user.email}</p>
+                                <div className="absolute right-0 mt-4 w-64 bg-white border border-slate-200 rounded-[2rem] shadow-2xl shadow-black/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[200] p-2">
+                                    <div className="px-6 py-5 border-b border-slate-50">
+                                        <p className="text-[13px] font-black text-slate-950 uppercase tracking-tight">{user.name}</p>
+                                        <p className="text-[11px] text-slate-400 font-medium truncate mt-1 italic">{user.email}</p>
                                     </div>
-                                    <div className="py-2 flex flex-col">
-                                        <Link href="/dashboard/profile" className="px-4 py-2 text-xs font-bold text-black/60 hover:text-black hover:bg-neutral-50 transition-colors uppercase">
-                                            My Profile
+                                    <div className="p-2 space-y-1">
+                                        <Link href="/dashboard/profile" className="flex items-center gap-4 px-4 py-4 text-[12px] font-black text-slate-600 hover:text-slate-950 hover:bg-slate-50 rounded-2xl transition-all uppercase tracking-widest">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
+                                                <User size={16} strokeWidth={2.5} />
+                                            </div>
+                                            Personnel Hub
                                         </Link>
-                                        <Link href="/dashboard/settings" className="px-4 py-2 text-xs font-bold text-black/60 hover:text-black hover:bg-neutral-50 transition-colors uppercase">
-                                            Settings
-                                        </Link>
-                                        <div className="w-full h-[1px] bg-neutral-100 my-1"></div>
-                                        <button
-                                            onClick={logout}
-                                            className="px-4 py-2 text-xs font-bold text-red-500 hover:text-red-600 hover:bg-red-50 text-left transition-colors uppercase"
-                                        >
-                                            Logout
+                                        <div className="h-px bg-slate-50 mx-4 my-2"></div>
+                                        <button onClick={logout} className="flex items-center gap-4 px-4 py-4 text-[12px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all uppercase tracking-widest w-full text-left">
+                                            <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                                                <LogOut size={16} strokeWidth={2.5} />
+                                            </div>
+                                            Terminate Session
                                         </button>
                                     </div>
                                 </div>
@@ -315,23 +299,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </header>
 
-                {/* Main Content Area */}
-                <main className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 pb-20 overflow-x-hidden pt-6">
-                    {children}
+                {/* Content Terminal */}
+                <main className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-14 bg-slate-50/50">
+                    <div className="max-w-[1600px] mx-auto relative z-10">
+                        {children}
+                    </div>
+                    {/* Background Ambience */}
+                    <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-30 select-none">
+                        <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-slate-200/20 rounded-full blur-[150px] -mr-96 -mt-96" />
+                        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-slate-200/10 rounded-full blur-[150px] -ml-96 -mb-96" />
+                    </div>
                 </main>
-            </div>
-
-            {/* Mobile Menu Overlay & Drawer */}
-            <div
-                className={`fixed inset-0 bg-black/40 backdrop-blur-sm z-[200] md:hidden transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}
-                onClick={() => setIsMobileMenuOpen(false)}
-            >
-                <div
-                    className={`fixed inset-y-0 left-0 w-[240px] bg-white border-r border-black/5 shadow-2xl transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
-                </div>
             </div>
         </div>
     );

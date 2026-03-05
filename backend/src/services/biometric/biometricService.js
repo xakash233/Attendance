@@ -165,6 +165,30 @@ class BiometricService {
                 status = 'LATE';
             }
 
+            // Check if there was a cancelled leave
+            const cancelledLeaves = await tx.leaveRequest.findMany({
+                where: {
+                    userId: userId,
+                    status: 'CANCELLED',
+                    startDate: { lte: date },
+                    endDate: { gte: date }
+                }
+            });
+
+            if (cancelledLeaves.length > 0) {
+                status = 'PRESENT';
+                for (const cl of cancelledLeaves) {
+                    await tx.leaveRequest.delete({ where: { id: cl.id } });
+                }
+                const userObj = await tx.user.findUnique({ where: { id: userId } });
+                await tx.notification.deleteMany({
+                    where: {
+                        type: 'LEAVE_CANCELLATION',
+                        message: { contains: userObj?.name || '' }
+                    }
+                });
+            }
+
             await tx.attendance.create({
                 data: {
                     userId,

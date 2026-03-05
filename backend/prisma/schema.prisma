@@ -220,6 +220,7 @@ enum LeaveStatus {
   REJECTED_BY_SUPERADMIN
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 model PendingUser {

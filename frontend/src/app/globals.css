@@ -4,72 +4,69 @@
 
 :root {
   --background: #FFFFFF;
-  --foreground: #000000;
-  --card: #F9FAFB;
-  --card-foreground: #000000;
-  --muted: #E5E7EB;
-  --muted-foreground: #6B7280;
-  --border: rgba(0, 0, 0, 0.1);
-  --primary: #2563eb;
+  --foreground: #1e293b;
+  --card: #FFFFFF;
+  --card-foreground: #1e293b;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --primary: #000000;
   --primary-foreground: #FFFFFF;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 @layer components {
 
-  /* Strict White Corporate Card */
+  /* SaaS Styled Card */
   .card {
-    @apply bg-white text-black p-8 rounded-3xl border border-[#e4e4e7] transition-all duration-300;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    @apply bg-white rounded-xl border border-slate-200 shadow-sm transition-all duration-300;
   }
 
   .stat-card {
-    @apply card flex flex-col justify-between hover:border-black/20 hover:-translate-y-0.5 transform;
+    @apply card p-6 hover:shadow-md;
   }
 
-  /* Icons and Layout Adjustments */
+  /* Lead101 Styled Buttons */
   .btn-primary {
-    @apply bg-black text-white px-8 py-3.5 rounded-xl font-bold uppercase tracking-wide text-xs flex items-center justify-center gap-2 hover:bg-black/90 transition-all active:scale-95;
+    @apply bg-black text-white px-6 py-2.5 rounded-lg font-bold text-[13px] flex items-center justify-center gap-2 hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-black/10;
   }
 
   .btn-secondary {
-    @apply bg-[#f4f4f5] text-black border border-[#e4e4e7] px-6 py-3 rounded-xl font-semibold uppercase tracking-wide text-xs flex items-center justify-center gap-2 hover:bg-[#e4e4e7] transition-all active:scale-95;
+    @apply bg-white text-slate-600 border border-slate-200 px-6 py-2.5 rounded-lg font-semibold text-[13px] flex items-center justify-center gap-2 hover:bg-slate-50 transition-all active:scale-95 shadow-sm;
   }
 
-  /* Clear Input Fields - Light Integrated */
+  /* Integrated SaaS Inputs */
   .input-field {
-    @apply bg-white border border-[#e4e4e7] text-black px-6 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/5 focus:border-black/20 w-full text-sm transition-all placeholder:text-black/30;
+    @apply bg-slate-50 border border-slate-200 text-slate-900 px-4 py-3 rounded-lg focus:outline-none focus:ring-4 focus:ring-black/[0.03] focus:border-black w-full text-[13px] transition-all placeholder:text-slate-400;
   }
 
+  /* Sidebar Links - Matching Screenshot */
   .sidebar-link {
-    @apply flex flex-col items-center justify-center p-4 rounded-2xl transition-all duration-300;
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-slate-500 font-medium text-[13px] cursor-pointer;
   }
 
   .sidebar-link.active {
-    @apply bg-white text-black scale-105;
+    @apply bg-black text-white shadow-xl shadow-black/10;
   }
 
-  .sidebar-link:not(.active) {
-    @apply text-white/40 hover:bg-white/5 hover:text-white;
+  .sidebar-link:not(.active):hover {
+    @apply bg-slate-100 text-slate-900;
   }
+}
 
-  /* Utility classes */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+/* Utility classes */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
-  }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom Dark Silicon Scrollbar */

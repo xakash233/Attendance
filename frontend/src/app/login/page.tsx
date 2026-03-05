@@ -34,7 +34,7 @@ export default function LoginPage() {
                 employeeCode: response.data.employeeCode,
             });
             setLoginErrorState('NONE');
-            toast.success('Access Granted');
+            toast.success('Access Granted', { duration: 2000 });
         } catch (error: any) {
             if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
                 toast.error('Network Error: Hub server is offline or unreachable', { icon: '🔌' });
@@ -94,13 +94,13 @@ export default function LoginPage() {
                 <div className="w-full lg:w-[40%] bg-[#000000] flex flex-col justify-between p-10 lg:p-20 relative shrink-0 h-[30vh] lg:h-full">
 
                     <div className="relative z-10 flex flex-col h-full items-center lg:items-start justify-center lg:justify-start">
-                        <div className="w-14 h-14 lg:w-16 lg:h-16 bg-white rounded-2xl flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.1)] mb-8 lg:mb-16 will-change-transform hover:scale-105 transition-transform duration-500">
+                        <div className="mb-10 lg:mb-20 will-change-transform hover:scale-105 transition-transform duration-500">
                             <Image
-                                src="/logo/Tectra.png"
+                                src="/logo/Tectra Black.png"
                                 alt="Logo"
-                                width={32}
-                                height={32}
-                                className="w-8 h-8 lg:w-10 lg:h-10 object-contain grayscale brightness-0"
+                                width={240}
+                                height={80}
+                                className="w-auto h-16 lg:h-24 object-contain invert brightness-0"
                                 priority
                             />
                         </div>
