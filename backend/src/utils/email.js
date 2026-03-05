@@ -1,6 +1,11 @@
 import nodemailer from 'nodemailer';
 
 const sendEmail = async (options) => {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.error('[MAIL ERROR] Missing SMTP_USER or SMTP_PASS in environment variables.');
+        throw new Error("Missing credentials for 'PLAIN' - Email configuration is incomplete.");
+    }
+
     const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
@@ -13,7 +18,6 @@ const sendEmail = async (options) => {
             rejectUnauthorized: false
         }
     });
-
     const message = {
         from: `${process.env.FROM_NAME || 'Tectra'} <${process.env.SMTP_USER}>`,
         to: options.email,
