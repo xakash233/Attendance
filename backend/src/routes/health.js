@@ -8,20 +8,31 @@ router.get('/', async (req, res) => {
         // Test DB connection
         await prisma.$queryRaw`SELECT 1`;
 
-        res.status(200).json({
-            status: 'OK',
+        const healthData = {
+            status: 'HEALTHY',
             timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
+            uptime: Math.floor(process.uptime()),
+            system: {
+                platform: process.platform,
+                memory: {
+                    total: (process.memoryUsage().rss / 1024 / 1024).toFixed(2) + ' MB',
+                    heap: (process.memoryUsage().heapUsed / 1024 / 1024).toFixed(2) + ' MB'
+                }
+            },
             services: {
-                database: 'Connected'
+                database: 'Connected',
+                api: 'Online'
             }
-        });
+        };
+
+        res.status(200).json(healthData);
     } catch (error) {
         res.status(503).json({
-            status: 'ERROR',
+            status: 'DEGRADED',
             timestamp: new Date().toISOString(),
             services: {
                 database: 'Disconnected',
+                api: 'Online',
                 error: error.message
             }
         });

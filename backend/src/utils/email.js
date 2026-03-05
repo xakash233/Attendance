@@ -4,20 +4,18 @@ const sendEmail = async (options) => {
     const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST,
         port: process.env.SMTP_PORT,
-        secure: false, // true for 465, false for other ports
+        secure: process.env.SMTP_PORT == 465,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
         },
-    });
-
-    // Handle transporter errors to prevent process crash
-    transporter.on('error', (err) => {
-        console.error('SMTP Transporter Error:', err);
+        tls: {
+            rejectUnauthorized: false
+        }
     });
 
     const message = {
-        from: `${process.env.FROM_NAME || 'Tectra Technologies'} <${process.env.SMTP_FROM}>`,
+        from: `${process.env.FROM_NAME || 'Tectra'} <${process.env.SMTP_USER}>`,
         to: options.email,
         subject: options.subject,
         text: options.message,

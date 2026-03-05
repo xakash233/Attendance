@@ -98,6 +98,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
+    const getPortalName = (role: string | undefined) => {
+        switch (role) {
+            case 'SUPER_ADMIN': return 'Tectra SuperAdmin Portal';
+            case 'ADMIN': return 'Tectra Admin Portal';
+            case 'HR': return 'Tectra HR Portal';
+            case 'EMPLOYEE': return 'Tectra Employee Portal';
+            default: return 'Tectra Technology';
+        }
+    };
+
+    const portalName = getPortalName(user?.role);
+
+    // Sync browser tab title
+    useEffect(() => {
+        if (user) {
+            document.title = portalName;
+        }
+        return () => {
+            document.title = "Tectra Technologies | Attendance System";
+        };
+    }, [user, portalName]);
+
     if (loading || !user) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-white">
@@ -107,6 +129,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
 
     const currentPage = pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard';
+    const isMainDashboard = pathname === '/dashboard';
+    const displayTitle = isMainDashboard ? portalName : currentPage;
 
     return (
         <div className="flex min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white overflow-x-hidden">
@@ -158,13 +182,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </button>
 
                         <div className="flex items-center gap-6 group cursor-default">
-                            <h1 className="text-xl font-black uppercase tracking-tighter text-black">{currentPage}</h1>
+                            <h1 className="text-xl font-black uppercase tracking-tighter text-black">{displayTitle}</h1>
                             <div className="h-4 w-[1px] bg-black/10 hidden md:block"></div>
                             <div className="hidden md:flex items-center gap-3">
                                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shadow-md border border-neutral-800">
                                     <span className="text-white font-black text-sm uppercase">T</span>
                                 </div>
-                                <span className="text-[10px] font-black tracking-[0.2em] text-black uppercase">Tectra Technology</span>
+                                <span className="text-[10px] font-black tracking-[0.2em] text-black uppercase">{portalName}</span>
                             </div>
                         </div>
                     </div>
