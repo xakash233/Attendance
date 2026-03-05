@@ -110,15 +110,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     const portalName = getPortalName(user?.role);
 
+    const currentPage = pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard';
+    const isMainDashboard = pathname === '/dashboard';
+    const displayTitle = isMainDashboard ? portalName : currentPage;
+
     // Sync browser tab title
     useEffect(() => {
-        if (user) {
-            document.title = portalName;
+        if (!loading && user) {
+            const formattedPage = currentPage.charAt(0).toUpperCase() + currentPage.slice(1);
+            document.title = isMainDashboard ? portalName : `${formattedPage} | ${portalName}`;
         }
         return () => {
             document.title = "Tectra Technologies | Attendance System";
         };
-    }, [user, portalName]);
+    }, [user, portalName, currentPage, isMainDashboard, loading]);
 
     if (loading || !user) {
         return (
@@ -128,9 +133,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         );
     }
 
-    const currentPage = pathname.split('/').pop()?.replace(/-/g, ' ') || 'Dashboard';
-    const isMainDashboard = pathname === '/dashboard';
-    const displayTitle = isMainDashboard ? portalName : currentPage;
 
     return (
         <div className="flex min-h-screen bg-white text-black font-sans selection:bg-black selection:text-white overflow-x-hidden">
