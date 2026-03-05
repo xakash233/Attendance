@@ -9,10 +9,10 @@ async function testEmail() {
 
   try {
     await sendEmail({
-      email: process.env.SMTP_USER, // Send to self
-      subject: 'Tectra Email Test',
-      message: 'If you are reading this, your email configuration is correct.',
-      html: '<h1>Email Configuration Status: <span style="color: green;">OPERATIONAL</span></h1>'
+      email: 'gokulavasan145@gmail.com', // Test specific target
+      subject: 'Tectra Security Test',
+      message: 'Testing verification dispatch to external node.',
+      html: '<h1>Identity Verification Dispatch: <span style="color: blue;">TEST</span></h1>'
     });
     console.log('--- Email Test Successful ---');
   } catch (error) {

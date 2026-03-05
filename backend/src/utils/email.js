@@ -22,6 +22,8 @@ const sendEmail = async (options) => {
         html: options.html,
     };
 
+    console.log(`[MAIL] Attempting to send email to: ${options.email}`);
+
     try {
         const info = await transporter.sendMail(message);
         console.log('Message sent: %s', info.messageId);

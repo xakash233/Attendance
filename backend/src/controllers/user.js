@@ -65,8 +65,9 @@ export const initUserCreation = async (req, res, next) => {
             }
         });
 
-        // Send OTP email (Async, non-blocking)
-        sendEmail({
+        // Send OTP email (Blocking to ensure delivery attempt)
+        console.log(`[USER CTRL] Sending OTP to ${email}`);
+        await sendEmail({
             email,
             subject: 'Account Registration Verification (OTP)',
             message: `Your verification code is: ${otp}`,
@@ -80,7 +81,8 @@ export const initUserCreation = async (req, res, next) => {
                     <p style="font-size: 11px; color: #999;">This authentication token expires in 10 minutes.</p>
                 </div>
             `
-        }).catch(err => console.error('Email failed to send asynchronously:', err));
+        });
+        console.log(`[USER CTRL] OTP successfully dispatched to email.`);
 
         res.status(200).json({ pendingId, message: 'OTP sent to employee email' });
     } catch (error) {
