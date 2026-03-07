@@ -13,7 +13,7 @@ class LeaveService {
 
         while (curDate <= end) {
             const dayOfWeek = curDate.getUTCDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sunday(0) and Saturday(6)
+            if (dayOfWeek !== 0) { // Skip only Sunday(0)
                 count++;
             }
             curDate.setUTCDate(curDate.getUTCDate() + 1);
@@ -100,13 +100,29 @@ class LeaveService {
                 include: { user: { include: { department: true } } }
             });
 
-            // 4. Audit Log
+            // 4. Monthly Check for Frequent Leaves
+            const startOfMonth = new Date(start.getFullYear(), start.getMonth(), 1);
+            const endOfMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59);
+
+            const leavesThisMonth = await tx.leaveRequest.aggregate({
+                _sum: { totalDays: true },
+                where: {
+                    userId,
+                    status: { notIn: ['REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'CANCELLED'] },
+                    startDate: { gte: startOfMonth, lte: endOfMonth }
+                }
+            });
+            const totalLeavesThisMonth = (leavesThisMonth._sum.totalDays || 0) + totalDays;
+            leaveRequest.isFrequentLeaver = totalLeavesThisMonth > 2;
+            leaveRequest.totalLeavesThisMonth = totalLeavesThisMonth;
+
+            // 5. Audit Log
             await auditService.logAction({
                 userId,
                 action: 'LEAVE_APPLIED',
                 entity: 'LeaveRequest',
                 entityId: leaveRequest.id,
-                details: { durationType, startDate, endDate, totalDays, reason }
+                details: { durationType, startDate, endDate, totalDays, reason, isFrequentLeaver: leaveRequest.isFrequentLeaver }
             }, tx);
 
             return leaveRequest;

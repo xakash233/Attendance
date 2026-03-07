@@ -6,7 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     FolderPlus, Users, Briefcase,
-    ArrowRight, Loader2, Globe, MoreHorizontal, ShieldCheck, X
+    ArrowRight, Loader2, Globe, MoreHorizontal, ShieldCheck, X, Trash2,
+    Video, Palette, Terminal, Code2
 } from 'lucide-react';
 
 export default function DepartmentsPage() {
@@ -15,6 +16,13 @@ export default function DepartmentsPage() {
     const [newDept, setNewDept] = useState('');
     const [loading, setLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = () => setOpenMenuId(null);
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, []);
 
     const fetchDepts = useCallback(async () => {
         try {
@@ -51,129 +59,181 @@ export default function DepartmentsPage() {
         }
     };
 
+    const handleDelete = async (id: string, isHr: boolean) => {
+        if (isHr) {
+            toast.success('Deletion request sent to Super Admin for approval.');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this department? This action cannot be undone.')) return;
+        try {
+            await api.delete(`/departments/${id}`);
+            toast.success('Department deleted');
+            fetchDepts();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete department');
+        }
+    };
+
+    const getDeptIcon = (name: string) => {
+        const lowerName = name.toLowerCase();
+        if (lowerName.includes('media')) return <Video size={24} />;
+        if (lowerName.includes('content') || lowerName.includes('creator')) return <Palette size={24} />;
+        if (lowerName.includes('technical')) return <Terminal size={24} />;
+        if (lowerName.includes('development')) return <Code2 size={24} />;
+        return <Globe size={24} />;
+    };
+
     if (loading) return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-6">
-            <Loader2 className="w-8 h-8 text-black animate-spin" />
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-300">Auditing Infrastructure Matrix...</p>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+            <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
+            <p className="text-[13px] font-medium text-[#667085]">Loading departments...</p>
         </div>
     );
 
     return (
-        <>
-            <div className="space-y-8 animate-fade-in pb-20">
-                {/* SaaS Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                        <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none">Organizational Hubs</h1>
-                        <p className="text-[13px] font-medium text-slate-500 mt-2 italic">Structural architecture and department auditing.</p>
-                    </div>
-
-                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && (
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="btn-primary"
-                        >
-                            <FolderPlus size={18} strokeWidth={3} />
-                            Provision New Hub
-                        </button>
-                    )}
+        <div className="space-y-6 animate-fade-in pb-10">
+            {/* SaaS Header */}
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div>
+                    <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Departments</h1>
+                    <p className="text-[13px] font-medium text-[#667085] mt-1">
+                        Manage organizational structure and operational hubs.
+                    </p>
                 </div>
 
-                {/* Hub Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {departments.length === 0 ? (
-                        <div className="col-span-full py-32 text-center card border border-slate-200 bg-slate-50/30">
-                            <p className="font-black uppercase tracking-[0.2em] text-[12px] text-slate-400 italic">No structural units detected in registry.</p>
-                        </div>
-                    ) : (
-                        departments.map((dept: any) => (
-                            <div key={dept.id} className="card p-10 flex flex-col justify-between min-h-[380px] border border-slate-200 group hover:shadow-2xl hover:shadow-black/5 hover:-translate-y-1 transition-all bg-white relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50/50 rounded-bl-full -mr-16 -mt-16 group-hover:bg-slate-100 transition-colors" />
+                {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && (
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="btn-primary py-2.5 px-6"
+                    >
+                        <FolderPlus size={18} />
+                        Create Department
+                    </button>
+                )}
+            </header>
 
-                                <div className="flex justify-between items-start relative z-10">
-                                    <div className="w-16 h-16 bg-slate-950 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-black/10 border border-white/5 transition-all group-hover:scale-110">
-                                        <Globe size={28} strokeWidth={2.5} />
+            {/* Hub Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {departments.length === 0 ? (
+                    <div className="col-span-full py-20 text-center card border-[#E6E8EC] bg-white">
+                        <p className="font-medium text-[14px] text-[#667085]">No departments created yet.</p>
+                    </div>
+                ) : (
+                    departments.map((dept: any) => (
+                        <div key={dept.id} className="card p-6 flex flex-col justify-between min-h-[240px] border-[#E6E8EC] group bg-white relative">
+                            <div className="flex justify-between items-start relative z-20">
+                                <div className="w-12 h-12 bg-[#F8F9FB] border border-[#E6E8EC] text-[#344054] rounded-xl flex items-center justify-center transition-all group-hover:bg-[#101828] group-hover:text-white">
+                                    {getDeptIcon(dept.name)}
+                                </div>
+                                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
+                                    <div className="relative">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenMenuId(openMenuId === dept.id ? null : dept.id);
+                                            }}
+                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-lg hover:bg-slate-50 transition-all"
+                                        >
+                                            <MoreHorizontal size={20} />
+                                        </button>
+
+                                        {openMenuId === dept.id && (
+                                            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(null);
+                                                        handleDelete(dept.id, currentUser?.role === 'HR');
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 text-left transition-colors"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    {currentUser?.role === 'HR' ? 'Request Deletion' : 'Delete Dept'}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
-                                    <button className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-black transition-colors rounded-xl hover:bg-slate-50">
-                                        <MoreHorizontal size={20} />
-                                    </button>
+                                )}
+                            </div>
+
+                            <div className="mt-8 space-y-6 relative z-10">
+                                <div>
+                                    <h3 className="text-[18px] font-semibold text-[#101828] leading-none">{dept.name}</h3>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                        <p className="text-[12px] font-medium text-[#667085]">Active</p>
+                                    </div>
                                 </div>
 
-                                <div className="mt-10 space-y-6 relative z-10">
-                                    <div>
-                                        <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter group-hover:tracking-normal transition-all duration-500">{dept.name}</h3>
-                                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 mt-2 italic flex items-center gap-2">
-                                            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                            Active Infrastructure
-                                        </p>
+                                <div className="pt-6 border-t border-[#E6E8EC] space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2 text-[#667085] font-medium text-[13px]">
+                                            <Users size={16} />
+                                            <span>Employees</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[16px] font-semibold text-[#101828]">{dept._count?.employees || 0}</span>
+                                        </div>
                                     </div>
 
-                                    <div className="pt-8 border-t border-slate-100 flex flex-col gap-6">
-                                        <div className="flex justify-between items-end">
-                                            <div className="space-y-1.5">
-                                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest leading-none">Personnel Registry</p>
-                                                <div className="flex items-center gap-2 text-slate-900">
-                                                    <Users size={14} className="text-black" />
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 italic">Global Scale</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-5xl font-black tracking-tighter tabular-nums leading-none text-slate-950">{dept._count?.employees || 0}</span>
-                                            </div>
+                                    <div className="flex justify-between items-center px-4 py-2.5 bg-[#F8F9FB] rounded-lg border border-[#E6E8EC]">
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck size={16} className="text-[#101828]" />
+                                            <span className="text-[12px] font-medium text-[#475467]">Manager</span>
                                         </div>
-                                        <div className="flex justify-between items-center px-5 py-4 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-all">
-                                            <div className="flex items-center gap-3">
-                                                <ShieldCheck size={16} className="text-slate-400" />
-                                                <span className="text-[10px] uppercase font-black tracking-widest text-slate-400">Unit Manager</span>
-                                            </div>
-                                            <span className="text-slate-900 text-[10px] font-black uppercase tracking-widest italic">{dept.hr?.name || '--'}</span>
-                                        </div>
+                                        <span className="text-[#101828] text-[12px] font-semibold truncate max-w-[100px]">{dept.hr?.name || 'Central'}</span>
                                     </div>
                                 </div>
                             </div>
-                        ))
-                    )}
-                </div>
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Department Creation Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md animate-fade-in">
-                    <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl scale-100 animate-in zoom-in-95 duration-300 overflow-hidden border border-white/20">
-                        <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                            <div>
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase">Provision Hub</h2>
-                                <p className="text-[13px] font-medium text-slate-500 mt-2 italic">Register new organizational hub infrastructure.</p>
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
+                        <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
+                            <div className="space-y-1">
+                                <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Create Department</h2>
+                                <p className="text-[13px] font-medium text-[#667085]">Add a new organizational unit.</p>
                             </div>
-                            <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-slate-300 hover:bg-slate-100 hover:text-slate-950 transition-all shadow-sm border border-slate-100">
-                                <X size={24} strokeWidth={2.5} />
+                            <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085] transition-all">
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <form onSubmit={handleCreate} className="p-10 space-y-8" autoComplete="off">
-                            <div className="space-y-3">
-                                <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Universal Hub Identifier</label>
+                        <form onSubmit={handleCreate} className="p-6 space-y-6" autoComplete="off">
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-medium text-[#344054]">Department Name</label>
                                 <input
                                     type="text"
-                                    placeholder="Ex: Advanced Engineering Matrix"
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-6 text-[14px] text-slate-900 font-black focus:ring-8 focus:ring-black/5 focus:border-black outline-none transition-all placeholder:text-slate-300 shadow-sm"
+                                    placeholder="Ex: Engineering"
+                                    className="input-field"
                                     value={newDept}
                                     onChange={(e) => setNewDept(e.target.value)}
                                     required
                                 />
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={isCreating}
-                                className="btn-primary w-full h-[64px] justify-center text-[14px] rounded-2xl shadow-xl shadow-black/10"
-                            >
-                                {isCreating ? <Loader2 className="animate-spin" size={24} /> : <>Initialize Infrastructure Hub <ArrowRight size={20} strokeWidth={3} className="ml-3" /></>}
-                            </button>
+                            <div className="pt-2 border-t border-[#E6E8EC] flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isCreating}
+                                    className="btn-primary"
+                                >
+                                    {isCreating ? <Loader2 className="animate-spin text-white" size={18} /> : 'Create Department'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
             )}
-        </>
+        </div>
     );
 }

@@ -82,8 +82,8 @@ export default function HeaderSearch() {
     return (
         <div ref={containerRef} className="relative w-full group">
             {/* SaaS Search Input */}
-            <div className="relative w-full transition-all duration-300">
-                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${isOpen ? 'text-slate-950' : 'text-slate-400'}`} size={16} strokeWidth={2.5} />
+            <div className="relative w-full transition-all duration-200">
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${isOpen ? 'text-[#101828]' : 'text-[#667085]'}`} size={16} />
                 <input
                     ref={inputRef}
                     type="text"
@@ -93,24 +93,24 @@ export default function HeaderSearch() {
                         setQuery(e.target.value);
                         setIsOpen(true);
                     }}
-                    placeholder="Search personnel registry..."
-                    className="w-full bg-slate-50/50 pl-11 pr-14 py-2 rounded-2xl text-[13px] font-black text-slate-950 border border-slate-200 focus:outline-none focus:bg-white focus:border-slate-400 focus:ring-8 focus:ring-black/5 transition-all h-[44px] placeholder:text-slate-300 placeholder:italic"
+                    placeholder="Search users or modules..."
+                    className="w-full bg-[#F8F9FB] pl-9 pr-12 py-2 rounded-lg text-[13px] font-medium text-[#101828] border border-[#E6E8EC] focus:outline-none focus:bg-white focus:border-[#101828] focus:ring-4 focus:ring-[#101828]/5 transition-all h-10 placeholder:text-[#667085]"
                 />
 
-                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                     {loading ? (
-                        <Loader2 size={16} className="text-slate-950 animate-spin" />
+                        <Loader2 size={14} className="text-[#667085] animate-spin" />
                     ) : query.length > 0 ? (
                         <button
                             onClick={() => { setQuery(''); setIsOpen(false); }}
-                            className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-950 transition-colors"
+                            className="p-1 hover:bg-slate-100 rounded-md text-[#667085] hover:text-[#101828] transition-colors"
                         >
-                            <X size={14} strokeWidth={2.5} />
+                            <X size={14} />
                         </button>
                     ) : (
-                        <div className="hidden sm:flex items-center gap-1 opacity-40 group-focus-within:opacity-0 transition-opacity">
-                            <kbd className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-[10px] font-sans font-black text-slate-400 shadow-sm">⌘</kbd>
-                            <kbd className="bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-[10px] font-sans font-black text-slate-400 shadow-sm">K</kbd>
+                        <div className="hidden sm:flex items-center gap-1 opacity-60 group-focus-within:opacity-0 transition-opacity">
+                            <kbd className="bg-white border border-[#E6E8EC] rounded px-1.5 py-0.5 text-[10px] font-medium text-[#667085]">⌘</kbd>
+                            <kbd className="bg-white border border-[#E6E8EC] rounded px-1.5 py-0.5 text-[10px] font-medium text-[#667085]">K</kbd>
                         </div>
                     )}
                 </div>
@@ -118,30 +118,30 @@ export default function HeaderSearch() {
 
             {/* SaaS Results Dropdown */}
             {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-4 bg-white border border-slate-200 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[300] max-h-[500px] flex flex-col">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[300] max-h-[400px] flex flex-col">
                     <div className="overflow-y-auto no-scrollbar flex-1">
                         {query.length >= 2 ? (
                             <>
                                 {results.modules.length > 0 && (
-                                    <div className="border-b border-slate-50 last:border-0 pb-2">
-                                        <div className="px-8 py-4 bg-slate-50/50">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">System Core Modules</p>
+                                    <div className="border-b border-[#E6E8EC] last:border-0 pb-1">
+                                        <div className="px-4 py-2 bg-[#F8F9FB]">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#667085]">Modules</p>
                                         </div>
-                                        <div className="py-2">
+                                        <div className="py-1">
                                             {results.modules.map((mod, i) => {
                                                 const IconComponent = ICON_MAP[mod.icon] || User;
                                                 return (
                                                     <div
                                                         key={i}
                                                         onClick={() => handleNavigate(mod.path)}
-                                                        className="px-8 py-4 hover:bg-slate-50 cursor-pointer flex items-center gap-5 transition-all group/item border-l-4 border-transparent hover:border-slate-950"
+                                                        className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
                                                     >
-                                                        <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover/item:bg-slate-950 group-hover/item:text-white transition-all text-slate-400 flex items-center justify-center shrink-0 border border-slate-200 group-hover/item:shadow-xl group-hover/item:shadow-black/20">
-                                                            <IconComponent size={18} strokeWidth={2.5} />
+                                                        <div className="w-8 h-8 rounded-lg bg-[#F8F9FB] text-[#667085] flex items-center justify-center shrink-0 border border-[#E6E8EC]">
+                                                            <IconComponent size={16} />
                                                         </div>
                                                         <div>
-                                                            <p className="text-[13px] font-black text-slate-950 uppercase tracking-tight leading-none group-hover:translate-x-1 transition-transform">{mod.name}</p>
-                                                            <p className="text-[11px] text-slate-400 font-bold mt-1.5 tracking-tight italic">{mod.description}</p>
+                                                            <p className="text-[13px] font-medium text-[#101828] leading-tight">{mod.name}</p>
+                                                            <p className="text-[12px] text-[#667085] mt-0.5 truncate max-w-[200px]">{mod.description}</p>
                                                         </div>
                                                     </div>
                                                 )
@@ -151,34 +151,33 @@ export default function HeaderSearch() {
                                 )}
 
                                 {results.users.length > 0 && (
-                                    <div className="border-b border-slate-50 last:border-0 pb-2">
-                                        <div className="px-8 py-4 bg-slate-50/50">
-                                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Personnel Registry</p>
+                                    <div className="border-b border-[#E6E8EC] last:border-0 pb-1">
+                                        <div className="px-4 py-2 bg-[#F8F9FB]">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#667085]">Users</p>
                                         </div>
-                                        <div className="py-2">
+                                        <div className="py-1">
                                             {results.users.map((u, i) => (
                                                 <div
                                                     key={i}
                                                     onClick={() => handleNavigate(`/dashboard/users/${u.id}`)}
-                                                    className="px-8 py-4 hover:bg-slate-50 cursor-pointer flex items-center gap-5 transition-all group/item border-l-4 border-transparent hover:border-slate-950"
+                                                    className="px-4 py-2.5 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors"
                                                 >
-                                                    <div className="relative shrink-0">
+                                                    <div className="relative shrink-0 w-8 h-8">
                                                         <Image
-                                                            src={u.profileImage || `https://ui-avatars.com/api/?name=${u.name}&background=000&color=fff&bold=true`}
-                                                            width={44}
-                                                            height={44}
-                                                            className="rounded-xl object-cover border-2 border-slate-50 shadow-lg group-hover/item:scale-110 transition-transform"
+                                                            src={u.profileImage || `https://ui-avatars.com/api/?name=${u.name}&background=F8F9FB&color=101828&bold=true`}
+                                                            fill
+                                                            className="rounded-full object-cover border border-[#E6E8EC]"
                                                             alt={u.name}
                                                             unoptimized
                                                         />
-                                                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                                                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-[13px] font-black text-slate-950 uppercase tracking-tight leading-none group-hover:translate-x-1 transition-transform">{u.name}</p>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{u.role}</span>
-                                                            <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                                                            <span className="text-[10px] text-slate-950 font-black tracking-widest bg-slate-100 px-2 py-0.5 rounded-lg">{u.employeeCode}</span>
+                                                        <p className="text-[13px] font-medium text-[#101828] leading-tight truncate">{u.name}</p>
+                                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                                            <span className="text-[11px] text-[#667085] capitalize">{u.role.replace('_', ' ').toLowerCase()}</span>
+                                                            <span className="w-1 h-1 bg-[#D0D5DD] rounded-full" />
+                                                            <span className="text-[11px] text-[#667085]">{u.employeeCode}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -188,27 +187,24 @@ export default function HeaderSearch() {
                                 )}
 
                                 {results.modules.length === 0 && results.users.length === 0 && !loading && (
-                                    <div className="px-8 py-20 text-center flex flex-col items-center">
-                                        <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 text-slate-200">
-                                            <Database size={32} strokeWidth={2.5} />
+                                    <div className="px-6 py-12 text-center flex flex-col items-center">
+                                        <div className="w-12 h-12 bg-[#F8F9FB] rounded-full flex items-center justify-center mb-3 text-[#D0D5DD]">
+                                            <Search size={20} />
                                         </div>
-                                        <p className="text-[14px] font-black text-slate-950 uppercase tracking-widest">Null Reference</p>
-                                        <p className="text-[12px] text-slate-400 mt-2 font-medium max-w-[250px] italic">The query returned zero results from the global organizational registry.</p>
+                                        <p className="text-[14px] font-medium text-[#101828]">No results found</p>
+                                        <p className="text-[13px] text-[#667085] mt-1">Try adjusting your search query.</p>
                                     </div>
                                 )}
                             </>
                         ) : (
-                            <div className="px-8 py-20 text-center flex flex-col items-center select-none">
-                                <div className="w-20 h-20 bg-slate-50 rounded-[2.5rem] flex items-center justify-center mb-6 text-slate-950 shadow-2xl shadow-black/5 border border-slate-100">
-                                    <Search size={32} strokeWidth={2.5} className="animate-pulse" />
+                            <div className="px-6 py-12 text-center flex flex-col items-center">
+                                <div className="w-12 h-12 bg-[#F8F9FB] rounded-full flex items-center justify-center mb-3 text-[#667085] border border-[#E6E8EC]">
+                                    <Search size={20} />
                                 </div>
-                                <p className="text-[15px] font-black text-slate-950 tracking-tighter uppercase">Intelligence Core</p>
-                                <p className="text-[12px] text-slate-400 tracking-tight mt-2 font-medium italic leading-relaxed max-w-[280px]">Query personnel identities, system protocols, or temporal records.</p>
+                                <p className="text-[14px] font-medium text-[#101828]">Search across the platform</p>
+                                <p className="text-[13px] text-[#667085] mt-1">Find users, departments, or specific modules.</p>
                             </div>
                         )}
-                    </div>
-                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-center">
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] italic">Tectra Core Intelligence Engine</p>
                     </div>
                 </div>
             )}

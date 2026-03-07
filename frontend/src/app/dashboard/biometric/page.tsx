@@ -67,15 +67,17 @@ export default function BiometricPage() {
     };
 
     return (
-        <div className="space-y-8 animate-fade-in pb-20">
+        <div className="space-y-6 animate-fade-in pb-10">
             {/* SaaS Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-black tracking-tight text-slate-900">Biometric Intercept</h1>
-                    <p className="text-[13px] font-medium text-slate-500 mt-1">Synchronize local biometric records with the central intelligence cloud.</p>
+                    <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Biometric Logs</h1>
+                    <p className="text-[13px] font-medium text-[#667085] mt-1">
+                        View and manage device synchronization records.
+                    </p>
                 </div>
 
-                <div className="flex items-center gap-4 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full lg:w-auto">
                     <input
                         type="file"
                         ref={fileInputRef}
@@ -86,113 +88,95 @@ export default function BiometricPage() {
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={syncing}
-                        className="btn-primary w-full md:w-auto flex items-center justify-center gap-3"
+                        className="btn-primary w-full lg:w-auto py-2.5 px-6"
                     >
-                        {syncing ? <Loader2 size={18} className="animate-spin text-white" /> : <Upload size={18} strokeWidth={3} />}
-                        {syncing ? 'UPLOADING...' : 'IMPORT RECORDS RESOURCE'}
+                        {syncing ? <Loader2 size={16} className="animate-spin text-white mr-2" /> : <Upload size={16} className="mr-2" />}
+                        {syncing ? 'Syncing...' : 'Upload Data'}
                     </button>
                 </div>
-            </div>
+            </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                {/* Device Status Card */}
-                <div className="card p-8 flex flex-col justify-between border border-slate-200">
-                    <div className="space-y-8">
-                        <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm border border-indigo-100">
-                            <Cpu size={24} />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Gateway Status Card */}
+                <div className="card p-6 flex flex-col justify-between border-[#E6E8EC] bg-white h-auto">
+                    <div className="space-y-6">
+                        <div className="w-12 h-12 bg-[#F8F9FB] border border-[#E6E8EC] text-[#344054] rounded-xl flex items-center justify-center">
+                            <Cpu size={20} />
                         </div>
+
                         <div>
-                            <h3 className="text-xl font-black text-slate-900 tracking-tight">Active Gateway</h3>
-                            <p className="text-[12px] font-black uppercase tracking-widest text-slate-400 mt-1">Core Synchronization Hub</p>
+                            <h3 className="text-[18px] font-semibold text-[#101828]">Biometric Device</h3>
+                            <div className="flex items-center gap-2 mt-2">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                <p className="text-[12px] font-medium text-[#667085]">Online</p>
+                            </div>
                         </div>
 
-                        <div className="space-y-5">
-                            <div className="flex justify-between items-center py-2 border-b border-slate-50">
-                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Gateway Static IP</span>
-                                <span className="text-[12px] font-black text-indigo-600 tabular-nums">192.168.1.100</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2 border-b border-slate-50">
-                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Refresh Cadence</span>
-                                <span className="text-[12px] font-black text-slate-900">Real-time Stream</span>
-                            </div>
-                            <div className="flex justify-between items-center py-2">
-                                <span className="text-[11px] uppercase font-black tracking-widest text-slate-400">Heartbeat</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    <span className="text-[11px] font-black text-emerald-600 uppercase tracking-widest">Live / Synchronized</span>
+                        <div className="space-y-3 pt-6 border-t border-[#E6E8EC]">
+                            {[
+                                { label: 'IP Address', value: '192.168.1.100' },
+                                { label: 'Sync Cadence', value: 'Real-time' },
+                                { label: 'Status', value: 'Monitoring' }
+                            ].map((item, i) => (
+                                <div key={i} className="flex justify-between items-center">
+                                    <span className="text-[12px] font-medium text-[#667085]">{item.label}</span>
+                                    <span className="text-[12px] font-semibold text-[#101828]">{item.value}</span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-10 p-5 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-4">
-                        <div className="p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
-                            <Activity size={16} className="text-indigo-600" />
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-black uppercase tracking-widest text-slate-900">Auto-Log Inactive</p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Next poll in 45m</p>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                {/* History Matrix */}
-                <div className="lg:col-span-3 card border border-slate-200 overflow-hidden flex flex-col">
-                    <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
-                                <History size={20} />
+                {/* History Matrix Registry */}
+                <div className="lg:col-span-3 card border-[#E6E8EC] overflow-hidden flex flex-col bg-white">
+                    <div className="p-5 border-b border-[#E6E8EC] flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#F8F9FB] border border-[#E6E8EC] flex items-center justify-center text-[#667085]">
+                                <History size={16} />
                             </div>
-                            <h3 className="text-lg font-black text-slate-900 tracking-tight">Synchronization Matrix</h3>
+                            <div>
+                                <h3 className="text-[16px] font-semibold text-[#101828]">Sync History</h3>
+                            </div>
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 bg-white px-4 py-1.5 rounded-lg border border-slate-100 shadow-sm">Audit Persistence</span>
                     </div>
 
                     <div className="overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="border-b border-slate-100 bg-slate-50/20">
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Timestamp Persistence</th>
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Operational Integrity</th>
-                                    <th className="px-8 py-5 text-right text-[11px] font-black uppercase tracking-widest text-slate-400">Dataset Volume</th>
+                                <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Date & Time</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Records Synced</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-[#E6E8EC]">
                                 {logs.length === 0 ? (
                                     <tr>
-                                        <td colSpan={3} className="py-24 text-center">
+                                        <td colSpan={3} className="px-6 py-12 text-center text-[#667085]">
                                             <div className="flex flex-col items-center gap-3">
-                                                <div className="w-16 h-16 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-200 mb-2">
-                                                    <Server size={32} />
-                                                </div>
-                                                <p className="font-black uppercase tracking-widest text-[11px] text-slate-400 italic">No historical log entries detected.</p>
+                                                <Server size={32} className="text-[#D0D5DD]" />
+                                                <p className="text-[14px] font-medium">No sync records found.</p>
                                             </div>
                                         </td>
                                     </tr>
                                 ) : (
                                     logs.map((log: any) => (
-                                        <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-8 py-6">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
-                                                    <span className="font-black text-[13px] text-slate-700 tracking-tight tabular-nums uppercase">
-                                                        {new Date(log.syncedAt).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).toUpperCase()}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-8 py-6">
-                                                <span className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-sm' : 'bg-rose-50 text-rose-600 border-rose-100 shadow-sm'}`}>
-                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={12} className="shrink-0" /> : <AlertCircle size={12} className="shrink-0" />}
-                                                    {log.status === 'SUCCESS' ? 'Verified Stream' : 'Intercept Error'}
+                                        <tr key={log.id} className="hover:bg-slate-50 transition-all">
+                                            <td className="px-6 py-4">
+                                                <span className="text-[14px] font-medium text-[#101828]">
+                                                    {new Date(log.syncedAt).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-6 text-right">
-                                                <div className="flex flex-col items-end">
-                                                    <span className="text-xl font-black text-slate-900 tabular-nums">
-                                                        {log.recordsCount.toLocaleString()}
-                                                    </span>
-                                                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Records Identified</span>
-                                                </div>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium border ${log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                                                    {log.status === 'SUCCESS' ? 'Success' : 'Failed'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className="text-[14px] font-semibold text-[#101828]">
+                                                    {log.recordsCount.toLocaleString()} <span className="text-[#667085] font-normal">records</span>
+                                                </span>
                                             </td>
                                         </tr>
                                     ))

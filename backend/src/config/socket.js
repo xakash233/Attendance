@@ -9,7 +9,7 @@ export const initSocket = (server) => {
             methods: ["GET", "POST"],
             credentials: true
         },
-        transports: ['websocket']
+        transports: ['polling', 'websocket']
     });
 
     io.on('connection', (socket) => {

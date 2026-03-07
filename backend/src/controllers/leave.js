@@ -11,12 +11,24 @@ export const applyLeave = async (req, res, next) => {
         });
 
         // Notify authorities (Both HR and Super Admin)
-        const isCritical = leaveRequest.totalDays > 2;
+        const isCritical = leaveRequest.isFrequentLeaver || leaveRequest.totalDays > 2;
         const notificationPayload = {
-            title: isCritical ? 'Critical Leave Review (LOP Warning)' : 'Standard Leave Request',
-            message: `${req.user.name} requested ${leaveRequest.totalDays} days (${req.body.durationType || 'FULL_DAY'}). ${isCritical ? 'Note: This exceeds 2 days and may be subject to LOP.' : ''} Immediate review requested.`,
+            title: isCritical ? 'Critical Leave Review (High Frequency)' : 'New Leave Request',
+            message: `${req.user.name} requested ${leaveRequest.totalDays} days. ${isCritical ? 'Note: This employee has taken multiple leaves this month.' : ''} Immediate review requested.`,
             type: 'LEAVE_REQUEST',
-            departmentId: req.user.departmentId
+            departmentId: req.user.departmentId,
+            templateType: 'LEAVE_REQUEST',
+            templateData: {
+                userName: req.user.name,
+                leaveType: leaveRequest.leaveType?.name || 'General Leave',
+                durationType: leaveRequest.durationType.replace(/_/g, ' '),
+                startDate: new Date(leaveRequest.startDate).toLocaleDateString('en-GB'),
+                endDate: new Date(leaveRequest.endDate).toLocaleDateString('en-GB'),
+                totalDays: leaveRequest.totalDays,
+                reason: leaveRequest.reason,
+                isFrequentLeaver: leaveRequest.isFrequentLeaver,
+                totalLeavesThisMonth: leaveRequest.totalLeavesThisMonth
+            }
         };
 
         // Broadcast to HR (Department specific)
@@ -70,6 +82,10 @@ export const hrDecision = async (req, res, next) => {
             templateData = {
                 userName: user.name,
                 totalDays,
+                leaveType: leaveType.name,
+                durationType,
+                startDate: new Date(startDate).toLocaleDateString('en-GB'),
+                endDate: new Date(endDate).toLocaleDateString('en-GB'),
                 rejectionReason: req.body.comments || 'Policy non-compliance or internal registry constraints.'
             };
         }
@@ -77,7 +93,9 @@ export const hrDecision = async (req, res, next) => {
         notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
-            title: `HR Decision: ${req.body.decision.replace(/_/g, ' ')}`,
+            title: req.body.decision.startsWith('REJECTED')
+                ? `${leaveType.name.replace(/_/g, ' ')} Request – Rejected`
+                : `HR Decision: ${req.body.decision.replace(/_/g, ' ')}`,
             message: `Your leave request for ${updated.totalDays} day(s) has been ${req.body.decision.toLowerCase().replace(/_/g, ' ')} by your manager ${req.user.name}.`,
             type: 'LEAVE_STATUS',
             templateType,
@@ -132,6 +150,10 @@ export const finalDecision = async (req, res, next) => {
             templateData = {
                 userName: user.name,
                 totalDays,
+                leaveType: leaveType.name,
+                durationType,
+                startDate: new Date(startDate).toLocaleDateString('en-GB'),
+                endDate: new Date(endDate).toLocaleDateString('en-GB'),
                 rejectionReason: req.body.comments || 'Direct intervention by Super Administration based on company leave threshold policy.'
             };
         }
@@ -139,7 +161,9 @@ export const finalDecision = async (req, res, next) => {
         notificationService.sendPersonalNotification({
             userId: user.id,
             userEmail: user.email,
-            title: `Final Decision: ${req.body.decision.replace(/_/g, ' ')}`,
+            title: req.body.decision.startsWith('REJECTED')
+                ? `${leaveType.name.replace(/_/g, ' ')} Request – Rejected`
+                : `Final Decision: ${req.body.decision.replace(/_/g, ' ')}`,
             message: `Your leave request for ${updated.totalDays} day(s) has received a final ${req.body.decision.toLowerCase().replace(/_/g, ' ')} by the Super Administration.`,
             type: 'LEAVE_STATUS',
             templateType,

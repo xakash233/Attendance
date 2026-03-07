@@ -14,8 +14,7 @@ export const protect = async (req, res, next) => {
 
             req.user = await prisma.user.findUnique({
                 where: { id: decoded.id },
-                omit: { password: true },
-                include: { department: true }
+                omit: { password: true }
             });
 
             if (!req.user) {
@@ -24,8 +23,11 @@ export const protect = async (req, res, next) => {
 
             next();
         } catch (error) {
-            console.error(error);
-            return res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error('Auth Middleware Error:', error);
+            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+                return res.status(401).json({ message: 'Not authorized, token failed' });
+            }
+            return res.status(500).json({ message: 'Internal server error during authentication' });
         }
     }
 

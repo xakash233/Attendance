@@ -7,9 +7,10 @@ import { toast } from 'react-hot-toast';
 import {
     Plus, Check, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
-    CheckCircle2, XCircle, Database
+    CheckCircle2, XCircle, Database, AlertCircle
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
+import Image from 'next/image';
 
 export default function LeavesPage() {
     const [leaves, setLeaves] = useState([]);
@@ -155,169 +156,169 @@ export default function LeavesPage() {
 
     if (loading && leaves.length === 0) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-            <Loader2 className="w-8 h-8 text-black animate-spin" />
-            <p className="text-[12px] font-bold uppercase tracking-widest text-slate-300">Scanning Registry...</p>
+            <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
+            <p className="text-[13px] font-medium text-[#667085]">Loading leave requests...</p>
         </div>
     );
 
     return (
         <>
-            <div className="space-y-8 animate-fade-in pb-10">
+            <div className="space-y-6 animate-fade-in pb-10">
                 {/* SaaS Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl font-black tracking-tight text-slate-900">Leave Orchestration</h1>
-                        <p className="text-[13px] font-medium text-slate-500 mt-1">Audit, synchronize, and approve structural personnel absences.</p>
+                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Leaves</h1>
+                        <p className="text-[13px] font-medium text-[#667085] mt-1">
+                            Manage your time off and leave requests.
+                        </p>
                     </div>
 
                     {user?.role === 'EMPLOYEE' && (
                         <button
                             onClick={() => setIsApplyModalOpen(true)}
-                            className="btn-primary"
+                            className="btn-primary py-2.5 px-6 shrink-0"
                         >
-                            <Plus size={18} strokeWidth={3} />
-                            Initiate Leave Request
+                            <Plus size={18} />
+                            Request Leave
                         </button>
                     )}
                 </div>
 
-                {/* Metrics Overview */}
+                {/* Metrics Overview - Premium SaaS Layout */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="card p-8 flex items-center justify-between group border-slate-200">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Available Resource</p>
-                            <h3 className="text-2xl font-black text-slate-900 leading-none">
-                                {user?.role === 'EMPLOYEE' ? '2.0 Units' : 'GLOBAL'}
-                            </h3>
+                    {[
+                        { label: 'Available Leaves', value: user?.role === 'EMPLOYEE' ? '12 Days' : 'GLOBAL', icon: Briefcase, color: 'blue' },
+                        { label: 'Total Requests', value: leaves.length, icon: Calendar, color: 'slate' },
+                        { label: 'Approved', value: leaves.filter((l: any) => l.status === 'FINAL_APPROVED').length, icon: CheckCircle2, color: 'emerald' },
+                        { label: 'Pending', value: leaves.filter((l: any) => l.status.includes('PENDING')).length, icon: Clock, color: 'amber' }
+                    ].map((stat, i) => (
+                        <div key={i} className="card p-5 flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                    stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                        'bg-slate-50 text-slate-600'
+                                }`}>
+                                <stat.icon size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
+                                <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                            </div>
                         </div>
-                        <div className="w-12 h-12 bg-slate-100 text-slate-900 rounded-2xl flex items-center justify-center">
-                            <Briefcase size={20} />
-                        </div>
-                    </div>
-                    <div className="card p-8 flex items-center justify-between group border-slate-200">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Audit Volume</p>
-                            <h3 className="text-2xl font-black text-slate-900 leading-none">{leaves.length}</h3>
-                        </div>
-                        <div className="w-12 h-12 bg-slate-950 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-black/20">
-                            <Calendar size={20} />
-                        </div>
-                    </div>
-                    <div className="card p-8 flex items-center justify-between group border-slate-200">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Verified Approved</p>
-                            <h3 className="text-2xl font-black text-slate-900 leading-none">
-                                {leaves.filter((l: any) => l.status === 'FINAL_APPROVED').length}
-                            </h3>
-                        </div>
-                        <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center border border-emerald-100">
-                            <CheckCircle2 size={20} />
-                        </div>
-                    </div>
-                    <div className="card p-8 flex items-center justify-between group border-slate-200">
-                        <div>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Pending Sync</p>
-                            <h3 className="text-2xl font-black text-slate-900 leading-none">
-                                {leaves.filter((l: any) => l.status.includes('PENDING')).length}
-                            </h3>
-                        </div>
-                        <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center border border-amber-100">
-                            <Clock size={20} />
-                        </div>
-                    </div>
+                    ))}
                 </div>
 
                 {/* Table Registry */}
-                <div className="card overflow-hidden border border-slate-200">
-                    <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white">
-                        <h2 className="text-[18px] font-black text-slate-900 tracking-tight">Audit History Registry</h2>
-                        <button className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm">
-                            <Filter size={18} />
+                <div className="card overflow-hidden">
+                    <div className="p-5 border-b border-[#E6E8EC] flex items-center justify-between bg-white">
+                        <div className="relative w-full max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search leave requests..."
+                                className="input-field pl-9 py-2 text-[13px]"
+                            />
+                        </div>
+                        <button className="btn-secondary py-2 px-4 shadow-none">
+                            <Filter size={16} />
+                            Filters
                         </button>
                     </div>
 
                     <div className="overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-slate-50/50 border-b border-slate-100">
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Personnel Identity</th>
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400">Absence Code</th>
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Unit Sequence</th>
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-center">Integrity Status</th>
-                                    <th className="px-8 py-5 text-[11px] font-black uppercase tracking-widest text-slate-400 text-right">Operational Action</th>
+                                <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave Type</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Duration</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-[#E6E8EC]">
                                 {leaves.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="px-8 py-24 text-center">
+                                        <td colSpan={5} className="px-6 py-12 text-center">
                                             <div className="flex flex-col items-center gap-3">
-                                                <Database size={40} className="text-slate-100" />
-                                                <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest italic leading-none">Zero Registry Records Identified</p>
+                                                <Database size={32} className="text-[#D0D5DD]" />
+                                                <p className="text-[14px] font-medium text-[#667085]">No leave requests found.</p>
                                             </div>
                                         </td>
                                     </tr>
                                 ) : (
                                     leaves.map((leave: any) => (
-                                        <tr key={leave.id} className="hover:bg-slate-50/20 transition-colors group">
-                                            <td className="px-8 py-7">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-11 h-11 rounded-2xl bg-slate-950 text-white flex items-center justify-center font-black text-[12px] shadow-lg shadow-black/10 border border-white/5 uppercase">
-                                                        {leave.user.name.substring(0, 2)}
+                                        <tr key={leave.id} className="hover:bg-slate-50 transition-all">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[12px] uppercase relative overflow-hidden border border-[#E6E8EC]">
+                                                        {leave.user.profileImage ? (
+                                                            <Image
+                                                                src={leave.user.profileImage}
+                                                                alt={leave.user.name}
+                                                                layout="fill"
+                                                                objectFit="cover"
+                                                                unoptimized
+                                                            />
+                                                        ) : (
+                                                            leave.user.name.substring(0, 2)
+                                                        )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[14px] font-black text-slate-900 uppercase tracking-tight leading-none">{leave.user.name}</p>
-                                                        <p className="text-[11px] font-bold text-slate-400 mt-1 italic">ID / {leave.user.employeeCode}</p>
+                                                        <p className="text-[14px] font-medium text-[#101828]">{leave.user.name}</p>
+                                                        <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.employeeCode}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-7">
+                                            <td className="px-6 py-4">
                                                 <div className="flex flex-col">
-                                                    <span className="text-[13px] font-black text-slate-700 uppercase tracking-tight">
+                                                    <span className="text-[14px] font-medium text-[#101828]">
                                                         {leave.leaveType.name}
                                                     </span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                                                    <span className="text-[12px] text-[#667085] mt-0.5">
                                                         {leave.durationType.replace(/_/g, ' ')}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-7 text-center">
+                                            <td className="px-6 py-4 text-center">
                                                 <div className="flex flex-col items-center">
-                                                    <span className="text-[13px] font-black text-slate-900 tabular-nums">
+                                                    <span className="text-[14px] font-medium text-[#101828]">
                                                         {new Date(leave.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - {new Date(leave.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                                     </span>
-                                                    <span className="text-[10px] text-black font-black uppercase tracking-[0.2em] bg-slate-100 px-3 py-1 rounded-lg mt-2 border border-slate-200">
-                                                        {leave.totalDays} Units
-                                                    </span>
+                                                    <div className="mt-1 px-2 py-0.5 bg-[#F8F9FB] border border-[#E6E8EC] rounded text-[11px] font-medium text-[#667085]">
+                                                        {leave.totalDays} Days
+                                                    </div>
                                                 </div>
                                             </td>
-                                            <td className="px-8 py-7 text-center">
-                                                <span className={`inline-flex items-center px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border shadow-sm ${getStatusStyle(leave.status)}`}>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider border ${getStatusStyle(leave.status)}`}>
                                                     {leave.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-8 py-7 text-right">
-                                                {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="w-10 h-10 flex items-center justify-center bg-black text-white rounded-xl hover:bg-slate-900 transition-all shadow-xl shadow-black/20"><Check size={20} strokeWidth={3} /></button>
-                                                        <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-rose-500 rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all"><X size={20} strokeWidth={3} /></button>
-                                                    </div>
-                                                )}
-                                                {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="w-10 h-10 flex items-center justify-center bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-200"><Check size={20} strokeWidth={3} /></button>
-                                                        <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 text-rose-500 rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all"><X size={20} strokeWidth={3} /></button>
-                                                    </div>
-                                                )}
-                                                {user?.role === 'EMPLOYEE' &&
-                                                    !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
-                                                        <button
-                                                            onClick={() => handleCancel(leave.id)}
-                                                            className="text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-600 hover:underline underline-offset-4 transition-all"
-                                                        >
-                                                            Terminate Request
-                                                        </button>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end items-center gap-2">
+                                                    {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                                        <>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-all"><Check size={16} /></button>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
+                                                        </>
                                                     )}
+                                                    {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                                        <>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-all"><Check size={16} /></button>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
+                                                        </>
+                                                    )}
+                                                    {user?.role === 'EMPLOYEE' &&
+                                                        !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
+                                                            <button
+                                                                onClick={() => handleCancel(leave.id)}
+                                                                className="text-[12px] font-semibold text-[#D92D20] hover:text-red-700 transition-all"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -326,114 +327,119 @@ export default function LeavesPage() {
                         </table>
                     </div>
                 </div>
+
             </div>
 
-            {/* Apply Modal */}
+            {/* Apply Absence Modal */}
             {isApplyModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-md animate-fade-in">
-                    <div className="bg-white max-w-xl w-full rounded-3xl shadow-2xl scale-100 animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh] overflow-hidden border border-white/20">
-                        <div className="p-10 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+                        <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
-                                <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-none uppercase">Absence Declaration</h2>
-                                <p className="text-[13px] font-medium text-slate-500 mt-2 italic">Initiate a formal structural personnel absence request.</p>
+                                <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Request Leave</h2>
+                                <p className="text-[13px] font-medium text-[#667085] mt-1">Submit a new leave application.</p>
                             </div>
                             <button
                                 onClick={() => setIsApplyModalOpen(false)}
-                                className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white text-slate-400 hover:bg-slate-100 hover:text-slate-950 transition-all shadow-sm border border-slate-100"
+                                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085] transition-all"
                             >
-                                <X size={24} strokeWidth={2.5} />
+                                <X size={20} />
                             </button>
                         </div>
 
-                        <div className="overflow-y-auto no-scrollbar p-10">
-                            <form onSubmit={handleApply} className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Absence Class</label>
+                        <div className="overflow-y-auto no-scrollbar p-6">
+                            <form onSubmit={handleApply} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-medium text-[#344054]">Leave Type</label>
                                         <select
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-[14px] text-slate-900 font-black focus:ring-8 focus:ring-black/5 focus:border-black appearance-none outline-none transition-all placeholder:text-slate-300 shadow-sm"
+                                            className="input-field py-2.5"
                                             onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
                                             required
                                         >
-                                            <option value="">Select identity class</option>
+                                            <option value="">Select leave type</option>
                                             {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
                                         </select>
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Duration Matrix</label>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-medium text-[#344054]">Duration</label>
                                         <select
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-[14px] text-slate-900 font-black focus:ring-8 focus:ring-black/5 focus:border-black appearance-none outline-none transition-all placeholder:text-slate-300 shadow-sm"
+                                            className="input-field py-2.5"
                                             onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
                                             required
                                         >
-                                            <option value="FULL_DAY">Full Cycle</option>
-                                            <option value="FIRST_HALF">Primary Node</option>
-                                            <option value="SECOND_HALF">Secondary Node</option>
-                                            <option value="WORK_FROM_HOME">Remote Uplink</option>
+                                            <option value="FULL_DAY">Full Day</option>
+                                            <option value="FIRST_HALF">First Half</option>
+                                            <option value="SECOND_HALF">Second Half</option>
+                                            <option value="WORK_FROM_HOME">Work from Home</option>
                                         </select>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-3">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Activation Point</label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-medium text-[#344054]">Start Date</label>
                                         <DatePicker
                                             date={formData.startDate}
                                             onChange={(date) => setFormData({ ...formData, startDate: date })}
-                                            placeholder="Select origin"
+                                            placeholder="Start Date"
                                             required
                                         />
                                     </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Termination Point</label>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-medium text-[#344054]">End Date</label>
                                         <DatePicker
                                             date={formData.endDate}
                                             onChange={(date) => setFormData({ ...formData, endDate: date })}
-                                            placeholder="Select conclusion"
+                                            placeholder="End Date"
                                             required
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    <label className="text-[11px] font-black uppercase tracking-widest text-slate-400 ml-1">Contextual Reasoning</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-[13px] font-medium text-[#344054]">Reason</label>
                                     <textarea
-                                        rows={4}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-6 text-[14px] text-slate-900 font-medium focus:ring-8 focus:ring-black/5 focus:border-black resize-none placeholder:text-slate-300 outline-none transition-all shadow-sm"
-                                        placeholder="Describe the nature of this structural absence..."
+                                        rows={3}
+                                        className="input-field py-3 resize-none"
+                                        placeholder="Provide a reason for your leave..."
                                         onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                         required
                                     ></textarea>
                                 </div>
 
                                 {isLOP && (
-                                    <div className="p-6 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                        <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center shrink-0">
-                                            <ShieldCheck size={20} className="text-rose-600" />
+                                    <div className="p-4 bg-amber-50 rounded-lg flex items-start gap-4 border border-amber-200">
+                                        <div className="shrink-0 mt-0.5">
+                                            <AlertCircle size={18} className="text-amber-600" />
                                         </div>
                                         <div>
-                                            <p className="text-[12px] font-black uppercase tracking-widest text-rose-950">Loss of Pay Identified</p>
-                                            <p className="text-[12px] font-medium text-rose-600/80 mt-2 leading-relaxed">
-                                                This <span className="font-black text-rose-700"> {totalDays} unit</span> sequence exceeds standard operational thresholds and will be processed as unremunerated.
+                                            <p className="text-[13px] font-medium text-amber-800">Note on extended leave</p>
+                                            <p className="text-[12px] text-amber-700 mt-1">
+                                                Your request spans {totalDays} days, which may require additional approval or result in Loss of Pay (LOP) based on your balance.
                                             </p>
                                         </div>
                                     </div>
                                 )}
 
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="btn-primary w-full h-[64px] justify-center text-[14px] rounded-2xl shadow-2xl shadow-black/10"
-                                >
-                                    {loading ? (
-                                        <Loader2 size={24} className="animate-spin text-white" />
-                                    ) : (
-                                        <>
-                                            Initiate Request Sequence
-                                            <ArrowRight size={20} strokeWidth={3} className="ml-3" />
-                                        </>
-                                    )}
-                                </button>
+                                <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsApplyModalOpen(false)}
+                                        className="btn-secondary"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="btn-primary"
+                                    >
+                                        {loading ? (
+                                            <Loader2 size={16} className="animate-spin text-white" />
+                                        ) : 'Submit Request'}
+                                    </button>
+                                </div>
                             </form>
                         </div>
                     </div>

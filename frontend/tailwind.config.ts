@@ -45,6 +45,7 @@ const config: Config = {
             },
             animation: {
                 shimmer: 'shimmer 1.5s infinite',
+                'shimmer-fast': 'shimmer 0.8s infinite',
             },
         },
     },

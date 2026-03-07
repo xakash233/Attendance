@@ -7,7 +7,9 @@ import {
     updateUserProfile,
     changePassword,
     getAnalytics,
-    globalSearch
+    globalSearch,
+    deleteUser,
+    updateUser
 } from '../controllers/user.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -21,5 +23,7 @@ router.put('/profile', protect, updateUserProfile);
 router.put('/change-password', protect, changePassword);
 router.get('/analytics', protect, getAnalytics);
 router.get('/search', protect, globalSearch);
+router.put('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), updateUser);
+router.delete('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), deleteUser);
 
 export default router;

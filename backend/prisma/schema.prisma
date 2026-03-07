@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["omitApi"]
 }
 
 datasource db {
@@ -43,6 +44,8 @@ model User {
   refreshTokens        RefreshToken[]
   TaskSubmission       TaskSubmission[]
   department           Department?           @relation("DeptEmployees", fields: [departmentId], references: [id])
+  @@index([role])
+  @@index([departmentId])
 }
 
 model LeaveType {
@@ -85,6 +88,9 @@ model LeaveRequest {
   leaveType            LeaveType   @relation(fields: [leaveTypeId], references: [id])
   user                 User        @relation(fields: [userId], references: [id])
   department           Department? @relation(fields: [departmentId], references: [id])
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
 }
 
 model Attendance {
@@ -102,6 +108,8 @@ model Attendance {
   user         User      @relation(fields: [userId], references: [id])
 
   @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
 }
 
 model BiometricAttendance {
@@ -125,6 +133,9 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([isRead])
 }
 
 model AuditLog {

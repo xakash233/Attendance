@@ -256,29 +256,40 @@ export const getAnalytics = async (req, res, next) => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const totalEmployees = await prisma.user.count();
-            const checkedInToday = await prisma.attendance.count({ where: { date: today } });
-            const lateToday = await prisma.attendance.count({ where: { date: today, status: 'LATE' } });
-            const presentToday = await prisma.attendance.count({ where: { date: today, status: 'PRESENT' } });
+            const [
+                totalEmployees,
+                totalDepartments,
+                totalLeaveRequests,
+                checkedInToday,
+                lateToday,
+                presentToday,
+                pendingHrApprovals,
+                pendingFinalApprovals
+            ] = await Promise.all([
+                prisma.user.count(),
+                prisma.department.count(),
+                prisma.leaveRequest.count({
+                    where: { status: { in: ['PENDING_HR', 'HR_APPROVED', 'PENDING_SUPERADMIN'] } }
+                }),
+                prisma.attendance.count({ where: { date: today } }),
+                prisma.attendance.count({ where: { date: today, status: 'LATE' } }),
+                prisma.attendance.count({ where: { date: today, status: 'PRESENT' } }),
+                prisma.leaveRequest.count({ where: { status: 'PENDING_HR' } }),
+                prisma.leaveRequest.count({
+                    where: { status: { in: ['HR_APPROVED', 'PENDING_SUPERADMIN'] } }
+                })
+            ]);
 
             const stats = {
                 totalEmployees,
-                totalDepartments: await prisma.department.count(),
-                totalLeaveRequests: await prisma.leaveRequest.count({
-                    where: {
-                        status: { in: ['PENDING_HR', 'HR_APPROVED', 'PENDING_SUPERADMIN'] }
-                    }
-                }),
+                totalDepartments,
+                totalLeaveRequests,
                 totalTasks: 0,
                 onTimeToday: presentToday,
                 lateToday: lateToday,
                 absentToday: totalEmployees - checkedInToday,
-                pendingHrApprovals: await prisma.leaveRequest.count({ where: { status: 'PENDING_HR' } }),
-                pendingFinalApprovals: await prisma.leaveRequest.count({
-                    where: {
-                        status: { in: ['HR_APPROVED', 'PENDING_SUPERADMIN'] }
-                    }
-                }),
+                pendingHrApprovals,
+                pendingFinalApprovals,
             };
             return res.json(stats);
         } else if (role === 'ADMIN') {
@@ -362,6 +373,113 @@ export const globalSearch = async (req, res, next) => {
 
         res.json({ users, modules });
     } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private (SUPER_ADMIN, HR for employees)
+export const deleteUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const targetUser = await prisma.user.findUnique({ where: { id } });
+
+        if (!targetUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Hierarchy rule:
+        // SUPER_ADMIN can delete anyone
+        // HR can only delete EMPLOYEE records
+        if (req.user.role === 'HR' && targetUser.role !== 'EMPLOYEE') {
+            return res.status(403).json({ message: 'HR can only delete Employee accounts.' });
+        }
+        if (req.user.role === 'ADMIN' && targetUser.role === 'SUPER_ADMIN') {
+            return res.status(403).json({ message: 'Admins cannot delete Super Admin accounts.' });
+        }
+
+        // Technically we need to decide if we hard delete or soft delete.
+        // Assuming cascade delete is set up in prisma or we just hard delete it.
+        await prisma.user.delete({
+            where: { id }
+        });
+
+        // Audit Log
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'USER_DELETED',
+                entity: 'User',
+                entityId: id,
+                details: { role: targetUser.role, employeeCode: targetUser.employeeCode }
+            }
+        });
+
+        res.json({ message: 'User successfully removed.' });
+    } catch (error) {
+        next(error);
+    }
+};
+// @desc    Update user
+// @route   PUT /api/users/:id
+// @access  Private (SUPER_ADMIN, HR for employees)
+export const updateUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { name, email, role, departmentId, employeeCode } = req.body;
+
+        const targetUser = await prisma.user.findUnique({ where: { id } });
+
+        if (!targetUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Hierarchy rule:
+        // SUPER_ADMIN can edit anyone
+        // HR can only edit EMPLOYEE records
+        if (req.user.role === 'HR' && targetUser.role !== 'EMPLOYEE') {
+            return res.status(403).json({ message: 'HR can only edit Employee accounts.' });
+        }
+
+        // Prevent HR from escalating someone to HR or ADMIN
+        if (req.user.role === 'HR' && role && role !== 'EMPLOYEE') {
+            return res.status(403).json({ message: 'HR can only manage Employee roles.' });
+        }
+
+        if (req.user.role === 'ADMIN' && targetUser.role === 'SUPER_ADMIN') {
+            return res.status(403).json({ message: 'Admins cannot edit Super Admin accounts.' });
+        }
+
+        const updatedUser = await prisma.user.update({
+            where: { id },
+            data: {
+                name,
+                email: email?.toLowerCase(),
+                role,
+                departmentId,
+                employeeCode
+            },
+            omit: { password: true },
+            include: { department: true }
+        });
+
+        // Audit Log
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'USER_UPDATED',
+                entity: 'User',
+                entityId: id,
+                details: { role: updatedUser.role, employeeCode: updatedUser.employeeCode }
+            }
+        });
+
+        res.json(updatedUser);
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'Email or Employee Code already in use.' });
+        }
         next(error);
     }
 };

@@ -39,6 +39,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setIsProfileMenuOpen(false);
     }, [pathname]);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+            if (isNotificationOpen && !target.closest('#notifications-dropdown')) {
+                setIsNotificationOpen(false);
+            }
+            if (isProfileMenuOpen && !target.closest('#profile-dropdown')) {
+                setIsProfileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isNotificationOpen, isProfileMenuOpen]);
+
     const fetchNotifications = useCallback(async () => {
         try {
             const res = await api.get('/notifications');
@@ -156,11 +173,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden selection:bg-slate-950 selection:text-white">
+        <div className="flex h-screen bg-[#F8F9FB] overflow-hidden selection:bg-[#101828] selection:text-white">
             <Toaster position="top-right" />
 
             {/* Desktop Sidebar Orchestrator */}
-            <div className="hidden md:block w-[280px] shrink-0 relative z-[100] border-r border-slate-200">
+            <div className="hidden md:block w-[250px] shrink-0 relative z-[100] border-r border-[#E6E8EC] bg-white">
                 <Sidebar />
             </div>
 
@@ -173,28 +190,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* Mobile Workspace Drawer */}
-            <div className={`fixed inset-y-0 left-0 w-[280px] bg-white z-[210] md:hidden transition-transform duration-500 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className={`fixed inset-y-0 left-0 w-[250px] bg-white z-[210] md:hidden transition-transform duration-500 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
             </div>
 
             {/* Main Terminal Area */}
-            <div className="flex-1 flex flex-col min-w-0 min-h-screen relative">
+            <div className="flex-1 flex flex-col min-w-0 min-h-screen relative z-[150]">
 
                 {/* Refined Terminal Header */}
-                <header className="h-[80px] bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[80] px-6 lg:px-12 flex items-center justify-between shadow-xl shadow-black/[0.02]">
+                <header className="h-[70px] bg-white border-b border-[#E6E8EC] sticky top-0 z-[80] px-6 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-3 md:hidden hover:bg-slate-100 rounded-2xl text-slate-400 hover:text-slate-950 transition-all active:scale-95"
+                            className="p-2 md:hidden hover:bg-slate-100 rounded-lg text-[#667085] transition-all"
                         >
                             <Menu size={22} />
                         </button>
 
-                        <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-6 bg-slate-950 rounded-full" />
-                            <span className="text-[12px] font-black text-slate-950 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 uppercase tracking-[0.2em] shadow-sm">
-                                {displayPage.charAt(0).toUpperCase() + displayPage.slice(1)} Node
-                            </span>
+                        <div className="flex items-center gap-2">
+                            <Image
+                                src="/logo/tectra_upscaled.png"
+                                alt="Tectra Technologies"
+                                width={250}
+                                height={65}
+                                className="object-contain"
+                                priority
+                            />
                         </div>
                     </div>
 
@@ -204,41 +225,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
 
                         {/* Audit Alerts */}
-                        <div className="relative">
+                        <div className="relative" id="notifications-dropdown">
                             <button
-                                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                                className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all relative border ${isNotificationOpen ? 'bg-slate-950 text-white border-slate-950 shadow-xl shadow-black/20' : 'bg-white text-slate-400 border-slate-200 hover:text-slate-950 hover:bg-slate-50'}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsNotificationOpen(!isNotificationOpen);
+                                    setIsProfileMenuOpen(false);
+                                }}
+                                className={`w-9 h-9 flex items-center justify-center rounded-full transition-all relative hover:bg-slate-50`}
                             >
-                                <Bell size={20} strokeWidth={2.5} />
+                                <Bell size={18} className="text-[#667085]" />
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-slate-950 border-2 border-white rounded-full animate-pulse"></span>
+                                    <span className="absolute top-2 right-2 w-2 h-2 bg-[#D92D20] rounded-full animate-pulse"></span>
                                 )}
                             </button>
 
                             {isNotificationOpen && (
-                                <div className="absolute right-0 mt-4 w-80 lg:w-[400px] bg-white border border-slate-200 rounded-[2rem] shadow-2xl shadow-black/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[200]">
-                                    <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-                                        <div className="flex items-center gap-3">
+                                <div className="fixed md:absolute top-[65px] md:top-auto left-4 right-4 md:left-auto md:right-0 md:mt-4 md:w-80 lg:w-[400px] bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[200]">
+                                    <div className="p-4 border-b border-[#E6E8EC] flex justify-between items-center bg-[#F8F9FB]">
+                                        <div className="flex items-center gap-2">
                                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                                            <h3 className="font-black text-[11px] text-slate-900 uppercase tracking-[0.3em]">Audit Protocol</h3>
+                                            <h3 className="font-semibold text-[13px] text-[#101828]">Notifications</h3>
                                         </div>
-                                        <button onClick={markAllAsRead} className="text-[10px] font-black text-slate-400 hover:text-slate-950 uppercase tracking-widest transition-colors">Clear Matrix</button>
+                                        <button onClick={markAllAsRead} className="text-[12px] font-medium text-[#667085] hover:text-[#101828] transition-colors">Mark all as read</button>
                                     </div>
                                     <div className="max-h-[400px] overflow-y-auto no-scrollbar">
                                         {notifications.length === 0 ? (
-                                            <div className="p-20 text-center space-y-4">
-                                                <Bell size={40} className="mx-auto text-slate-100" />
-                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-300 italic">No Registry Alerts Detected</p>
+                                            <div className="p-12 text-center space-y-3">
+                                                <Bell size={32} className="mx-auto text-[#D0D5DD]" />
+                                                <p className="text-[14px] font-medium text-[#667085]">No notifications.</p>
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <div key={notif.id} className={`p-6 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors cursor-pointer group relative ${!notif.isRead ? 'bg-slate-50/30' : ''}`}>
-                                                    {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-950" />}
-                                                    <h4 className="text-[14px] font-black text-slate-900 leading-tight uppercase tracking-tight group-hover:tracking-normal transition-all">{notif.title}</h4>
-                                                    <p className="text-[12px] text-slate-500 mt-2 line-clamp-2 italic font-medium">{notif.message}</p>
-                                                    <div className="flex items-center gap-2 mt-4">
-                                                        <Clock size={12} className="text-slate-300" />
-                                                        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
+                                                <div key={notif.id} className={`p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : ''}`}>
+                                                    {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#101828]" />}
+                                                    <h4 className="text-[14px] font-medium text-[#101828] leading-tight">{notif.title}</h4>
+                                                    <p className="text-[13px] text-[#667085] mt-1 line-clamp-2">{notif.message}</p>
+                                                    <div className="flex items-center gap-1.5 mt-2">
+                                                        <Clock size={12} className="text-[#98A2B3]" />
+                                                        <p className="text-[11px] text-[#98A2B3] font-medium">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
                                                     </div>
                                                 </div>
                                             ))
@@ -249,48 +274,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
 
                         {/* Personnel Anchor */}
-                        <div className="relative">
+                        <div className="relative" id="profile-dropdown">
                             <button
-                                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                                className="flex items-center gap-4 pl-2 pr-5 py-2 rounded-2xl bg-white border border-slate-200 hover:border-slate-300 transition-all group shadow-sm hover:shadow-black/5"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsProfileMenuOpen(!isProfileMenuOpen);
+                                    setIsNotificationOpen(false);
+                                }}
+                                className="flex items-center gap-3 py-1 pr-1 pl-3 rounded-full hover:bg-slate-50 transition-all group border border-transparent hover:border-[#E6E8EC]"
                             >
-                                <div className="relative">
-                                    <Image
-                                        src={user?.profileImage || `https://ui-avatars.com/api/?name=${user?.name}&background=000&color=fff&bold=true&size=128`}
-                                        width={44}
-                                        height={44}
-                                        className="rounded-xl object-cover border-2 border-slate-50 shadow-xl shadow-black/10 group-hover:scale-110 transition-transform"
-                                        alt="Personnel avatar"
-                                        unoptimized
-                                    />
-                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm" />
+                                <div className="hidden lg:block text-right">
+                                    <p className="text-[13px] font-semibold text-[#101828] leading-tight">{user?.name || 'Loading...'}</p>
+                                    <p className="text-[11px] text-[#667085] leading-tight mt-0.5 uppercase tracking-widest">{user?.role?.replace('_', ' ') || 'EMPLOYEE'}</p>
                                 </div>
-                                <div className="hidden lg:block text-left">
-                                    <p className="text-[14px] font-black text-slate-950 leading-none">{user?.name}</p>
-                                    <p className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase tracking-widest italic">{user?.role} NODE</p>
+                                <div className="relative w-8 h-8 rounded-full overflow-hidden bg-[#101828] text-white flex items-center justify-center text-[12px] font-semibold shrink-0">
+                                    {user?.profileImage ? (
+                                        <Image
+                                            src={user?.profileImage}
+                                            fill
+                                            className="object-cover"
+                                            alt="Avatar"
+                                        />
+                                    ) : (
+                                        <User size={16} />
+                                    )}
                                 </div>
-                                <ChevronDown size={16} strokeWidth={2.5} className={`text-slate-300 transition-transform duration-300 ml-2 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {isProfileMenuOpen && (
-                                <div className="absolute right-0 mt-4 w-64 bg-white border border-slate-200 rounded-[2rem] shadow-2xl shadow-black/10 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300 z-[200] p-2">
-                                    <div className="px-6 py-5 border-b border-slate-50">
-                                        <p className="text-[13px] font-black text-slate-950 uppercase tracking-tight">{user.name}</p>
-                                        <p className="text-[11px] text-slate-400 font-medium truncate mt-1 italic">{user.email}</p>
+                                <div className="absolute right-0 mt-4 w-[calc(100vw-48px)] sm:w-60 bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[200]">
+                                    <div className="px-5 py-4 border-b border-[#E6E8EC] bg-[#F8F9FB]">
+                                        <p className="text-[14px] font-semibold text-[#101828]">{user.name}</p>
+                                        <p className="text-[12px] text-[#667085] mt-0.5 truncate">{user.email}</p>
                                     </div>
                                     <div className="p-2 space-y-1">
-                                        <Link href="/dashboard/profile" className="flex items-center gap-4 px-4 py-4 text-[12px] font-black text-slate-600 hover:text-slate-950 hover:bg-slate-50 rounded-2xl transition-all uppercase tracking-widest">
-                                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                                                <User size={16} strokeWidth={2.5} />
+                                        <Link href="/dashboard/profile" className="flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-[#344054] hover:text-[#101828] hover:bg-slate-50 rounded-lg transition-all">
+                                            <div className="w-6 h-6 rounded flex items-center justify-center text-[#667085]">
+                                                <User size={16} />
                                             </div>
-                                            Personnel Hub
+                                            Profile Settings
                                         </Link>
-                                        <div className="h-px bg-slate-50 mx-4 my-2"></div>
-                                        <button onClick={logout} className="flex items-center gap-4 px-4 py-4 text-[12px] font-black text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-2xl transition-all uppercase tracking-widest w-full text-left">
-                                            <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
-                                                <LogOut size={16} strokeWidth={2.5} />
+                                        <div className="h-px bg-[#E6E8EC] mx-2 my-2"></div>
+                                        <button onClick={logout} className="flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 hover:text-[#B42318] rounded-lg transition-all w-full text-left">
+                                            <div className="w-6 h-6 rounded flex items-center justify-center">
+                                                <LogOut size={16} />
                                             </div>
-                                            Terminate Session
+                                            Log Out
                                         </button>
                                     </div>
                                 </div>
@@ -300,14 +330,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
 
                 {/* Content Terminal */}
-                <main className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-14 bg-slate-50/50">
-                    <div className="max-w-[1600px] mx-auto relative z-10">
+                <main className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-8 bg-[#F8F9FB]">
+                    <div className="max-w-[1400px] mx-auto relative w-full h-full">
                         {children}
-                    </div>
-                    {/* Background Ambience */}
-                    <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-30 select-none">
-                        <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-slate-200/20 rounded-full blur-[150px] -mr-96 -mt-96" />
-                        <div className="absolute bottom-0 left-0 w-[800px] h-[800px] bg-slate-200/10 rounded-full blur-[150px] -ml-96 -mb-96" />
                     </div>
                 </main>
             </div>

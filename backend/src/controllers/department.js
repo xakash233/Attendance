@@ -47,3 +47,20 @@ export const assignHr = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Delete department
+// @route   DELETE /api/departments/:id
+// @access  Private (SUPER_ADMIN)
+export const deleteDepartment = async (req, res, next) => {
+    try {
+        await prisma.department.delete({
+            where: { id: req.params.id }
+        });
+        res.json({ message: 'Department successfully removed.' });
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ message: 'Department not found.' });
+        }
+        next(error);
+    }
+};

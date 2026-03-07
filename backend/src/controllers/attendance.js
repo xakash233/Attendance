@@ -284,6 +284,17 @@ export const getSummary = async (req, res, next) => {
         let calcAbsentDays = elapsedWorkingDays - totalAccounted;
         if (calcAbsentDays < 0) calcAbsentDays = 0;
 
+        // Pre-fetch all leave requests for the month for the user to avoid query-in-loop
+        const monthLeaves = await prisma.leaveRequest.findMany({
+            where: {
+                userId: targetUserId,
+                OR: [
+                    { startDate: { lte: endDate }, endDate: { gte: startDate } }
+                ]
+            },
+            include: { leaveType: true }
+        });
+
         // Build calendar layout (daily map)
         const dailyLog = [];
         let iter = new Date(startDate);
@@ -293,25 +304,23 @@ export const getSummary = async (req, res, next) => {
             let dayStatus = isWeekend ? 'WEEKEND' : (iter <= todayLocal ? 'ABSENT' : 'FUTURE');
             let leaveType = null;
 
-            // Check attendance
+            // Check attendance memory
             const att = attendances.find(a => new Date(a.date).toISOString().split('T')[0] === dateStr);
             if (att) {
                 dayStatus = att.status; // PRESENT, LATE, OVERTIME, HALF_DAY
             }
 
-            // Check leaves (Pending or Approved or Rejected)
-            // Need to get all leaves including pending and rejected for the calendar mapping
-            const activeLeaves = await prisma.leaveRequest.findMany({
-                where: {
-                    userId: targetUserId,
-                    startDate: { lte: iter },
-                    endDate: { gte: iter }
-                },
-                include: { leaveType: true }
+            // Map leaves from the pre-fetched list
+            const dateObj = new Date(iter);
+            dateObj.setHours(0, 0, 0, 0);
+
+            const activeLeaves = monthLeaves.filter(l => {
+                const s = new Date(l.startDate); s.setHours(0, 0, 0, 0);
+                const e = new Date(l.endDate); e.setHours(0, 0, 0, 0);
+                return dateObj >= s && dateObj <= e;
             });
 
             if (activeLeaves.length > 0) {
-                // Prioritize approved, then pending
                 const approved = activeLeaves.find(l => ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'].includes(l.status));
                 const pending = activeLeaves.find(l => ['PENDING', 'PENDING_HR', 'PENDING_SUPERADMIN'].includes(l.status));
                 const rejected = activeLeaves.find(l => ['REJECTED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN'].includes(l.status));
@@ -322,8 +331,8 @@ export const getSummary = async (req, res, next) => {
                 } else if (pending) {
                     dayStatus = 'PENDING_LEAVE';
                     leaveType = pending.leaveType.name;
-                } else if (rejected) {
-                    dayStatus = 'REJECTED_LEAVE'; // Only if no attendance was made
+                } else if (rejected && dayStatus === 'ABSENT') {
+                    // Rejected stays absent
                 }
             }
 
