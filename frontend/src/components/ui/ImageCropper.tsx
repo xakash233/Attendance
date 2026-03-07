@@ -58,26 +58,29 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
                     </button>
                 </div>
 
-                {/* Cropper Area */}
-                <div className="flex-1 relative bg-white min-h-[40vh]">
-                    <Cropper
-                        image={image}
-                        crop={crop}
-                        zoom={zoom}
-                        aspect={aspect}
-                        rotation={rotation}
-                        onCropChange={onCropChange}
-                        onCropComplete={onCropCompleteInternal}
-                        onZoomChange={onZoomChange}
-                        classes={{
-                            containerClassName: 'bg-white',
-                        }}
-                    />
-                </div>
+                {/* Content Area - Scrollable */}
+                <div className="flex-1 overflow-y-auto no-scrollbar">
+                    {/* Cropper Area */}
+                    <div className="relative bg-white h-[400px] border-b border-[#E6E8EC]">
+                        <Cropper
+                            image={image}
+                            crop={crop}
+                            zoom={zoom}
+                            aspect={aspect}
+                            rotation={rotation}
+                            onCropChange={onCropChange}
+                            onCropComplete={onCropCompleteInternal}
+                            onZoomChange={onZoomChange}
+                            showGrid={false}
+                            classes={{
+                                containerClassName: 'bg-white',
+                                cropAreaClassName: 'border-2 border-white shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]',
+                            }}
+                        />
+                    </div>
 
-                {/* Controls & Footer */}
-                <div className="bg-white">
-                    <div className="p-6 space-y-6 border-t border-[#E6E8EC]">
+                    {/* Controls */}
+                    <div className="p-6 space-y-6">
                         <div className="max-w-md mx-auto space-y-4">
                             {/* Zoom Slider */}
                             <div className="space-y-1.5">
@@ -121,15 +124,16 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div className="p-6 border-t border-[#E6E8EC] flex justify-end gap-3">
-                        <button onClick={onCancel} className="btn-secondary">
-                            Cancel
-                        </button>
-                        <button onClick={handleCrop} className="btn-primary min-w-[120px]">
-                            Apply Crop
-                        </button>
-                    </div>
+                {/* Footer - Always Visible */}
+                <div className="p-6 border-t border-[#E6E8EC] flex justify-end gap-3 bg-white">
+                    <button onClick={onCancel} className="btn-secondary">
+                        Cancel
+                    </button>
+                    <button onClick={handleCrop} className="btn-primary min-w-[120px]">
+                        Apply Crop
+                    </button>
                 </div>
             </div>
         </div>

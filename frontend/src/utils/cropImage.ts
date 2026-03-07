@@ -3,10 +3,26 @@ export const createImage = (url: string): Promise<HTMLImageElement> =>
         const image = new Image();
         image.addEventListener('load', () => resolve(image));
         image.addEventListener('error', (error) => reject(error));
-        image.setAttribute('crossOrigin', 'anonymous'); // needed to avoid cross-origin issues on CodeSandbox
+        image.setAttribute('crossOrigin', 'anonymous');
         image.src = url;
     });
 
+export function rotateSize(width: number, height: number, rotation: number) {
+    const rotRad = (rotation * Math.PI) / 180;
+
+    return {
+        width:
+            Math.abs(Math.cos(rotRad) * width) + Math.abs(Math.sin(rotRad) * height),
+        height:
+            Math.abs(Math.sin(rotRad) * width) + Math.abs(Math.cos(rotRad) * height),
+    };
+}
+
+/**
+ * This function handles cropping and rotation of images.
+ * It uses a bounding box approach to ensure that rotation doesn't clip the image
+ * and then extracts the precise crop area provided by react-easy-crop.
+ */
 export default async function getCroppedImg(
     imageSrc: string,
     pixelCrop: { x: number; y: number; width: number; height: number },
@@ -20,56 +36,53 @@ export default async function getCroppedImg(
         return '';
     }
 
-    const safeArea = Math.max(image.width, image.height) * 2;
+    const rotRad = (rotation * Math.PI) / 180;
+    const { width: bWidth, height: bHeight } = rotateSize(image.width, image.height, rotation);
 
-    // set each dimensions to double largest dimension to allow for a safe area for the
-    // image to rotate in without being clipped by canvas context
-    canvas.width = safeArea;
-    canvas.height = safeArea;
+    // Set canvas dimensions to the bounding box of the rotated image
+    canvas.width = bWidth;
+    canvas.height = bHeight;
 
-    // translate canvas context to a central point to allow rotating around the center.
-    ctx.translate(safeArea / 2, safeArea / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-safeArea / 2, -safeArea / 2);
-
-    // draw rotated image and store data.
-    ctx.drawImage(
-        image,
-        safeArea / 2 - image.width * 0.5,
-        safeArea / 2 - image.height * 0.5
-    );
-    const data = ctx.getImageData(0, 0, safeArea, safeArea);
-
-    // set canvas width to final desired crop size
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
-
-    // Fill white background
+    // Fill background with white
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, bWidth, bHeight);
 
-    // Create temporary canvas to put the image data
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = safeArea;
-    tempCanvas.height = safeArea;
-    const tempCtx = tempCanvas.getContext('2d');
+    // translate canvas context to a central point to allow rotating around its center.
+    ctx.translate(bWidth / 2, bHeight / 2);
+    ctx.rotate(rotRad);
+    ctx.translate(-image.width / 2, -image.height / 2);
 
-    if (tempCtx) {
-        tempCtx.putImageData(data, 0, 0);
-        // paste generated rotate image with correct offsets for x,y crop values.
-        ctx.drawImage(
-            tempCanvas,
-            pixelCrop.x,
-            pixelCrop.y,
-            pixelCrop.width,
-            pixelCrop.height,
-            0,
-            0,
-            pixelCrop.width,
-            pixelCrop.height
-        );
+    // draw rotated image
+    ctx.drawImage(image, 0, 0);
+
+    // now create a new canvas for the final desired crop size
+    const cropCanvas = document.createElement('canvas');
+    const cropCtx = cropCanvas.getContext('2d');
+
+    if (!cropCtx) {
+        return '';
     }
 
-    // As Base64 string
-    return canvas.toDataURL('image/jpeg');
+    cropCanvas.width = pixelCrop.width;
+    cropCanvas.height = pixelCrop.height;
+
+    // Fill white background for the final crop canvas as well
+    cropCtx.fillStyle = '#ffffff';
+    cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+    // Paste generated rotate image with correct offsets for x,y crop values.
+    cropCtx.drawImage(
+        canvas,
+        pixelCrop.x,
+        pixelCrop.y,
+        pixelCrop.width,
+        pixelCrop.height,
+        0,
+        0,
+        pixelCrop.width,
+        pixelCrop.height
+    );
+
+    // Return as Base64 string for direct preview and upload
+    return cropCanvas.toDataURL('image/jpeg', 0.95);
 }
