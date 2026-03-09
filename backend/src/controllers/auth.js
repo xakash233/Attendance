@@ -52,7 +52,7 @@ export const login = async (req, res, next) => {
                 refreshToken
             });
         } else {
-            res.status(401).json({ message: 'Incorrect cipher key provided' });
+            res.status(401).json({ message: 'Incorrect Password provided' });
         }
     } catch (error) {
         next(error);
@@ -134,7 +134,7 @@ export const forgotPassword = async (req, res, next) => {
             </div>`
         }).catch(err => console.error(err));
 
-        res.json({ message: 'Recovery code dispatched to registry email' });
+        res.json({ message: 'Recovery code dispatched to Registered Email' });
     } catch (error) {
         next(error);
     }

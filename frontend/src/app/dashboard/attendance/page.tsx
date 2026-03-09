@@ -15,23 +15,58 @@ export default function AttendancePage() {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [selectedDept, setSelectedDept] = useState('');
+    const [departments, setDepartments] = useState([]);
+    const [showFilters, setShowFilters] = useState(false);
     const { user, logout } = useAuth();
 
-    const fetchHistory = useCallback(async () => {
+    useEffect(() => {
+        if (!searchTerm.trim()) {
+            setDebouncedSearch('');
+            return;
+        }
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 150);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    const fetchHistory = useCallback(async (signal?: AbortSignal) => {
         try {
-            const response = await api.get('/attendance/history');
+            setLoading(true);
+            const params = new URLSearchParams();
+            if (statusFilter !== 'ALL') params.append('status', statusFilter);
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+            if (selectedDept) params.append('departmentId', selectedDept);
+            if (debouncedSearch) params.append('search', debouncedSearch);
+
+            const response = await api.get(`/attendance/history?${params.toString()}`, { signal });
             setHistory(response.data);
-        } catch (error) {
+        } catch (error: any) {
+            if (error.name === 'CanceledError' || error.name === 'AbortError') return;
             console.error(error);
-            logout();
+            setHistory([]);
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, [statusFilter, startDate, endDate, selectedDept, debouncedSearch]);
 
     useEffect(() => {
-        fetchHistory();
-    }, [fetchHistory]);
+        const controller = new AbortController();
+        fetchHistory(controller.signal);
+        return () => controller.abort();
+    }, [statusFilter, startDate, endDate, selectedDept, debouncedSearch, fetchHistory]);
+
+    useEffect(() => {
+        if (user?.role && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
+            api.get('/departments')
+                .then(res => setDepartments(res.data))
+                .catch(err => console.error('Failed to fetch departments:', err));
+        }
+    }, [user]);
 
     const handleManualAction = async (type: 'in' | 'out') => {
         try {
@@ -56,18 +91,8 @@ export default function AttendancePage() {
     };
 
     const filteredHistory = useMemo(() => {
-        return history.filter((record: any) =>
-            record.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            record.status?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-    }, [history, searchTerm]);
-
-    if (loading && history.length === 0) return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
-            <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
-            <p className="text-[13px] font-medium text-[#667085]">Loading attendance records...</p>
-        </div>
-    );
+        return history;
+    }, [history]);
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
@@ -106,21 +131,96 @@ export default function AttendancePage() {
             {user?.role && !['SUPER_ADMIN', 'ADMIN'].includes(user.role) && <AttendanceCalendar />}
 
             {/* Search and Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-3 relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search attendance records..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="input-field pl-11 py-2.5"
-                    />
+            <div className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-3 relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]" size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search attendance records..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="input-field pl-11 py-2.5"
+                        />
+                    </div>
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`btn-secondary py-2.5 transition-all ${showFilters ? 'bg-[#F8F9FB] border-black' : ''}`}
+                    >
+                        <Filter size={18} />
+                        {showFilters ? 'Hide Filters' : 'Filters'}
+                    </button>
                 </div>
-                <button className="btn-secondary py-2.5">
-                    <Filter size={18} />
-                    Filters
-                </button>
+
+                {showFilters && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-[#F8F9FB] rounded-md border border-[#E6E8EC] animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="input-field py-2"
+                            >
+                                <option value="ALL">All Statuses</option>
+                                <option value="PRESENT">Present</option>
+                                <option value="LATE">Late</option>
+                                <option value="OVERTIME">Overtime</option>
+                                <option value="HALF_DAY">Half Day</option>
+                                <option value="ABSENT">Absent</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Start Date</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="input-field py-2"
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">End Date</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="input-field py-2"
+                            />
+                        </div>
+
+                        {user?.role && ['SUPER_ADMIN', 'ADMIN'].includes(user.role) && (
+                            <div className="space-y-1.5">
+                                <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Department</label>
+                                <select
+                                    value={selectedDept}
+                                    onChange={(e) => setSelectedDept(e.target.value)}
+                                    className="input-field py-2"
+                                >
+                                    <option value="">All Departments</option>
+                                    {departments.map((dept: any) => (
+                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-[#E6E8EC]">
+                            <button
+                                onClick={() => {
+                                    setStatusFilter('ALL');
+                                    setStartDate('');
+                                    setEndDate('');
+                                    setSelectedDept('');
+                                }}
+                                className="text-[13px] font-medium text-[#D92D20] hover:text-[#B42318] transition-colors"
+                            >
+                                Reset Filters
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* History Table */}
@@ -138,12 +238,22 @@ export default function AttendancePage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
-                            {filteredHistory.length === 0 ? (
+                            {loading && history.length === 0 ? (
                                 <tr>
-                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-6 py-12 text-center text-[#667085]">
+                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-6 py-20 text-center">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
+                                            <p className="text-[14px] font-medium text-[#667085]">Updating records...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : !loading && filteredHistory.length === 0 ? (
+                                <tr>
+                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-6 py-20 text-center text-[#667085]">
                                         <div className="flex flex-col items-center gap-3">
                                             <History size={32} className="text-[#D0D5DD]" />
-                                            <p className="text-[14px] font-medium">No attendance records found.</p>
+                                            <p className="text-[14px] font-medium">No results found.</p>
+                                            <p className="text-[12px]">Try adjusting your search or filters.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -152,7 +262,7 @@ export default function AttendancePage() {
                                     <tr key={record.id} className="hover:bg-slate-50 transition-all group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-slate-100 text-[#344054] flex items-center justify-center border border-[#E6E8EC]">
+                                                <div className="w-10 h-10 rounded-md bg-white text-[#101828] flex items-center justify-center border border-[#E6E8EC]">
                                                     <Calendar size={18} />
                                                 </div>
                                                 <div>
@@ -166,7 +276,7 @@ export default function AttendancePage() {
                                         {user?.role !== 'EMPLOYEE' && (
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-[#101828] flex items-center justify-center text-[12px] font-semibold text-white uppercase relative overflow-hidden border border-[#E6E8EC]">
+                                                    <div className="w-8 h-8 rounded-md bg-[#101828] flex items-center justify-center text-[12px] font-semibold text-white uppercase relative overflow-hidden border border-[#E6E8EC]">
                                                         {record.user.profileImage ? (
                                                             <Image
                                                                 src={record.user.profileImage}

@@ -57,7 +57,7 @@ export default function LoginPage() {
                 if (errorMsg.includes('User account not found')) {
                     setLoginErrorState('EMAIL');
                     toast.error("Registry identity invalid", { icon: '⚠️' });
-                } else if (errorMsg.includes('Incorrect cipher key provided')) {
+                } else if (errorMsg.includes('Incorrect Password provided')) {
                     setLoginErrorState('PASSWORD');
                     toast.error("Cipher mismatch. Please re-verify.", { icon: '⚠️' });
                 } else {
@@ -109,7 +109,7 @@ export default function LoginPage() {
 
                     <div className="space-y-4 lg:space-y-6">
                         <div className="space-y-1.5 lg:space-y-2.5 group">
-                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Registry Email</label>
+                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Registered Email</label>
                             <div className="relative">
                                 <input
                                     type="email"
@@ -132,7 +132,7 @@ export default function LoginPage() {
 
                         <div className="space-y-1.5 lg:space-y-2.5 group">
                             <div className="flex justify-between items-center px-1">
-                                <label className="text-[9px] lg:text-[11px] font-bold text-black/40 uppercase tracking-widest">Cipher Key</label>
+                                <label className="text-[9px] lg:text-[11px] font-bold text-black/40 uppercase tracking-widest">Password</label>
                                 <button type="button" onClick={() => setView('FORGOT')} className="text-[9px] lg:text-[11px] font-bold text-black/30 hover:text-black transition-colors uppercase tracking-widest">Forgot?</button>
                             </div>
                             <div className="relative">
@@ -166,7 +166,7 @@ export default function LoginPage() {
                         <span className="flex items-center justify-center relative z-10 transition-transform duration-300">
                             {loading ? <Loader2 size={18} className="animate-spin" /> : (
                                 <>
-                                    <span>Access System</span>
+                                    <span>Login</span>
                                     <div className="overflow-hidden flex items-center transition-all duration-300 ease-out w-0 opacity-0 group-hover:w-6 group-hover:opacity-100">
                                         <ArrowRight size={16} className="ml-2" />
                                     </div>
@@ -180,11 +180,11 @@ export default function LoginPage() {
             {view === 'FORGOT' && (
                 <form onSubmit={handleForgot} className="space-y-10 animate-slide-up w-full">
                     <header className={`space-y-4 mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
-                        <h2 className="text-4xl lg:text-5xl font-black text-black tracking-tighter leading-none">Recover</h2>
-                        <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter your registry email. The system will dispatch a temporary authorization cipher.</p>
+                        <h2 className="text-4xl lg:text-5xl font-black text-black tracking-tighter leading-none">Recover Your Account</h2>
+                        <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter your Registered Email. The system will dispatch a temporary authorization cipher.</p>
                     </header>
                     <div className="space-y-2.5 group">
-                        <label className="text-[10px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Registry Email</label>
+                        <label className="text-[10px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Registered Email</label>
                         <div className="relative">
                             <input
                                 type="email"
@@ -198,10 +198,10 @@ export default function LoginPage() {
                     </div>
                     <div className="flex flex-col gap-4">
                         <button type="submit" disabled={loading} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
-                            <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Dispatch Code'}</span>
+                            <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Get Code'}</span>
                         </button>
                         <button type="button" onClick={() => setView('LOGIN')} className="h-14 lg:h-16 rounded-2xl text-[11px] lg:text-[12px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
-                            <ArrowLeft size={16} /> Abort
+                            <ArrowLeft size={16} /> Back to Login
                         </button>
                     </div>
                 </form>
@@ -315,7 +315,7 @@ export default function LoginPage() {
                             </div>
                             <div className="space-y-2">
                                 <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter uppercase italic">Access <span className="text-emerald-500">Granted.</span></h1>
-                                <p className="text-[12px] font-medium text-white/30 tracking-[0.4em] uppercase">Redirecting to Tectra Hub Terminal</p>
+                                <p className="text-[12px] font-medium text-white/30 tracking-[0.4em] uppercase">Please Wait</p>
                             </div>
                             <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto mt-10">
                                 <div className="h-full bg-emerald-500 animate-shimmer-fast rounded-full w-full origin-left"></div>

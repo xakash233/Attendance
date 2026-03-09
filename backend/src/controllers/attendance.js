@@ -156,16 +156,38 @@ export const getHistory = async (req, res, next) => {
     const { role, id, departmentId } = req.user;
 
     try {
+        const { status, startDate, endDate, departmentId: queryDeptId, search } = req.query;
         let where = {};
+
         if (role === 'EMPLOYEE') {
-            where = { userId: id };
+            where.userId = id;
         } else if (role === 'HR') {
-            where = { user: { departmentId: departmentId } };
+            where.user = { departmentId: departmentId };
         } else if (role === 'ADMIN' || role === 'SUPER_ADMIN') {
-            // Can see all or filter by department if provided in query
-            if (req.query.departmentId) {
-                where = { user: { departmentId: req.query.departmentId } };
+            if (queryDeptId) {
+                where.user = { departmentId: queryDeptId };
             }
+        }
+
+        // Apply additional filters
+        if (status && status !== 'ALL') {
+            where.status = status;
+        }
+
+        if (startDate || endDate) {
+            where.date = {};
+            if (startDate) where.date.gte = new Date(startDate);
+            if (endDate) where.date.lte = new Date(endDate);
+        }
+
+        const trimmedSearch = search?.trim();
+        if (trimmedSearch) {
+            where.OR = [
+                { user: { name: { contains: trimmedSearch, mode: 'insensitive' } } },
+                { user: { employeeCode: { contains: trimmedSearch, mode: 'insensitive' } } },
+                { status: { contains: trimmedSearch.replace(/ /g, '_').toUpperCase(), mode: 'insensitive' } },
+                { status: { contains: trimmedSearch, mode: 'insensitive' } }
+            ];
         }
 
         const history = await prisma.attendance.findMany({
