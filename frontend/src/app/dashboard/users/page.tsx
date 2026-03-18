@@ -87,7 +87,12 @@ export default function UsersPage() {
                 const res = await api.post('/users/init-creation', formData);
                 setPendingId(res.data.pendingId);
                 setStep(2);
-                toast.success('Verification code sent');
+                toast.success(`Activation link sent. Check email: ${formData.email}`, {
+                    style: {
+                        borderTop: '4px solid #10B981',
+                    },
+                    duration: 5000,
+                });
             }
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Operation failed');

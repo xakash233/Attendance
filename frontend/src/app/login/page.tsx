@@ -75,7 +75,12 @@ export default function LoginPage() {
         setLoading(true);
         try {
             await api.post('/auth/forgot-password', { email });
-            toast.success('Recovery code sent');
+            toast.success(`Activation link sent. Check email: ${email}`, {
+                style: {
+                    borderTop: '4px solid #10B981',
+                },
+                duration: 5000,
+            });
             setView('RESET');
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Email not found');
