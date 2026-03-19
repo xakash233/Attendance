@@ -1,10 +1,12 @@
 import prisma from '../config/prisma.js';
+import calculateAttendance from '../utils/attendanceCalculator.js';
 
 // @desc    Manual Check-in
 // @route   POST /api/attendance/check-in
 // @access  Private (EMPLOYEE)
 export const checkIn = async (req, res, next) => {
     try {
+        const { type } = req.body || {};
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -30,7 +32,9 @@ export const checkIn = async (req, res, next) => {
         const graceDeadline = new Date(workStart.getTime() + (settings.gracePeriod * 60000));
 
         let status = 'PRESENT';
-        if (now > graceDeadline) {
+        if (type === 'wfh') {
+            status = 'PRESENT_WFH';
+        } else if (now > graceDeadline) {
             status = 'LATE';
         }
 
@@ -45,7 +49,9 @@ export const checkIn = async (req, res, next) => {
         });
 
         if (cancelledLeaves.length > 0) {
-            status = 'PRESENT'; // Force present because they came despite cancelling
+            if (status !== 'PRESENT_WFH') {
+                status = 'PRESENT'; // Force present if not wfh
+            }
             for (const cl of cancelledLeaves) {
                 await prisma.leaveRequest.delete({ where: { id: cl.id } });
             }
@@ -114,6 +120,11 @@ export const checkOut = async (req, res, next) => {
 
         if (attendance.checkIn < breakStart && now > breakEnd) {
             workingHours -= 1;
+        }
+
+        // MNC Grace Period Rule: 7h 45m to 8h is rounded to 8h
+        if (workingHours >= 7.75 && workingHours < 8) {
+            workingHours = 8;
         }
 
         let finalStatus = attendance.status;
@@ -227,6 +238,11 @@ export const getSummary = async (req, res, next) => {
             endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         }
 
+        const userObj = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { name: true, employeeCode: true, department: { select: { name: true } } }
+        });
+
         // Get all attendance records for this month
         const attendances = await prisma.attendance.findMany({
             where: {
@@ -327,9 +343,15 @@ export const getSummary = async (req, res, next) => {
             let leaveType = null;
 
             // Check attendance memory
+            let checkIn = null;
+            let checkOut = null;
+            let workingHours = 0;
             const att = attendances.find(a => new Date(a.date).toISOString().split('T')[0] === dateStr);
             if (att) {
                 dayStatus = att.status; // PRESENT, LATE, OVERTIME, HALF_DAY
+                checkIn = att.checkIn;
+                checkOut = att.checkOut;
+                workingHours = att.workingHours || 0;
             }
 
             // Map leaves from the pre-fetched list
@@ -342,16 +364,24 @@ export const getSummary = async (req, res, next) => {
                 return dateObj >= s && dateObj <= e;
             });
 
+            let durationType = null;
             if (activeLeaves.length > 0) {
                 const approved = activeLeaves.find(l => ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'].includes(l.status));
                 const pending = activeLeaves.find(l => ['PENDING', 'PENDING_HR', 'PENDING_SUPERADMIN'].includes(l.status));
                 const rejected = activeLeaves.find(l => ['REJECTED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN'].includes(l.status));
 
                 if (approved) {
-                    dayStatus = 'APPROVED_LEAVE';
+                    dayStatus = approved.leaveType.name.toUpperCase().replace(/ /g, '_');
                     leaveType = approved.leaveType.name;
+                    durationType = approved.durationType;
+                    if (approved.durationType === 'FIRST_HALF' || approved.durationType === 'SECOND_HALF') {
+                        dayStatus = 'HALF_DAY_LEAVE';
+                        workingHours = workingHours + 4; // standard 4 hours credit for half day
+                    } else {
+                        workingHours = Math.max(workingHours, 8); // Minimum 8 hours credit for full day leave (e.g. CASUAL_LEAVE, SICK_LEAVE, WFH)
+                    }
                 } else if (pending) {
-                    dayStatus = 'PENDING_LEAVE';
+                    if (dayStatus === 'ABSENT' || dayStatus === 'FUTURE') dayStatus = 'PENDING_LEAVE';
                     leaveType = pending.leaveType.name;
                 } else if (rejected && dayStatus === 'ABSENT') {
                     // Rejected stays absent
@@ -362,7 +392,11 @@ export const getSummary = async (req, res, next) => {
                 date: dateStr,
                 status: dayStatus,
                 isWeekend,
-                leaveType
+                leaveType,
+                durationType,
+                checkIn,
+                checkOut,
+                workingHours
             });
 
             iter.setDate(iter.getDate() + 1);
@@ -375,9 +409,253 @@ export const getSummary = async (req, res, next) => {
             leaveDays: leaveDaysInMonth,
             startDate,
             endDate,
-            dailyLog
+            user: userObj,
+            dailyLog: dailyLog.reverse() // latest dates top
         });
 
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Live Attendance for Today
+// @route   GET /api/attendance/live
+// @access  Private
+export const getLiveAttendance = async (req, res, next) => {
+    try {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const now = new Date();
+        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+        
+
+        // Fetch all users with their raw biometric punches for today
+        const users = await prisma.user.findMany({
+            where: { role: { not: 'SUPER_ADMIN' } },
+            select: {
+                id: true,
+                name: true,
+                employeeCode: true,
+                department: { select: { name: true } },
+                profileImage: true,
+                biometricAttendances: {
+                    where: { timestamp: { gte: todayStart, lte: endOfDay } },
+                    orderBy: { timestamp: 'asc' },
+                    select: { timestamp: true }
+                },
+                attendances: {
+                    where: { date: todayStart, isManual: true },
+                    select: { checkIn: true, checkOut: true, status: true }
+                }
+            }
+        });
+
+        // Filter out unknown/test datas (unless it's the requesting user)
+        const cleanUsers = users.filter(u => 
+            u.id === req.user.id || 
+            (!u.employeeCode.includes('OLD') && !u.employeeCode.includes('TECH') && u.employeeCode.trim() !== '')
+        );
+
+        const liveData = cleanUsers.map(user => {
+            const biometricPunches = user.biometricAttendances.map(b => new Date(b.timestamp));
+            const manualPunches = [];
+            let isWfh = false;
+            
+            // Add manual web punches if any
+            if (user.attendances.length > 0) {
+                const att = user.attendances[0];
+                if (att.status === 'PRESENT_WFH') {
+                    isWfh = true;
+                }
+                if (att.checkIn) manualPunches.push(new Date(att.checkIn));
+                if (att.checkOut) manualPunches.push(new Date(att.checkOut));
+            }
+
+            // Merge and sort
+            const allPunches = [...biometricPunches, ...manualPunches].sort((a,b) => a.getTime() - b.getTime());
+            
+            // Deduplicate punches that happen within 60 seconds (prevents biometric + manual duplicating)
+            const rawPunches = [];
+            for (let punch of allPunches) {
+                if (rawPunches.length === 0) {
+                    rawPunches.push(punch);
+                } else {
+                    const last = rawPunches[rawPunches.length - 1];
+                    if (punch.getTime() - last.getTime() > 60000) { // 1 min diff
+                        rawPunches.push(punch);
+                    }
+                }
+            }
+            let currentStatus = 'OUT';
+            let firstPunch = null;
+            let lastPunch = null;
+            const formattedPunchesForCalc = [];
+
+            if (rawPunches.length > 0) {
+                firstPunch = rawPunches[0];
+                lastPunch = rawPunches[rawPunches.length - 1];
+
+                for (let i = 0; i < rawPunches.length; i++) {
+                    const punch = rawPunches[i];
+                    const type = i % 2 === 0 ? "IN" : "OUT";
+                    
+                    const timeStr = punch.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+                    formattedPunchesForCalc.push({ time: timeStr, type });
+
+                    if (type === "IN") currentStatus = 'IN';
+                    else if (type === "OUT") currentStatus = 'OUT';
+                }
+            }
+
+            const calcResult = calculateAttendance(formattedPunchesForCalc, currentTimeStr);
+
+            return {
+                id: user.id,
+                name: user.name,
+                employeeCode: user.employeeCode,
+                department: user.department?.name || 'Unassigned',
+                profileImage: user.profileImage,
+                firstPunch: firstPunch ? firstPunch.toISOString() : null,
+                lastPunch: lastPunch ? lastPunch.toISOString() : null,
+                currentStatus,
+                isWfh,
+                totalHours: calcResult.roundedWorkHours,
+                punchesCount: rawPunches.length,
+                punches: rawPunches.map(p => p.toISOString())
+            };
+        });
+        const activeLiveData = liveData.filter(emp => emp.punchesCount > 0 || emp.id === req.user.id);
+        res.json(activeLiveData);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Detailed Dashboard Data for Current Employee
+// @route   GET /api/attendance/dashboard-report
+// @access  Private
+export const getDashboardReport = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+        
+        // Settings
+        const settings = await prisma.systemSettings.findFirst() || { workStartTime: '10:00', workEndTime: '19:00' };
+
+        // 1. All punches today (Biometric + Manual)
+        const biometricPunches = await prisma.biometricAttendance.findMany({
+            where: { userId, timestamp: { gte: todayStart, lte: endOfDay } },
+            orderBy: { timestamp: 'asc' }
+        });
+        const manualAtt = await prisma.attendance.findUnique({
+            where: { userId_date: { userId, date: todayStart } }
+        });
+        
+        const allPunches = biometricPunches.map(b => ({ 
+            time: new Date(b.timestamp), 
+            type: 'BIO', 
+            device: b.deviceIP || 'Kiosk',
+            vMode: b.verificationMode,
+            logId: b.deviceLogId
+        }));
+        if (manualAtt) {
+            if (manualAtt.checkIn) allPunches.push({ time: new Date(manualAtt.checkIn), type: 'MANUAL_IN', device: 'Web' });
+            if (manualAtt.checkOut) allPunches.push({ time: new Date(manualAtt.checkOut), type: 'MANUAL_OUT', device: 'Web' });
+        }
+        allPunches.sort((a, b) => a.time - b.time);
+
+        // Deduplicate punches within 60s
+        const rawPunches = [];
+        for (let p of allPunches) {
+            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 60000)) {
+                rawPunches.push(p);
+            }
+        }
+
+        // Calculate Stats
+        let workMs = 0;
+        let breakMs = 0;
+        let breaksCount = 0;
+        let dailyActivity = [];
+        let currentStatus = 'OUT';
+        let lastIn = null;
+        let lastOut = null;
+
+        for (let i = 0; i < rawPunches.length; i++) {
+            const p = rawPunches[i];
+            const isFirst = i === 0;
+            const isEven = i % 2 === 0; // 0, 2... are INs, 1, 3... are OUTs
+            
+            let label = '';
+            if (isFirst) label = 'Start of Day';
+            else if (i === rawPunches.length - 1 && !isEven) label = 'End of Day';
+            else if (isEven) {
+                label = 'Back to Work';
+                if (rawPunches[i-1]) breakMs += (p.time - rawPunches[i-1].time);
+            } else {
+                label = 'Break Start';
+                breaksCount++;
+                workMs += (p.time - rawPunches[i-1].time);
+            }
+
+            dailyActivity.push({
+                time: p.time,
+                type: isEven ? 'PUNCH IN' : 'PUNCH OUT',
+                device: p.device,
+                vMode: p.vMode,
+                logId: p.logId,
+                label: label
+            });
+
+            if (isEven) {
+                lastIn = p.time;
+                currentStatus = 'IN';
+            } else {
+                lastOut = p.time;
+                currentStatus = 'OUT';
+            }
+        }
+
+        if (currentStatus === 'IN' && lastIn) {
+            const now = Date.now();
+            workMs += (now - lastIn.getTime());
+        }
+
+        // 2. Weekly Overview (Last 5 days)
+        const fiveDaysAgo = new Date(); fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+        const weeklyHistory = await prisma.attendance.findMany({
+            where: { userId, date: { gte: fiveDaysAgo, lt: todayStart } },
+            orderBy: { date: 'asc' }
+        });
+
+        // 3. Tasks
+        const tasks = await prisma.dailyTask.findMany({
+            where: { assignedToId: userId, deadline: { gte: todayStart, lte: endOfDay } },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        res.json({
+            user: { name: req.user.name, id: req.user.id },
+            today: {
+                currentStatus,
+                workHours: workMs / 3600000,
+                breakHours: breakMs / 3600000,
+                breaksCount,
+                lastIn,
+                lastOut,
+                activity: dailyActivity,
+                expectedWorkHours: 8,
+                totalExpectedHours: 9
+            },
+            weekly: weeklyHistory.map(h => ({ date: h.date, hours: h.workingHours || 0 })),
+            tasks: tasks.map(t => ({ id: t.id, title: t.title, time: t.createdAt })),
+            settings
+        });
     } catch (error) {
         next(error);
     }

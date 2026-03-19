@@ -5,6 +5,7 @@ import app from './app.js';
 import { initSocket } from './config/socket.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { startBiometricAutoSync } from './services/biometric/biometricSyncTask.js';
 
 const PORT = process.env.PORT || 5001;
 
@@ -20,6 +21,9 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolv
 if (isMain || process.env.NODE_ENV === 'development') {
   server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    
+    // Start background tasks
+    startBiometricAutoSync(10); // Sync every 10 seconds
   });
 }
 

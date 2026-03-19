@@ -177,7 +177,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Toaster position="top-right" />
 
             {/* Desktop Sidebar Orchestrator */}
-            <div className="hidden md:block w-[250px] shrink-0 relative z-[100] border-r border-[#E6E8EC] bg-white">
+            <div className="hidden md:block w-[250px] shrink-0 relative z-[100] bg-white border-r border-[#E6E8EC]">
                 <Sidebar />
             </div>
 
@@ -198,7 +198,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1 flex flex-col min-w-0 min-h-screen relative z-[150]">
 
                 {/* Refined Terminal Header */}
-                <header className="h-[70px] bg-white border-b border-[#E6E8EC] sticky top-0 z-[80] px-6 flex items-center justify-between">
+                <header className="h-[70px] bg-white/70 backdrop-blur-xl border-b border-[#E6E8EC]/50 sticky top-0 z-[80] px-6 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}

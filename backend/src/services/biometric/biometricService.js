@@ -1,6 +1,8 @@
 import { parseBiometricFile } from '../../utils/fileParser.js';
 import prisma from '../../config/prisma.js';
 import auditService from '../audit/auditService.js';
+import ZKLib from 'node-zklib';
+import { getIo } from '../../config/socket.js';
 
 class BiometricService {
     /**
@@ -19,9 +21,17 @@ class BiometricService {
             recordsToProcess = await parseBiometricFile(fileBuffer, mimeType, filename);
         }
 
-        if (!recordsToProcess || !recordsToProcess.length) {
-            throw new Error('No valid records found to sync.');
+        // Feature Request: Only sync March 2026 data, exclude all other months/years
+        const marchRecords = (recordsToProcess || []).filter(r => {
+            const d = new Date(r.timestamp);
+            return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
+        });
+
+        if (!marchRecords || !marchRecords.length) {
+            throw new Error('No valid records found for March 2026 to sync.');
         }
+
+        recordsToProcess = marchRecords;
 
         const syncLog = await prisma.attendanceSyncLog.create({
             data: {
@@ -34,23 +44,93 @@ class BiometricService {
         let failCount = 0;
         const processedSignatures = new Set(); // For idempotency in the current batch
 
-        for (const record of recordsToProcess) {
-            try {
-                // Combine employee code and timestamp for a batch-level idempotency key
-                const signature = `${record.employeeCode}_${record.timestamp}`;
-                if (processedSignatures.has(signature)) {
-                    // Skip perfect duplicates in the same file/payload
-                    continue;
-                }
-                processedSignatures.add(signature);
+        // Optimization: Pre-fetch all relevant users in one query
+        const employeeCodes = [...new Set(recordsToProcess.map(r => r.employeeCode))];
+        const users = await prisma.user.findMany({
+            where: { employeeCode: { in: employeeCodes } },
+            select: { id: true, employeeCode: true }
+        });
+        const userMap = new Map(users.map(u => [u.employeeCode, u]));
+        const validUserIds = users.map(u => u.id);
 
-                // Use a transaction per record to prevent partial failures from crashing the whole sync
-                await this.processSingleRecord(record, deviceIP, syncLog.id);
-                successCount++;
-            } catch (error) {
-                console.error(`Failed to process record for ${record.employeeCode}:`, error.message);
-                failCount++;
-                // Note: Consider logging partial failures to a separate table for UI visibility
+        console.log(`[BiometricService] Total records in batch: ${recordsToProcess.length}. Pre-fetched ${users.length} matching users.`);
+
+        // Optimization: Smart Filter
+        // 1. Only include records for users that exist in our database
+        // 2. Only include records for the current batch (idempotency in memory)
+        let filteredRecords = recordsToProcess.filter(r => userMap.has(r.employeeCode));
+
+        const finalRecordsToProcess = [];
+        for (const record of filteredRecords) {
+            const signature = `${record.employeeCode}_${record.timestamp}`;
+            if (!processedSignatures.has(signature)) {
+                processedSignatures.add(signature);
+                finalRecordsToProcess.push(record);
+            }
+        }
+
+        console.log(`[BiometricService] Filtered down to ${finalRecordsToProcess.length} relevant records for our users.`);
+
+        // 3. Batch check against database to skip already processed logs
+        // This prevents 12,000 database checks!
+        const existingLogs = await prisma.biometricAttendance.findMany({
+            where: {
+                userId: { in: validUserIds },
+                timestamp: { in: finalRecordsToProcess.map(r => new Date(r.timestamp)) }
+            },
+            select: { userId: true, timestamp: true }
+        });
+        const existingLogSet = new Set(existingLogs.map(l => `${l.userId}_${l.timestamp.toISOString()}`));
+
+        const trulyNewRecords = finalRecordsToProcess.filter(r => {
+            const user = userMap.get(r.employeeCode);
+            return !existingLogSet.has(`${user.id}_${new Date(r.timestamp).toISOString()}`);
+        });
+
+        console.log(`[BiometricService] Final count of truly new records to process: ${trulyNewRecords.length}`);
+
+        if (trulyNewRecords.length > 0) {
+            // 1. Batch insert all new biometric logs
+            await prisma.biometricAttendance.createMany({
+                data: trulyNewRecords.map(r => ({
+                    userId: userMap.get(r.employeeCode).id,
+                    employeeCode: r.employeeCode,
+                    timestamp: new Date(r.timestamp),
+                    deviceIP: deviceIP || 'DEVICE',
+                    syncLogId: syncLog.id
+                }))
+            });
+
+            // 2. Optimized Attendance Aggregation
+            // Group the new punches by user and date to avoid redundant calculation
+            const groups = new Map();
+            for (const record of trulyNewRecords) {
+                const user = userMap.get(record.employeeCode);
+                const date = new Date(record.timestamp);
+                date.setUTCHours(0, 0, 0, 0);
+                const key = `${user.id}_${date.getTime()}`;
+
+                if (!groups.has(key)) {
+                    groups.set(key, { userId: user.id, timestamp: new Date(record.timestamp) });
+                } else {
+                    // We only need the latest punch to trigger the update logic
+                    // or we could collect all and pick min/max
+                    if (new Date(record.timestamp) > groups.get(key).timestamp) {
+                        groups.set(key, { userId: user.id, timestamp: new Date(record.timestamp) });
+                    }
+                }
+            }
+
+            console.log(`[BiometricService] Updating daily attendance for ${groups.size} unique user-days...`);
+
+            // Process the daily aggregations
+            for (const group of groups.values()) {
+                try {
+                    await this.updateDailyAttendance(prisma, group.userId, group.timestamp);
+                    successCount++;
+                } catch (err) {
+                    console.error(`[BiometricService] Error updating daily attendance for ${group.userId}:`, err.message);
+                }
             }
         }
 
@@ -89,11 +169,81 @@ class BiometricService {
     }
 
     /**
+     * Connect to the biometric device and sync all attendance records
+     * @param {string} ip - Device IP address
+     * @param {number} port - Device Port
+     * @param {string} userId - ID of user triggering the sync
+     */
+    async syncFromDevice(ip = '192.168.1.2', port = 4370, userId = null) {
+        let zkInstance = null;
+        try {
+            zkInstance = new ZKLib(ip, port, 10000, 4000);
+
+            // 1. Establish connection
+            await zkInstance.createSocket();
+
+            // 2. Fetch logs from device
+            const logs = await zkInstance.getAttendances();
+
+            if (!logs || !logs.data || !logs.data.length) {
+                return { success: false, message: 'No logs found on device or error fetching logs.' };
+            }
+
+            // 3. Format device logs for our processSync method
+            // Device returns data in format like: { deviceUserId: '1', recordTime: '2024-03-18 10:00:00', ... }
+            const formattedRecords = logs.data.map(log => ({
+                employeeCode: log.deviceUserId.toString(),
+                timestamp: new Date(log.recordTime).toISOString()
+            }));
+
+            // 4. Process the logs into our system
+            const result = await this.processSync({
+                rawRecords: formattedRecords,
+                deviceIP: ip,
+                userId: userId,
+                filename: `DEVICE_AUTO_SYNC_${new Date().toISOString()}`
+            });
+
+            // 5. Emit real-time update via Socket.io
+            const io = getIo();
+            if (io) {
+                io.emit('biometricSyncUpdate', {
+                    status: result.status,
+                    total: result.totalProcessed,
+                    success: result.successCount,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // 6. Optional: Clear device logs if sync is 100% successful
+            // await zkInstance.clearAttendanceLog(); // Uncomment only if you want to wipe logs!
+
+            return {
+                success: true,
+                message: `Successfully synced ${result.successCount} records from device ${ip}`,
+                data: result
+            };
+
+        } catch (error) {
+            console.error('Biometric Device Sync Error:', error);
+            throw new Error(`Failed to connect to biometric device at ${ip}: ${error.message}`);
+        } finally {
+            if (zkInstance && zkInstance.disconnect) {
+                try {
+                    await zkInstance.disconnect();
+                } catch (e) {
+                    console.error('Error disconnecting from biometric device:', e);
+                }
+            }
+        }
+    }
+
+    /**
      * Process an individual biometric record within a transaction
      */
-    async processSingleRecord(record, deviceIP, syncLogId) {
+    async processSingleRecord(record, deviceIP, syncLogId, preFetchedUser = null) {
         return prisma.$transaction(async (tx) => {
-            const user = await tx.user.findUnique({
+            const user = preFetchedUser || await tx.user.findUnique({
                 where: { employeeCode: record.employeeCode }
             });
 
@@ -219,7 +369,12 @@ class BiometricService {
      */
     async calculateAndSetCheckout(tx, attendance, checkOutTime, settings) {
         const checkInTime = attendance.checkIn;
-        const workingHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+        let workingHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+        // MNC Grace Period Rule: 7h 45m to 8h is rounded to 8h
+        if (workingHours >= 7.75 && workingHours < 8) {
+            workingHours = 8;
+        }
 
         let status = attendance.status; // Keep LATE if they were late
 

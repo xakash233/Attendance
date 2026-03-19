@@ -46,4 +46,12 @@ export const getLatestRecords = async (req, res, next) => {
         next(error);
     }
 };
-
+export const syncFromDevice = async (req, res, next) => {
+    try {
+        const { ip, port } = req.body;
+        const result = await biometricService.syncFromDevice(ip, port, req.user.id);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};

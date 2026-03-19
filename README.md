@@ -97,6 +97,36 @@ npm run dev
 
 ---
 
+## 📟 Biometric Device Setup & Data Mapping
+
+To ensure successful synchronization between your physical ZKTeco/eSSL device and this system, follow these mapping rules:
+
+### 1️⃣ The Critical "Employee Code" Link
+The system uses the **Employee Code** field to link a fingerprint scan to a user record.
+*   **On Device**: Every user has a numeric ID (e.g., `101`).
+*   **In Dashboard**: When adding an employee, set their `Employee Code` to exactly the same value (e.g., `101`).
+*   **If missing**: The sync will report a "Failure" because it cannot find which employee the fingerprint belongs to.
+
+### 2️⃣ Device Network Configuration
+The backend is currently configured to look for your device at:
+*   **IP Address**: `192.168.1.2`
+*   **Port**: `4370`
+*   **Protocol**: TCP/IP
+*   *Note: Ensure your device is on the same local network as the server.*
+
+### 3️⃣ Data Synchronization
+*   **Automatic Sync**: The system runs a background task every **30 minutes** to pull new records from the device.
+*   **Manual Trigger**: Navigate to `Dashboard > Biometric` and click **"Sync from Device"** to pull records instantly.
+*   **Real-time Alerts**: When a sync completes, all active dashboards will receive a live notification via Sockets.
+
+### 4️⃣ Troubleshooting "Failed" Syncs
+If you see a "Failed" status in the Biometric Logs:
+1.  **Check IP Connectivity**: Ensure you can ping `192.168.1.2` from the server.
+2.  **Verify Employee Registry**: Ensure the person who punched has an active account in the portal with the matching Code.
+3.  **Check processing Status**: High volumes (3,000+ records) may take a few seconds to process. The system now includes an optimized batch-processing engine to handle large historical logs.
+
+---
+
 ## 🏢 Tectra Technologies
 **Enterprise Strategic Registry & Tracking Hub**  
 *Precision-engineered for modern organizational excellence.*

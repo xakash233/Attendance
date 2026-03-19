@@ -56,7 +56,6 @@ export default function UsersPage() {
             setDepartments(deptsRes.data);
         } catch (err) {
             console.error(err);
-            logout();
         } finally {
             setLoading(false);
         }

@@ -1,324 +1,178 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
-import {
-    Clock, Download, Filter, Search, Calendar,
-    ArrowRight, Loader2, ArrowDownLeft, ArrowUpRight, History, User
-} from 'lucide-react';
-import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
-import Image from 'next/image';
+import { Loader2, ArrowDownLeft, ArrowUpRight, Clock, Activity, Fingerprint } from 'lucide-react';
 
 export default function AttendancePage() {
-    const [history, setHistory] = useState([]);
+    const { user } = useAuth();
+    const [liveData, setLiveData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearch, setDebouncedSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [selectedDept, setSelectedDept] = useState('');
-    const [departments, setDepartments] = useState([]);
-    const [showFilters, setShowFilters] = useState(false);
-    const { user, logout } = useAuth();
+    const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!searchTerm.trim()) {
-            setDebouncedSearch('');
-            return;
-        }
-        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 150);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
-
-    const fetchHistory = useCallback(async (signal?: AbortSignal) => {
+    const fetchLiveAttendance = useCallback(async () => {
         try {
-            setLoading(true);
-            const params = new URLSearchParams();
-            if (statusFilter !== 'ALL') params.append('status', statusFilter);
-            if (startDate) params.append('startDate', startDate);
-            if (endDate) params.append('endDate', endDate);
-            if (selectedDept) params.append('departmentId', selectedDept);
-            if (debouncedSearch) params.append('search', debouncedSearch);
-
-            const response = await api.get(`/attendance/history?${params.toString()}`, { signal });
-            setHistory(response.data);
-        } catch (error: any) {
-            if (error.name === 'CanceledError' || error.name === 'AbortError') return;
-            console.error(error);
-            setHistory([]);
-        } finally {
+            const response = await api.get('/attendance/live');
+            let data = response.data;
+            // If employee, only show their own live data
+            if (user?.role === 'EMPLOYEE') {
+                data = data.filter((u: any) => u.id === user.id);
+            }
+            setLiveData(data);
             setLoading(false);
-        }
-    }, [statusFilter, startDate, endDate, selectedDept, debouncedSearch]);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        fetchHistory(controller.signal);
-        return () => controller.abort();
-    }, [statusFilter, startDate, endDate, selectedDept, debouncedSearch, fetchHistory]);
-
-    useEffect(() => {
-        if (user?.role && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)) {
-            api.get('/departments')
-                .then(res => setDepartments(res.data))
-                .catch(err => console.error('Failed to fetch departments:', err));
+        } catch (error) {
+            console.error(error);
+            setLoading(false);
         }
     }, [user]);
 
-    const handleManualAction = async (type: 'in' | 'out') => {
+    // Fast 2-second refresh polling for live data
+    useEffect(() => {
+        fetchLiveAttendance();
+        const interval = setInterval(() => {
+            fetchLiveAttendance();
+        }, 2000);
+        return () => clearInterval(interval);
+    }, [fetchLiveAttendance]);
+
+    const handleManualAction = async (actionType: 'in' | 'out', isWfh: boolean = false) => {
         try {
-            await api.post(`/attendance/check-${type}`);
-            toast.success(`Clock ${type} success`);
-            fetchHistory();
+            const body = isWfh ? { type: 'wfh' } : {};
+            await api.post(`/attendance/check-${actionType}`, body);
+            toast.success(`Successfully punched ${actionType.toUpperCase()}${isWfh ? ' (WFH/Remote)' : ''}`);
+            fetchLiveAttendance();
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Clocking error');
+            toast.error(err.response?.data?.message || `Error punching ${actionType.toUpperCase()}`);
         }
     };
 
-    const getStatusStyle = (status: string) => {
-        switch (status) {
-            case 'PRESENT': return 'bg-black text-white border-black';
-            case 'LATE': return 'bg-neutral-100 text-black border-black/10';
-            case 'OVERTIME': return 'bg-neutral-50 text-[#101828] border-black font-semibold';
-            case 'HALF_DAY': return 'bg-white text-[#101828] border-black/20 font-medium';
-            case 'WFH_PRESENT': return 'bg-neutral-50 text-black border-black/5 border-dashed';
-            case 'ABSENT': return 'bg-neutral-100 text-black/30 border-neutral-200 line-through';
-            default: return 'bg-white text-black/40 border-black/10';
-        }
+    const formatTime = (isoString: string) => {
+        if (!isoString) return '--:--';
+        return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
-    const filteredHistory = useMemo(() => {
-        return history;
-    }, [history]);
+    if (loading && liveData.length === 0) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="animate-spin text-neutral-400 w-8 h-8" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
-            {/* SaaS Header */}
-            <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 bg-white p-6 rounded-xl border border-[#E6E8EC] shadow-sm">
                 <div>
-                    <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Attendance</h1>
-                    <p className="text-[13px] font-medium text-[#667085] mt-1">
-                        {user?.role && !['SUPER_ADMIN', 'ADMIN'].includes(user.role)
-                            ? 'Track and manage your daily attendance records.'
-                            : 'Monitor and audit comprehensive personnel attendance logs.'}
+                    <h1 className="text-[24px] font-bold text-[#101828] flex items-center gap-2">
+                        <Activity className="text-emerald-500 animate-pulse" size={24} /> 
+                        Today&apos;s Live Tracking
+                    </h1>
+                    <p className="text-[14px] text-[#667085] mt-1">
+                        Showing live working hours for today exactly as they happen.
                     </p>
                 </div>
-
                 {user?.role === 'EMPLOYEE' && (
-                    <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <button
-                            onClick={() => handleManualAction('in')}
-                            className="btn-primary w-full lg:w-auto"
-                        >
-                            <ArrowDownLeft size={16} />
-                            Clock In
+                    <div className="flex gap-2.5 flex-wrap">
+                        <button onClick={() => handleManualAction('in')} className="btn-primary py-2.5 px-5 font-bold shadow-sm">
+                            <ArrowDownLeft size={18} className="mr-1"/> Punch IN
                         </button>
-                        <button
-                            onClick={() => handleManualAction('out')}
-                            className="btn-secondary w-full lg:w-auto text-[#D92D20] border-[#D92D20]/20 hover:bg-red-50"
-                        >
-                            <ArrowUpRight size={16} />
-                            Clock Out
+                        <button onClick={() => handleManualAction('in', true)} className="btn-secondary text-[#026AA2] border-[#026AA2] border bg-[#F0F9FF] hover:bg-[#E0F2FE] py-2.5 px-5 font-bold shadow-sm">
+                            <Activity size={18} className="mr-1"/> Remote / WFH
+                        </button>
+                        <button onClick={() => handleManualAction('out')} className="btn-secondary text-[#D92D20] py-2.5 px-5 font-bold shadow-sm border border-[#E6E8EC] bg-white">
+                            <ArrowUpRight size={18} className="mr-1"/> Punch OUT
                         </button>
                     </div>
                 )}
             </header>
 
-            {/* Metrics - Hidden for Admins to focus on logs */}
-            {user?.role && !['SUPER_ADMIN', 'ADMIN'].includes(user.role) && <AttendanceCalendar />}
-
-            {/* Search and Filters */}
-            <div className="flex flex-col gap-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="md:col-span-3 relative group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#667085]" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Search attendance records..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="input-field pl-11 py-2.5"
-                        />
-                    </div>
-                    <button
-                        onClick={() => setShowFilters(!showFilters)}
-                        className={`btn-secondary py-2.5 transition-all ${showFilters ? 'bg-[#F8F9FB] border-black' : ''}`}
-                    >
-                        <Filter size={18} />
-                        {showFilters ? 'Hide Filters' : 'Filters'}
-                    </button>
-                </div>
-
-                {showFilters && (
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-[#F8F9FB] rounded-md border border-[#E6E8EC] animate-in fade-in slide-in-from-top-2 duration-200">
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Status</label>
-                            <select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                className="input-field py-2"
-                            >
-                                <option value="ALL">All Statuses</option>
-                                <option value="PRESENT">Present</option>
-                                <option value="LATE">Late</option>
-                                <option value="OVERTIME">Overtime</option>
-                                <option value="HALF_DAY">Half Day</option>
-                                <option value="ABSENT">Absent</option>
-                            </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Start Date</label>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className="input-field py-2"
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">End Date</label>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className="input-field py-2"
-                            />
-                        </div>
-
-                        {user?.role && ['SUPER_ADMIN', 'ADMIN'].includes(user.role) && (
-                            <div className="space-y-1.5">
-                                <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Department</label>
-                                <select
-                                    value={selectedDept}
-                                    onChange={(e) => setSelectedDept(e.target.value)}
-                                    className="input-field py-2"
-                                >
-                                    <option value="">All Departments</option>
-                                    {departments.map((dept: any) => (
-                                        <option key={dept.id} value={dept.id}>{dept.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        <div className="md:col-span-4 flex justify-end gap-2 pt-2 border-t border-[#E6E8EC]">
-                            <button
-                                onClick={() => {
-                                    setStatusFilter('ALL');
-                                    setStartDate('');
-                                    setEndDate('');
-                                    setSelectedDept('');
-                                }}
-                                className="text-[13px] font-medium text-[#D92D20] hover:text-[#B42318] transition-colors"
-                            >
-                                Reset Filters
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* History Table */}
-            <div className="card overflow-hidden">
+            <div className="card overflow-hidden bg-white border border-[#E6E8EC] shadow-sm">
                 <div className="overflow-x-auto no-scrollbar">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Date</th>
-                                {user?.role !== 'EMPLOYEE' && <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee</th>}
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Clock In</th>
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Clock Out</th>
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Total Hours</th>
+                            <tr className="border-b border-[#E6E8EC] bg-[#F8F9FB]">
+                                <th className="px-6 py-4 text-[13px] font-bold text-[#667085] uppercase tracking-wide">Employee</th>
+                                <th className="px-6 py-4 text-[13px] font-bold text-[#667085] uppercase tracking-wide text-center">Status</th>
+                                <th className="px-6 py-4 text-[13px] font-bold text-[#667085] uppercase tracking-wide text-center">Last Out</th>
+                                <th className="px-6 py-4 text-[13px] font-bold text-[#101828] uppercase tracking-wide text-right w-[150px]">Total Hours Today</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
-                            {loading && history.length === 0 ? (
+                            {liveData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-6 py-20 text-center">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
-                                            <p className="text-[14px] font-medium text-[#667085]">Updating records...</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : !loading && filteredHistory.length === 0 ? (
-                                <tr>
-                                    <td colSpan={user?.role === 'EMPLOYEE' ? 5 : 6} className="px-6 py-20 text-center text-[#667085]">
-                                        <div className="flex flex-col items-center gap-3">
-                                            <History size={32} className="text-[#D0D5DD]" />
-                                            <p className="text-[14px] font-medium">No results found.</p>
-                                            <p className="text-[12px]">Try adjusting your search or filters.</p>
-                                        </div>
+                                    <td colSpan={4} className="px-6 py-10 text-center text-[#667085]">
+                                        No live data available for today yet. Get to work!
                                     </td>
                                 </tr>
                             ) : (
-                                filteredHistory.map((record: any) => (
-                                    <tr key={record.id} className="hover:bg-slate-50 transition-all group">
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-md bg-white text-[#101828] flex items-center justify-center border border-[#E6E8EC]">
-                                                    <Calendar size={18} />
-                                                </div>
+                                liveData.map((emp) => (
+                                    <React.Fragment key={emp.id}>
+                                        <tr 
+                                            className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                                            onClick={() => setExpandedRow(expandedRow === emp.id ? null : emp.id)}
+                                        >
+                                            <td className="px-6 py-5">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold group-hover:bg-indigo-600 transition-colors">
+                                                        {emp.name.substring(0,2).toUpperCase()}
+                                                    </div>
                                                 <div>
-                                                    <p className="text-[14px] font-medium text-[#101828]">
-                                                        {new Date(record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                                                    </p>
-                                                    <p className="text-[12px] text-[#667085] mt-0.5">{new Date(record.date).getFullYear()}</p>
+                                                    <p className="text-[16px] font-bold text-[#101828]">{emp.name}</p>
+                                                    <p className="text-[13px] font-medium text-[#667085]">ID: {emp.employeeCode}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        {user?.role !== 'EMPLOYEE' && (
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-md bg-[#101828] flex items-center justify-center text-[12px] font-semibold text-white uppercase relative overflow-hidden border border-[#E6E8EC]">
-                                                        {record.user.profileImage ? (
-                                                            <Image
-                                                                src={record.user.profileImage}
-                                                                alt={record.user.name}
-                                                                layout="fill"
-                                                                objectFit="cover"
-                                                                unoptimized
-                                                            />
-                                                        ) : (
-                                                            record.user.name.substring(0, 2)
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[14px] font-medium text-[#101828]">{record.user.name}</p>
-                                                        <p className="text-[12px] text-[#667085] mt-0.5">{record.user.department?.name || 'Unassigned'}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        )}
-                                        <td className="px-6 py-4 text-center text-[14px] font-medium text-[#101828]">
-                                            {record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
+                                        <td className="px-6 py-5 text-center">
+                                            {emp.currentStatus === 'IN' ? (
+                                                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[12px] font-bold uppercase tracking-wider ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                    <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`}/> 
+                                                    {emp.isWfh ? 'Working [WFH]' : 'In Office'}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[12px] font-bold uppercase tracking-wider">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-neutral-400"/> Checked Out {emp.isWfh && '[WFH]'}
+                                                </span>
+                                            )}
                                         </td>
-                                        <td className="px-6 py-4 text-center text-[14px] font-medium text-[#101828]">
-                                            {record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }) : '--:--'}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider border ${getStatusStyle(record.status)}`}>
-                                                {record.status.replace(/_/g, ' ')}
+                                        <td className="px-6 py-5 text-center">
+                                            <span className="text-[15px] font-medium font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded">
+                                                {emp.lastPunch && formatTime(emp.lastPunch) !== formatTime(emp.firstPunch) ? formatTime(emp.lastPunch) : '--:--'}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className="text-[16px] font-semibold text-[#101828]">
-                                                {record.workingHours.toFixed(1)} <span className="text-[12px] font-medium text-[#667085] ml-1">hrs</span>
-                                            </span>
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Clock size={18} className={emp.currentStatus === 'IN' ? 'text-emerald-500' : 'text-[#667085]'} />
+                                                <span className="text-[24px] font-black text-[#101828]">
+                                                    {emp.totalHours.toFixed(2)}
+                                                </span>
+                                                <span className="text-[14px] font-bold text-[#667085]">HRS</span>
+                                            </div>
                                         </td>
                                     </tr>
+                                    {expandedRow === emp.id && (
+                                        <tr className="bg-slate-50 border-b border-[#E6E8EC]">
+                                            <td colSpan={4} className="px-6 py-5 border-t border-slate-100">
+                                                <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-[4rem]">
+                                                    <span className="text-[13px] font-bold text-[#667085] mr-2">Detailed Punches:</span>
+                                                    {emp.punches?.map((punchIso: string, idx: number) => (
+                                                        <span key={idx} className={`text-[12px] font-semibold font-mono px-3 py-1.5 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                                            {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </React.Fragment>
                                 ))
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
+            
         </div>
     );
 }

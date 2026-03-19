@@ -126,7 +126,7 @@ class LeaveService {
             }, tx);
 
             return leaveRequest;
-        });
+        }, { maxWait: 8000, timeout: 20000 });
     }
 
     async hrDecision({ leaveId, decision, comments, hrId }) {
@@ -157,7 +157,7 @@ class LeaveService {
             }, tx);
 
             return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
-        });
+        }, { maxWait: 8000, timeout: 20000 });
     }
 
     async finalDecision({ leaveId, decision, comments, superAdminId }) {
@@ -222,7 +222,7 @@ class LeaveService {
             }, tx);
 
             return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, wasPendingHR, departmentId: leaveRequest.departmentId, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
-        });
+        }, { maxWait: 8000, timeout: 20000 });
 
         // Notify HR if Super Admin overrode their pending request
         if (result.wasPendingHR) {
@@ -298,7 +298,7 @@ class LeaveService {
             }).catch(e => console.error(e));
 
             return updated;
-        });
+        }, { maxWait: 8000, timeout: 20000 });
     }
 }
 

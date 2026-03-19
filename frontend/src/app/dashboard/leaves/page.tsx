@@ -68,8 +68,7 @@ export default function LeavesPage() {
                     setLeaveTypes(res.data);
                 } catch (err) {
                     console.error("Types fetch error:", err);
-                    toast.error("Session expired. Please login again.");
-                    logout();
+                    toast.error("Network error while loading data. Please try again.");
                 }
             };
 

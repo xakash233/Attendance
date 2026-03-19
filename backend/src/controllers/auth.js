@@ -4,7 +4,7 @@ import prisma from '../config/prisma.js';
 import sendEmail from '../utils/email.js';
 
 const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 const generateRefreshToken = (id) => {

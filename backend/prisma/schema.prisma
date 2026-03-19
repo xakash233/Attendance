@@ -113,15 +113,17 @@ model Attendance {
 }
 
 model BiometricAttendance {
-  id           String             @id @default(uuid())
-  userId       String
-  employeeCode String
-  timestamp    DateTime
-  deviceIP     String?
-  syncLogId    String?
-  createdAt    DateTime           @default(now())
-  syncLog      AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
-  user         User               @relation(fields: [userId], references: [id])
+  id               String             @id @default(uuid())
+  userId           String
+  employeeCode     String
+  timestamp        DateTime
+  deviceIP         String?
+  verificationMode Int?               @default(1)
+  deviceLogId      String?
+  syncLogId        String?
+  createdAt        DateTime           @default(now())
+  syncLog          AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
+  user             User               @relation(fields: [userId], references: [id])
 }
 
 model Notification {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { checkIn, checkOut, getHistory, getSummary } from '../controllers/attendance.js';
+import { checkIn, checkOut, getHistory, getSummary, getLiveAttendance, getDashboardReport } from '../controllers/attendance.js';
 import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -9,5 +9,7 @@ router.post('/check-out', protect, checkOut);
 router.get('/history', protect, getHistory);
 router.get('/summary', protect, getSummary);
 router.get('/user-summary/:id', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), getSummary);
+router.get('/live', protect, getLiveAttendance);
+router.get('/dashboard-report', protect, getDashboardReport);
 
 export default router;
