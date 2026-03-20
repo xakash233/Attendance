@@ -50,13 +50,13 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
 
   // 3. Detect shift
   const firstInTime = parseTime(cleanLogs[0].time);
-  let shiftName = "10-7";
+  let shiftName = "B";
   let shiftStart = parseTime("10:00");
   let shiftEnd = parseTime("19:00");
   let graceEnd = parseTime("19:30");
 
-  if (firstInTime >= parseTime("09:00") && firstInTime <= parseTime("09:59")) {
-    shiftName = "9-6";
+  if (firstInTime >= parseTime("08:00") && firstInTime <= parseTime("09:45")) {
+    shiftName = "A";
     shiftStart = parseTime("09:00");
     shiftEnd = parseTime("18:00");
     graceEnd = parseTime("18:30");
@@ -67,9 +67,6 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
   if (cleanLogs[cleanLogs.length - 1].type === "IN") {
     isCurrentlyIn = true;
     const effectiveNow = currentTimeStr ? parseTime(currentTimeStr) : shiftEnd;
-    
-    // For live calculation, if they are currently IN, we calculate work up to NOW (clamped to shift range if needed, or not)
-    // Actually, if it is a live tracking view, we use the current time.
     cleanLogs.push({ time: formatTime(effectiveNow), type: "OUT" });
   }
 

@@ -191,3 +191,40 @@ export const resetPassword = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Change Password
+// @route   PUT /api/auth/change-password
+// @access  Private
+export const changePassword = async (req, res, next) => {
+    const { oldPassword, newPassword } = req.body;
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id }
+        });
+
+        if (!user || !(await bcrypt.compare(oldPassword, user.password))) {
+            return res.status(401).json({ message: 'Current password provided is incorrect' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.user.update({
+            where: { id: req.user.id },
+            data: { password: hashedPassword }
+        });
+
+        // Audit Log
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user.id,
+                action: 'PASSWORD_CHANGE',
+                entity: 'USER',
+                entityId: req.user.id,
+                details: { timestamp: new Date() }
+            }
+        });
+
+        res.json({ message: 'Password updated successfully' });
+    } catch (error) {
+        next(error);
+    }
+};

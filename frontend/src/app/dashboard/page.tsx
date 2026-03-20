@@ -13,6 +13,8 @@ import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import Image from 'next/image';
 
+import { createPortal } from 'react-dom';
+
 export default function DashboardPage() {
     const { user } = useAuth();
     const [report, setReport] = useState<any>(null);
@@ -20,6 +22,14 @@ export default function DashboardPage() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [liveData, setLiveData] = useState<any[]>([]);
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
+    const [showCompliance, setShowCompliance] = useState(false);
+    const [complianceData, setComplianceData] = useState<any[]>([]);
+    const [complianceLoading, setComplianceLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Update time every second
     useEffect(() => {
@@ -35,6 +45,19 @@ export default function DashboardPage() {
         } catch (error) {
             console.error('Failed to fetch dashboard report', error);
             setLoading(false);
+        }
+    }, [setLoading, setReport]);
+
+    const fetchCompliance = useCallback(async () => {
+        setComplianceLoading(true);
+        try {
+            const res = await api.get('/attendance/compliance-report');
+            setComplianceData(res.data.report);
+            setShowCompliance(true);
+        } catch (error) {
+            toast.error('Failed to fetch compliance report');
+        } finally {
+            setComplianceLoading(false);
         }
     }, []);
 
@@ -108,9 +131,21 @@ export default function DashboardPage() {
                     <h1 className="text-[28px] font-bold text-[#101828] tracking-tight leading-none mb-1">
                         Welcome, <span className="text-slate-800">{user?.name}</span>
                     </h1>
-                    <p className="text-[14px] font-medium text-[#667085]">
-                        Date: <span className="text-[#101828]">{formatDate(currentTime)}</span>
-                    </p>
+                    <div className="flex items-center gap-3">
+                        <p className="text-[14px] font-medium text-[#667085]">
+                            Date: <span className="text-[#101828]">{formatDate(currentTime)}</span>
+                        </p>
+                        {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
+                            <button 
+                                onClick={fetchCompliance}
+                                disabled={complianceLoading}
+                                className="flex items-center gap-2 px-3 py-1 bg-[#101828] text-white rounded-full text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
+                            >
+                                {complianceLoading ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}
+                                Compliance Report
+                            </button>
+                        )}
+                    </div>
                 </div>
             </motion.div>
 
@@ -253,6 +288,97 @@ export default function DashboardPage() {
                     </motion.div>
                 </div>
             </div>
+
+            {mounted && createPortal(
+                <AnimatePresence>
+                    {showCompliance && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+                        >
+                            <motion.div 
+                                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                                className="bg-white rounded-[32px] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+                            >
+                                <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#101828] text-white">
+                                    <div>
+                                        <h2 className="text-2xl font-black tracking-tight uppercase">MNC Compliance & Salary Hub</h2>
+                                        <p className="text-white/60 text-sm font-medium">Shift Rules: 9-6 / 10-7 • 7.5h Threshold • Leave Priority Integrated</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowCompliance(false)}
+                                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                
+                                <div className="flex-grow overflow-auto p-0 no-scrollbar">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
+                                            <tr>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Employee/ID</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Date/Shift</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Punches</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Work/Break</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
+                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Deduction</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100">
+                                            {complianceData.map((row, idx) => (
+                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <p className="font-bold text-[#101828] text-sm">{row.Name}</p>
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">ID: {row.EmployeeID}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <p className="text-xs font-bold text-slate-600">{row.Date}</p>
+                                                        <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-800 rounded text-[9px] font-black uppercase">Shift {row.ShiftType}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col gap-1 items-center">
+                                                            <span className="text-[11px] font-bold text-emerald-600">IN: {row.FirstPunch}</span>
+                                                            <span className="text-[11px] font-bold text-rose-600">OUT: {row.LastPunch}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <p className="text-sm font-black text-[#101828]">{row.TotalWorkedHours} h</p>
+                                                        <p className="text-[10px] font-bold text-slate-400">Break: {row.BreakTime}h</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${row.Status === 'FULL DAY' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                            {row.Status}
+                                                        </span>
+                                                        {row.LeaveDeducted > 0 && (
+                                                            <p className="text-[9px] font-bold text-rose-500 mt-1">-{row.LeaveDeducted} Leave</p>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className={`text-xs font-black p-1.5 rounded-lg ${row.SalaryDeduction === 'YES' ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
+                                                            {row.SalaryDeduction === 'YES' ? 'SALARY DEDUCTION' : 'NONE'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total compliance entries: {complianceData.length}</p>
+                                    <button className="px-6 py-3 bg-[#101828] text-white rounded-xl text-xs font-bold hover:shadow-lg transition-all">Export as CSV</button>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
 
             <style jsx>{`
                 .glass-card {

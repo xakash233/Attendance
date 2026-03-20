@@ -284,115 +284,205 @@ class BiometricService {
 
     /**
      * Update the aggregated daily attendance record based on a new biometric punch
+     * Implements strict MNC shift rules: Shift A (9-6), Shift B (10-7)
      */
     async updateDailyAttendance(tx, userId, timestamp) {
-        // Normalize date to start of day (UTC)
+        // Normalize date to start of day (UTC) for the attendance record
         const date = new Date(timestamp);
         date.setUTCHours(0, 0, 0, 0);
 
-        const attendance = await tx.attendance.findUnique({
-            where: { userId_date: { userId, date } }
+        // Fetch User and their shift preference
+        const user = await tx.user.findUnique({
+            where: { id: userId },
+            select: { id: true, shift: true, employeeCode: true }
         });
 
-        // Fetch System Settings
-        const settings = await tx.systemSettings.findFirst() || {
-            workStartTime: '09:00',
-            workEndTime: '18:00',
-            gracePeriod: 15,
-            halfDayCutoffTime: '13:30'
+        if (!user) return;
+
+        // Shift Configuration
+        const SHIFTS = {
+            'A': { start: '09:00', end: '18:00' },
+            'B': { start: '10:00', end: '19:00' }
         };
 
-        const [startH, startM] = settings.workStartTime.split(':').map(Number);
-        const workStart = new Date(date);
-        workStart.setUTCHours(startH, startM, 0, 0);
+        const shiftType = user.shift || 'B';
+        const shift = SHIFTS[shiftType];
+        const [startH, startM] = shift.start.split(':').map(Number);
+        const [endH, endM] = shift.end.split(':').map(Number);
 
-        const graceStart = new Date(workStart.getTime() + (settings.gracePeriod * 60000));
+        const shiftStart = new Date(date);
+        shiftStart.setUTCHours(startH, startM, 0, 0);
 
-        if (!attendance) {
-            // First punch of the day
-            let status = 'PRESENT';
-            if (timestamp > graceStart) {
-                status = 'LATE';
-            }
+        const shiftEnd = new Date(date);
+        shiftEnd.setUTCHours(endH, endM, 0, 0);
 
-            // Check if there was a cancelled leave
-            const cancelledLeaves = await tx.leaveRequest.findMany({
-                where: {
-                    userId: userId,
-                    status: 'CANCELLED',
-                    startDate: { lte: date },
-                    endDate: { gte: date }
+        const autoLogoutGrace = new Date(shiftEnd.getTime() + 30 * 60000); // 30 mins after shift end
+
+        // 1. Fetch all valid punches for this user on this day
+        // RULE: Punches before shift start should be ignored
+        const punches = await tx.biometricAttendance.findMany({
+            where: {
+                userId,
+                timestamp: {
+                    gte: shiftStart,
+                    lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) // End of day
                 }
-            });
+            },
+            orderBy: { timestamp: 'asc' }
+        });
 
-            if (cancelledLeaves.length > 0) {
-                status = 'PRESENT';
-                for (const cl of cancelledLeaves) {
-                    await tx.leaveRequest.delete({ where: { id: cl.id } });
-                }
-                const userObj = await tx.user.findUnique({ where: { id: userId } });
-                await tx.notification.deleteMany({
-                    where: {
-                        type: 'LEAVE_CANCELLATION',
-                        message: { contains: userObj?.name || '' }
-                    }
-                });
-            }
+        if (punches.length === 0) return;
 
-            await tx.attendance.create({
-                data: {
-                    userId,
-                    date,
-                    checkIn: timestamp,
-                    status
-                }
-            });
-        } else if (!attendance.isManual) {
-            // Ignore if HR manually overrode attendance for this day
-            // If new punch is LATER than check-out (or check-out is null), update check-out
-            if (!attendance.checkOut || timestamp > attendance.checkOut) {
-                await this.calculateAndSetCheckout(tx, attendance, timestamp, settings);
-            }
-            // If new punch is EARLIER than check-in, update check-in (rare but happens if clocks sync out of order)
-            else if (timestamp < attendance.checkIn) {
-                await tx.attendance.update({
-                    where: { id: attendance.id },
-                    data: { checkIn: timestamp }
-                });
-                // Note: Ideally re-trigger calculation here if both checkin and checkout exist
+        // 2. Identify First and Last Punch
+        let firstPunch = punches[0].timestamp;
+        let lastPunch = punches[punches.length - 1].timestamp;
+
+        // 3. AUTO LOGOUT RULE
+        // If employee does NOT punch out within 30 minutes after shift end:
+        // Automatically consider logout at shift end time
+        if (punches.length === 1 && new Date() > autoLogoutGrace) {
+            lastPunch = shiftEnd;
+        } else if (punches.length > 1 && lastPunch > autoLogoutGrace) {
+            // Check if there was any punch between shiftEnd and autoLogoutGrace
+            const hasPunchInGrace = punches.some(p => p.timestamp > shiftEnd && p.timestamp <= autoLogoutGrace);
+            if (!hasPunchInGrace) {
+                lastPunch = shiftEnd;
             }
         }
+
+        // 4. Calculate Effective Working Time & Sessions
+        // RULE: Ignore sessions shorter than 15 minutes
+        let effectiveWorkingMs = 0;
+        let breakMs = 0;
+        
+        if (punches.length >= 2) {
+            for (let i = 0; i < punches.length - 1; i += 2) {
+                const inPunch = punches[i].timestamp;
+                const outPunch = punches[i + 1] ? punches[i + 1].timestamp : lastPunch;
+                
+                const sessionMs = outPunch.getTime() - inPunch.getTime();
+                
+                if (sessionMs >= 15 * 60000) {
+                    effectiveWorkingMs += sessionMs;
+                }
+
+                // Calculate gap (break) before current session if not the first session
+                if (i > 0) {
+                    const prevOutPunch = punches[i - 1].timestamp;
+                    breakMs += inPunch.getTime() - prevOutPunch.getTime();
+                }
+            }
+        } else {
+            // Only one punch, and auto-logout triggered
+            effectiveWorkingMs = lastPunch.getTime() - firstPunch.getTime();
+        }
+
+        // 5. BREAK RULE
+        // Maximum allowed break: 1 hour. If exceeds: Deduct extra from working hours
+        let finalWorkingHours = effectiveWorkingMs / (1000 * 60 * 60);
+        const breakHours = breakMs / (1000 * 60 * 60);
+        
+        if (breakHours > 1) {
+            const extraBreak = breakHours - 1;
+            finalWorkingHours -= extraBreak;
+        }
+
+        // 6. Thresholding: 7.5 hrs (7:29 with grace)
+        const THRESHOLD = 7.5;
+        const GRACE_THRESHOLD = 7.4833; // 7 hours 29 minutes
+        
+        let status = 'HALF_DAY';
+        let leaveDeducted = 0;
+        let deficit = 0;
+
+        if (finalWorkingHours >= GRACE_THRESHOLD) {
+            status = 'FULL_DAY';
+            deficit = Math.max(0, 8 - finalWorkingHours); // 8 is expected
+        } else {
+            status = 'HALF_DAY';
+            leaveDeducted = 0.5;
+            deficit = Math.max(0, 8 - finalWorkingHours);
+        }
+
+        // 7. Holiday/Sunday Rule: If worked on Sunday, mark optionally as overtime
+        const isSunday = date.getUTCDay() === 0;
+        if (isSunday && finalWorkingHours > 0) {
+            status = 'OVERTIME_SUNDAY';
+            leaveDeducted = 0; // Don't deduct leave for working on Sunday
+        }
+
+        // 8. Apply Leave Priority (CL -> SL -> PL) if Half Day
+        if (leaveDeducted > 0) {
+            await this.applyLeaveDeduction(tx, userId, leaveDeducted);
+        }
+
+        // 9. Upsert Attendance Record
+        await tx.attendance.upsert({
+            where: { userId_date: { userId, date } },
+            update: {
+                checkIn: firstPunch,
+                checkOut: lastPunch,
+                workingHours: parseFloat(finalWorkingHours.toFixed(2)),
+                breakTime: parseFloat(breakHours.toFixed(2)),
+                deficit: parseFloat(deficit.toFixed(2)),
+                leaveDeducted,
+                status,
+                shiftType
+            },
+            create: {
+                userId,
+                date,
+                checkIn: firstPunch,
+                checkOut: lastPunch,
+                workingHours: parseFloat(finalWorkingHours.toFixed(2)),
+                breakTime: parseFloat(breakHours.toFixed(2)),
+                deficit: parseFloat(deficit.toFixed(2)),
+                leaveDeducted,
+                status,
+                shiftType
+            }
+        });
     }
 
     /**
-     * Calculate hours and update check-out time
+     * Deduct leave based on priority: CL -> SL -> PL
+     */
+    async applyLeaveDeduction(tx, userId, amount) {
+        const priority = ['Casual Leave', 'Sick Leave', 'Paid Leave'];
+        let remaining = amount;
+
+        for (const leaveName of priority) {
+            if (remaining <= 0) break;
+
+            const balance = await tx.leaveBalance.findFirst({
+                where: {
+                    userId,
+                    leaveType: { name: leaveName }
+                },
+                include: { leaveType: true }
+            });
+
+            if (balance && balance.balance > 0) {
+                const deduct = Math.min(balance.balance, remaining);
+                await tx.leaveBalance.update({
+                    where: { id: balance.id },
+                    data: {
+                        balance: balance.balance - deduct,
+                        used: balance.used + deduct
+                    }
+                });
+                remaining -= deduct;
+            }
+        }
+
+        // If remaining > 0, it means salary deduction applies (handled in monthly process)
+    }
+
+    /**
+     * Legacy method kept for compatibility, now calls updated logic
      */
     async calculateAndSetCheckout(tx, attendance, checkOutTime, settings) {
-        const checkInTime = attendance.checkIn;
-        let workingHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-
-        // MNC Grace Period Rule: 7h 45m to 8h is rounded to 8h
-        if (workingHours >= 7.75 && workingHours < 8) {
-            workingHours = 8;
-        }
-
-        let status = attendance.status; // Keep LATE if they were late
-
-        // Basic calculation logic (can be expanded)
-        if (workingHours >= 9) {
-            status = status === 'LATE' ? 'LATE_AND_OVERTIME' : 'OVERTIME';
-        } else if (workingHours < 4) {
-            status = 'HALF_DAY';
-        }
-
-        await tx.attendance.update({
-            where: { id: attendance.id },
-            data: {
-                checkOut: checkOutTime,
-                workingHours: parseFloat(workingHours.toFixed(2)),
-                status
-            }
-        });
+        await this.updateDailyAttendance(tx, attendance.userId, attendance.date);
     }
 
     async getSyncLogs(limit = 50) {

@@ -660,3 +660,103 @@ export const getDashboardReport = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * @desc    Compliance & Salary Impact Report
+ * @route   GET /api/attendance/compliance-report
+ * @access  Private (SUPER_ADMIN, HR, ADMIN)
+ */
+export const getComplianceReport = async (req, res, next) => {
+    try {
+        const { month, userId } = req.query; // Expecting YYYY-MM
+        let queryDate = new Date();
+        if (month) {
+            const [y, m] = month.split('-');
+            queryDate = new Date(y, parseInt(m) - 1, 1);
+        }
+
+        const startOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth(), 1);
+        const endOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth() + 1, 0);
+
+        let whereClause = {
+            date: { gte: startOfMonth, lte: endOfMonth }
+        };
+
+        if (userId) {
+            whereClause.userId = userId;
+        } else if (req.user.role === 'HR') {
+            whereClause.user = { departmentId: req.user.departmentId };
+        }
+
+        const reportData = await prisma.attendance.findMany({
+            where: whereClause,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        employeeCode: true,
+                        monthlySalary: true,
+                        shift: true,
+                        department: { select: { name: true } }
+                    }
+                }
+            },
+            orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }]
+        });
+
+        // Calculate Monthly Summary per Employee
+        const summaryMap = new Map();
+
+        const formattedOutput = reportData.map(att => {
+            const user = att.user;
+            const empId = user.employeeCode;
+            
+            if (!summaryMap.has(empId)) {
+                summaryMap.set(empId, {
+                    totalDeficit: 0,
+                    leaveDeductionsFromHalfDays: 0,
+                    salaryDeductionPossible: false
+                });
+            }
+
+            const stats = summaryMap.get(empId);
+            stats.totalDeficit += att.deficit || 0;
+            if (att.status === 'HALF_DAY') {
+                stats.leaveDeductionsFromHalfDays += 0.5;
+            }
+
+            // Salary Deduction Rule: Max 1.5 leave per month (from half days)
+            // If exceeded AND hours not compensated -> salary deduction applies
+            if (stats.leaveDeductionsFromHalfDays > 1.5 && stats.totalDeficit > 0) {
+                stats.salaryDeductionPossible = true;
+            }
+
+            return {
+                EmployeeID: empId,
+                Name: user.name,
+                Date: att.date.toISOString().split('T')[0],
+                ShiftType: att.shiftType || user.shift || 'B',
+                FirstPunch: att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
+                LastPunch: att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
+                TotalWorkedHours: att.workingHours.toFixed(2),
+                BreakTime: att.breakTime.toFixed(2),
+                Status: att.status.replace(/_/g, ' '),
+                LeaveDeducted: att.leaveDeducted,
+                DailyDeficit: att.deficit,
+                SalaryDeduction: stats.salaryDeductionPossible ? 'YES' : 'NO'
+            };
+        });
+
+        res.json({
+            meta: {
+                month: queryDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                totalRecords: formattedOutput.length
+            },
+            report: formattedOutput
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};

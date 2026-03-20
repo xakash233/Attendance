@@ -60,6 +60,8 @@ export const initUserCreation = async (req, res, next) => {
                 role: role || 'EMPLOYEE',
                 departmentId,
                 employeeCode,
+                shift: req.body.shift || 'B',
+                monthlySalary: parseFloat(req.body.monthlySalary || 0),
                 otp,
                 expires: new Date(Date.now() + 10 * 60 * 1000)
             }
@@ -114,7 +116,7 @@ export const verifyUserCreation = async (req, res, next) => {
             return res.status(400).json({ message: 'OTP expired' });
         }
 
-        const { name, email, password, role, departmentId, employeeCode } = pending;
+        const { name, email, password, role, departmentId, employeeCode, shift, monthlySalary } = pending;
 
         // Hash password and create user
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -125,7 +127,9 @@ export const verifyUserCreation = async (req, res, next) => {
                 password: hashedPassword,
                 role,
                 departmentId,
-                employeeCode
+                employeeCode,
+                shift,
+                monthlySalary
             }
         });
 
@@ -427,7 +431,7 @@ export const deleteUser = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { name, email, role, departmentId, employeeCode } = req.body;
+        const { name, email, role, departmentId, employeeCode, shift, monthlySalary } = req.body;
 
         const targetUser = await prisma.user.findUnique({ where: { id } });
 
@@ -458,7 +462,9 @@ export const updateUser = async (req, res, next) => {
                 email: email?.toLowerCase(),
                 role,
                 departmentId,
-                employeeCode
+                employeeCode,
+                shift,
+                monthlySalary: monthlySalary !== undefined ? parseFloat(monthlySalary) : undefined
             },
             omit: { password: true },
             include: { department: true }

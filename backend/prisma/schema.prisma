@@ -30,6 +30,8 @@ model User {
   bio                  String?
   profileImage         String?
   departmentId         String?
+  shift                String                @default("B") // A: 9-6, B: 10-7
+  monthlySalary        Float                 @default(0)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   attendances          Attendance[]
@@ -101,6 +103,10 @@ model Attendance {
   checkOut     DateTime?
   status       String
   workingHours Float     @default(0)
+  breakTime    Float     @default(0)
+  deficit      Float     @default(0)
+  leaveDeducted Float    @default(0)
+  shiftType    String?
   overtime     Float     @default(0)
   isManual     Boolean   @default(false)
   createdAt    DateTime  @default(now())
@@ -237,16 +243,18 @@ enum LeaveStatus {
 }
 
 model PendingUser {
-  id           String   @id @default(uuid())
-  name         String
-  email        String
-  password     String
-  role         String
-  departmentId String?
-  employeeCode String
-  otp          String
-  expires      DateTime
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid())
+  name          String
+  email         String
+  password      String
+  role          String
+  departmentId  String?
+  employeeCode  String
+  shift         String   @default("B")
+  monthlySalary Float    @default(0)
+  otp           String
+  expires       DateTime
+  createdAt     DateTime @default(now())
 }
 
 model PasswordReset {

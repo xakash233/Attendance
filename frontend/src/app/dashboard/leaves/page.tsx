@@ -12,12 +12,15 @@ import {
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
 
+import { createPortal } from 'react-dom';
+
 export default function LeavesPage() {
     const [leaves, setLeaves] = useState([]);
     const [leaveTypes, setLeaveTypes] = useState([]);
     const [loading, setLoading] = useState(true);
     const { user, logout } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const [formData, setFormData] = useState({
         leaveTypeId: '',
         startDate: '',
@@ -25,6 +28,12 @@ export default function LeavesPage() {
         reason: '',
         durationType: 'FULL_DAY'
     });
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const [searchQuery, setSearchQuery] = useState('');
 
     const calculateDays = () => {
         if (!formData.startDate || !formData.endDate) return 0;
@@ -51,6 +60,8 @@ export default function LeavesPage() {
     const totalDays = calculateDays();
     const isLOP = totalDays > 2;
 
+    const [balances, setBalances] = useState<any[]>([]);
+
     const fetchData = useCallback(async () => {
         try {
             const fetchHistory = async () => {
@@ -72,13 +83,22 @@ export default function LeavesPage() {
                 }
             };
 
-            await Promise.all([fetchHistory(), fetchTypes()]);
+            const fetchBalances = async () => {
+                try {
+                    const res = await api.get('/users/profile');
+                    setBalances(res.data.leaveBalances || []);
+                } catch (err) {
+                    console.error("Profile fetch error:", err);
+                }
+            };
+
+            await Promise.all([fetchHistory(), fetchTypes(), fetchBalances()]);
         } catch (error) {
             console.error("General fetch error:", error);
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -184,28 +204,61 @@ export default function LeavesPage() {
                 </div>
 
                 {/* Metrics Overview - Premium SaaS Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {[
-                        { label: 'Available Leaves', value: user?.role === 'EMPLOYEE' ? '12 Days' : 'GLOBAL', icon: Briefcase, color: 'blue' },
-                        { label: 'Total Requests', value: leaves.length, icon: Calendar, color: 'slate' },
-                        { label: 'Approved', value: leaves.filter((l: any) => l.status === 'FINAL_APPROVED').length, icon: CheckCircle2, color: 'emerald' },
-                        { label: 'Pending', value: leaves.filter((l: any) => l.status.includes('PENDING')).length, icon: Clock, color: 'amber' }
-                    ].map((stat, i) => (
-                        <div key={i} className="card p-5 flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
-                                stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
-                                    stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
-                                        'bg-slate-50 text-slate-600'
-                                }`}>
-                                <stat.icon size={20} />
-                            </div>
-                            <div>
-                                <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
-                                <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                {user?.role !== 'SUPER_ADMIN' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {(() => {
+                            const currentMonth = new Date().getMonth();
+                            const currentYear = new Date().getFullYear();
+                            const monthLeaves = leaves.filter((l: any) => {
+                                const d = new Date(l.startDate);
+                                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                            });
+
+                            return [
+                                { 
+                                    label: 'Available Leaves', 
+                                    value: user?.role === 'EMPLOYEE' 
+                                        ? `${balances.reduce((acc, curr) => acc + (curr.balance || 0), 0)} Days` 
+                                        : 'GLOBAL', 
+                                    icon: Briefcase, 
+                                    color: 'blue' 
+                                },
+                                { 
+                                    label: 'Monthly Total', 
+                                    value: monthLeaves.length, 
+                                    icon: Calendar, 
+                                    color: 'slate' 
+                                },
+                                { 
+                                    label: 'Monthly Approved', 
+                                    value: monthLeaves.filter((l: any) => l.status === 'FINAL_APPROVED').length, 
+                                    icon: CheckCircle2, 
+                                    color: 'emerald' 
+                                },
+                                { 
+                                    label: 'Monthly Pending', 
+                                    value: monthLeaves.filter((l: any) => l.status.includes('PENDING')).length, 
+                                    icon: Clock, 
+                                    color: 'amber' 
+                                }
+                            ].map((stat, i) => (
+                                <div key={i} className="card p-5 flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                        stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                            stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                                'bg-slate-50 text-slate-600'
+                                        }`}>
+                                        <stat.icon size={20} />
+                                    </div>
+                                    <div>
+                                        <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
+                                        <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                                    </div>
+                                </div>
+                            ));
+                        })()}
+                    </div>
+                )}
 
                 {/* Table Registry */}
                 <div className="card overflow-hidden">
@@ -214,7 +267,9 @@ export default function LeavesPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={16} />
                             <input
                                 type="text"
-                                placeholder="Search leave requests..."
+                                placeholder="Search by name, ID or type..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 className="input-field pl-9 py-2 text-[13px]"
                             />
                         </div>
@@ -236,17 +291,25 @@ export default function LeavesPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E6E8EC]">
-                                {leaves.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <Database size={32} className="text-[#D0D5DD]" />
-                                                <p className="text-[14px] font-medium text-[#667085]">No leave requests found.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    leaves.map((leave: any) => (
+                                {(() => {
+                                    const filtered = leaves.filter((l: any) => 
+                                        l.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        l.user.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        l.leaveType.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                    );
+                                    
+                                    if (filtered.length === 0) return (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-12 text-center">
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <Search size={32} className="text-[#D0D5DD] opacity-20" />
+                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching &quot;{searchQuery}&quot;</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+
+                                    return filtered.map((leave: any) => (
                                         <tr key={leave.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
@@ -321,7 +384,7 @@ export default function LeavesPage() {
                                             </td>
                                         </tr>
                                     ))
-                                )}
+                                })()}
                             </tbody>
                         </table>
                     </div>
@@ -329,9 +392,8 @@ export default function LeavesPage() {
 
             </div>
 
-            {/* Apply Absence Modal */}
-            {isApplyModalOpen && (
-                <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+            {isApplyModalOpen && mounted && createPortal(
+                <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in shadow-2xl">
                     <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
@@ -442,7 +504,8 @@ export default function LeavesPage() {
                             </form>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );
