@@ -397,11 +397,11 @@ class BiometricService {
 
         if (finalWorkingHours >= GRACE_THRESHOLD) {
             status = 'FULL_DAY';
-            deficit = Math.max(0, 8 - finalWorkingHours); // 8 is expected
+            deficit = parseFloat((8 - finalWorkingHours).toFixed(2)); // 8 is expected. Negative means overtime.
         } else {
             status = 'HALF_DAY';
             leaveDeducted = 0.5;
-            deficit = Math.max(0, 8 - finalWorkingHours);
+            deficit = parseFloat((8 - finalWorkingHours).toFixed(2));
         }
 
         // 7. Holiday/Sunday Rule: If worked on Sunday, mark optionally as overtime
@@ -448,7 +448,7 @@ class BiometricService {
      * Deduct leave based on priority: CL -> SL -> PL
      */
     async applyLeaveDeduction(tx, userId, amount) {
-        const priority = ['Casual Leave', 'Sick Leave', 'Paid Leave'];
+        const priority = ['Casual Leave', 'Sick Leave', 'Privilege Leave'];
         let remaining = amount;
 
         for (const leaveName of priority) {

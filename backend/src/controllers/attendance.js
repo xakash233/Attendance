@@ -244,15 +244,19 @@ export const getSummary = async (req, res, next) => {
         });
 
         // Get all attendance records for this month
-        const attendances = await prisma.attendance.findMany({
-            where: {
-                userId: targetUserId,
-                date: {
-                    gte: startDate,
-                    lte: endDate
+        const [attendances, holidays] = await Promise.all([
+            prisma.attendance.findMany({
+                where: {
+                    userId: targetUserId,
+                    date: { gte: startDate, lte: endDate }
                 }
-            }
-        });
+            }),
+            prisma.holiday.findMany({
+                where: {
+                    date: { gte: startDate, lte: endDate }
+                }
+            })
+        ]);
 
         let presentDays = 0;
         let absentDays = 0;
@@ -292,7 +296,9 @@ export const getSummary = async (req, res, next) => {
             let cur = new Date(intersectStart);
             while (cur <= intersectEnd) {
                 const dayOfWeek = cur.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // skip weekends
+                const dateStr = cur.toISOString().split('T')[0];
+                const isHoliday = holidays.some(h => h.date.toISOString().split('T')[0] === dateStr);
+                if (dayOfWeek !== 0 && !isHoliday) { // skip Sundays and Holidays
                     count++;
                 }
                 cur.setDate(cur.getDate() + 1);
@@ -313,7 +319,9 @@ export const getSummary = async (req, res, next) => {
         const todayLocal = new Date();
         const calEnd = endDate > todayLocal ? todayLocal : endDate;
         while (curDateIter <= calEnd) {
-            if (curDateIter.getDay() !== 0 && curDateIter.getDay() !== 6) elapsedWorkingDays++;
+            const dateStr = curDateIter.toISOString().split('T')[0];
+            const isHoliday = holidays.some(h => h.date.toISOString().split('T')[0] === dateStr);
+            if (curDateIter.getDay() !== 0 && !isHoliday) elapsedWorkingDays++;
             curDateIter.setDate(curDateIter.getDate() + 1);
         }
 
@@ -338,9 +346,10 @@ export const getSummary = async (req, res, next) => {
         let iter = new Date(startDate);
         while (iter <= endDate) {
             const dateStr = iter.toISOString().split('T')[0];
-            const isWeekend = iter.getDay() === 0 || iter.getDay() === 6;
-            let dayStatus = isWeekend ? 'WEEKEND' : (iter <= todayLocal ? 'ABSENT' : 'FUTURE');
-            let leaveType = null;
+            const isWeekend = iter.getDay() === 0;
+            const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
+            let dayStatus = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (iter <= todayLocal ? 'ABSENT' : 'FUTURE'));
+            let leaveType = holiday ? holiday.name : null;
 
             // Check attendance memory
             let checkIn = null;
@@ -520,7 +529,7 @@ export const getLiveAttendance = async (req, res, next) => {
                 department: user.department?.name || 'Unassigned',
                 profileImage: user.profileImage,
                 firstPunch: firstPunch ? firstPunch.toISOString() : null,
-                lastPunch: lastPunch ? lastPunch.toISOString() : null,
+                lastPunch: calcResult.lastPunch ? new Date(firstPunch.getFullYear(), firstPunch.getMonth(), firstPunch.getDate(), parseInt(calcResult.lastPunch.split(':')[0]), parseInt(calcResult.lastPunch.split(':')[1])).toISOString() : null,
                 currentStatus,
                 isWfh,
                 totalHours: calcResult.roundedWorkHours,
@@ -743,7 +752,7 @@ export const getComplianceReport = async (req, res, next) => {
                 BreakTime: att.breakTime.toFixed(2),
                 Status: att.status.replace(/_/g, ' '),
                 LeaveDeducted: att.leaveDeducted,
-                DailyDeficit: att.deficit,
+                'Monthly Deficit': stats.totalDeficit.toFixed(2),
                 SalaryDeduction: stats.salaryDeductionPossible ? 'YES' : 'NO'
             };
         });

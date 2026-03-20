@@ -14,7 +14,7 @@ model Department {
   hrId          String?        @unique
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  hr            User?          @relation("DeptHR", fields: [hrId], references: [id])
+  hr            User?          @relation("DeptHR", fields: [hrId], references: [id], onDelete: SetNull)
   employees     User[]         @relation("DeptEmployees")
   leaveRequests LeaveRequest[]
 }
@@ -65,7 +65,7 @@ model LeaveBalance {
   balance     Float
   used        Float     @default(0)
   leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, leaveTypeId])
 }
@@ -88,7 +88,7 @@ model LeaveRequest {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
   leaveType            LeaveType   @relation(fields: [leaveTypeId], references: [id])
-  user                 User        @relation(fields: [userId], references: [id])
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   department           Department? @relation(fields: [departmentId], references: [id])
   @@index([userId])
   @@index([status])
@@ -111,7 +111,7 @@ model Attendance {
   isManual     Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  user         User      @relation(fields: [userId], references: [id])
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([userId])
@@ -129,7 +129,7 @@ model BiometricAttendance {
   syncLogId        String?
   createdAt        DateTime           @default(now())
   syncLog          AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
-  user             User               @relation(fields: [userId], references: [id])
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -140,7 +140,7 @@ model Notification {
   type      String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
   @@index([createdAt])
   @@index([isRead])
@@ -155,7 +155,7 @@ model AuditLog {
   details   Json?
   ipAddress String?
   createdAt DateTime @default(now())
-  user      User?    @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
 
 model EmailLog {
@@ -165,7 +165,7 @@ model EmailLog {
   sentStatus Boolean
   error      String?
   createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model RefreshToken {
@@ -198,6 +198,14 @@ model AttendanceSyncLog {
   records      BiometricAttendance[]
 }
 
+model Holiday {
+  id        String   @id @default(uuid())
+  date      DateTime @unique @db.Date
+  name      String
+  type      String   @default("GOVERNMENT") // GOVERNMENT, OPTIONAL, etc.
+  createdAt DateTime @default(now())
+}
+
 model DailyTask {
   id             String           @id
   title          String
@@ -207,7 +215,7 @@ model DailyTask {
   status         String           @default("PENDING")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime
-  User           User             @relation(fields: [assignedToId], references: [id])
+  User           User             @relation(fields: [assignedToId], references: [id], onDelete: Cascade)
   TaskSubmission TaskSubmission[]
 }
 
@@ -219,7 +227,7 @@ model TaskSubmission {
   comments    String?
   submittedAt DateTime  @default(now())
   DailyTask   DailyTask @relation(fields: [taskId], references: [id])
-  User        User      @relation(fields: [userId], references: [id])
+  User        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {

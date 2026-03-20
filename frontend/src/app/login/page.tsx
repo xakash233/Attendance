@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { Shield, ArrowRight, Loader2, Key, Mail, ArrowLeft, Fingerprint, ShieldAlert, Cpu } from 'lucide-react';
 import Image from 'next/image';
+import { motion } from 'framer-motion';
 
 export default function LoginPage() {
     const [view, setView] = useState<'LOGIN' | 'FORGOT' | 'RESET'>('LOGIN');
@@ -308,25 +309,41 @@ export default function LoginPage() {
             </div>
 
             {isSuccess && (
-                <div className="fixed inset-0 z-[500] bg-black flex flex-col items-center justify-center p-6 animate-fade-in">
-                    <div className="relative w-full max-w-lg flex flex-col items-center -translate-y-[4vh]">
-                        <div className="mb-12 animate-fade-in" style={{ animationDelay: '200ms' }}>
-                            <Image src="/logo/Tectra.png" alt="Tectra Logo" width={300} height={80} className="w-auto h-20 object-contain invert brightness-200 animate-pulse" priority />
+                <div className="fixed inset-0 z-[500] bg-white flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <div className="relative flex flex-col items-center gap-12">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <Image 
+                                src="/logo/tectra_upscaled.png" 
+                                alt="Tectra Logo" 
+                                width={240} 
+                                height={60} 
+                                className="w-auto h-12 object-contain" 
+                                priority 
+                            />
+                        </motion.div>
+                        
+                        {/* Three Dots Loading Animation */}
+                        <div className="flex gap-2">
+                            <motion.div 
+                                className="w-2.5 h-2.5 bg-[#101828] rounded-full"
+                                animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0 }}
+                            />
+                            <motion.div 
+                                className="w-2.5 h-2.5 bg-[#101828] rounded-full"
+                                animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
+                            />
+                            <motion.div 
+                                className="w-2.5 h-2.5 bg-[#101828] rounded-full"
+                                animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
+                                transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
+                            />
                         </div>
-                        <div className="space-y-6 text-center animate-slide-up" style={{ animationDelay: '400ms' }}>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                                <Shield size={14} className="animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Identity Verified</span>
-                            </div>
-                            <div className="space-y-2">
-                                <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter uppercase italic">Access <span className="text-emerald-500">Granted.</span></h1>
-                                <p className="text-[12px] font-medium text-white/30 tracking-[0.4em] uppercase">Please Wait</p>
-                            </div>
-                            <div className="w-64 h-1 bg-white/5 rounded-full overflow-hidden mx-auto mt-10">
-                                <div className="h-full bg-emerald-500 animate-shimmer-fast rounded-full w-full origin-left"></div>
-                            </div>
-                        </div>
-                        <div className="absolute -z-10 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-[100px] animate-pulse"></div>
                     </div>
                 </div>
             )}

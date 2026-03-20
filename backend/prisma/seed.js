@@ -36,9 +36,9 @@ async function main() {
 
     // Create Leave Types
     const leaveTypes = [
-        { name: 'Sick Leave', daysAllowed: 12 },
-        { name: 'Casual Leave', daysAllowed: 12 },
-        { name: 'Paid Leave', daysAllowed: 15 }
+        { name: 'Sick Leave', daysAllowed: 6 },
+        { name: 'Casual Leave', daysAllowed: 6 },
+        { name: 'Privilege Leave', daysAllowed: 6 }
     ];
 
     for (const lt of leaveTypes) {

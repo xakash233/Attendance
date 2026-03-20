@@ -113,40 +113,30 @@ export default function DashboardPage() {
             <motion.div 
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-5 mb-10"
+                className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-6"
             >
-                <div className="relative">
-                    <div className="w-16 h-16 rounded-full overflow-hidden bg-slate-200 border-2 border-white shadow-sm ring-4 ring-white/20">
-                        {user?.profileImage ? (
-                            <Image src={user.profileImage} alt="Profile" fill className="object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-[#101828] text-white text-xl font-bold uppercase">
-                                {user?.name.substring(0,2)}
-                            </div>
-                        )}
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm animate-pulse" />
-                </div>
-                <div>
-                    <h1 className="text-[28px] font-bold text-[#101828] tracking-tight leading-none mb-1">
-                        Welcome, <span className="text-slate-800">{user?.name}</span>
-                    </h1>
-                    <div className="flex items-center gap-3">
+                <div className="flex items-center gap-5">
+
+                    <div>
+                        <h1 className="text-[28px] font-bold text-[#101828] tracking-tight leading-none mb-1">
+                            Welcome, <span className="text-slate-800">{user?.name}</span>
+                        </h1>
                         <p className="text-[14px] font-medium text-[#667085]">
                             Date: <span className="text-[#101828]">{formatDate(currentTime)}</span>
                         </p>
-                        {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                            <button 
-                                onClick={fetchCompliance}
-                                disabled={complianceLoading}
-                                className="flex items-center gap-2 px-3 py-1 bg-[#101828] text-white rounded-full text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
-                            >
-                                {complianceLoading ? <Loader2 size={12} className="animate-spin" /> : <Activity size={12} />}
-                                Compliance Report
-                            </button>
-                        )}
                     </div>
                 </div>
+
+                {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
+                    <button 
+                        onClick={fetchCompliance}
+                        disabled={complianceLoading}
+                        className="flex items-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-800 transition-all disabled:opacity-50 hover:shadow-xl shadow-[#101828]/10 active:scale-95 whitespace-nowrap"
+                    >
+                        {complianceLoading ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
+                        Employee Reports
+                    </button>
+                )}
             </motion.div>
 
             {/* Main Dashboard Grid */}
@@ -154,38 +144,8 @@ export default function DashboardPage() {
                 
                 {/* Main Cards Area */}
                 <div className="lg:col-span-12 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        
-                        {/* 1. Today's Status Card - High Contrast Style */}
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="bg-[#101828] text-white p-6 flex flex-col justify-between h-56 rounded-[24px] shadow-2xl relative overflow-hidden"
-                        >
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -mr-10 -mt-10" />
-                            <div className="flex justify-between items-start mb-2 relative z-10">
-                            </div>
-
-                            <div className="flex justify-between items-end flex-grow relative z-10">
-                                <div>
-                                    <h2 className="text-[48px] font-black tabular-nums tracking-tighter leading-none mb-2">
-                                        {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).split(' ')[0]}
-                                        <span className="text-[20px] font-black ml-1 text-white/40">{currentTime.toLocaleTimeString('en-US', { hour12: true }).split(' ')[1]}</span>
-                                    </h2>
-                                    <div className="space-y-0.5">
-                                        <p className="text-[12px] text-white/60 font-medium">Standard Shift: <span className="text-white font-bold">{report.settings.workStartTime} - {report.settings.workEndTime}</span></p>
-                                        <p className="text-[12px] text-white/60 font-medium tracking-tight">System Node: <span className="text-emerald-400 font-black">eSSL-ZKTeco</span></p>
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-end">
-                                    <span className="text-[32px] font-black tracking-tight">{today.workHours.toFixed(2)}</span>
-                                    <span className="text-[14px] font-bold text-white/40 ml-2 mb-1 uppercase">HRS</span>
-                                </div>
-                            </div>
-                        </motion.div>
-
-
+                    {/* Cards grid wrapper if needed in future, currently empty since status card removed */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 invisible hidden">
                     </div>
 
                     {/* 4. Live Tracking Table */}
@@ -208,7 +168,7 @@ export default function DashboardPage() {
                                         <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Employee</th>
                                         <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                                         <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Check In</th>
-                                        <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Check Out</th>
+                                        <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Last Out</th>
                                         <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
                                     </tr>
                                 </thead>
@@ -254,8 +214,8 @@ export default function DashboardPage() {
                                                     </td>
                                                     <td className="px-6 py-4 text-center">
                                                         <span className="text-[14px] font-black text-[#101828] tabular-nums tracking-tighter">
-                                                            {emp.lastPunch && formatTime(emp.lastPunch) !== formatTime(emp.firstPunch) ? formatTime(emp.lastPunch).split(' ')[0] : '--:--'}
-                                                            <span className="text-[10px] ml-1 uppercase opacity-40">{emp.lastPunch && formatTime(emp.lastPunch) !== formatTime(emp.firstPunch) ? formatTime(emp.lastPunch).split(' ')[1] : ''}</span>
+                                                            {emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[0] : '--:--'}
+                                                            <span className="text-[10px] ml-1 uppercase opacity-40">{emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[1] : ''}</span>
                                                         </span>
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
@@ -306,8 +266,8 @@ export default function DashboardPage() {
                             >
                                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#101828] text-white">
                                     <div>
-                                        <h2 className="text-2xl font-black tracking-tight uppercase">MNC Compliance & Salary Hub</h2>
-                                        <p className="text-white/60 text-sm font-medium">Shift Rules: 9-6 / 10-7 • 7.5h Threshold • Leave Priority Integrated</p>
+                                        <h2 className="text-2xl font-black tracking-tight uppercase">Employee Reports</h2>
+                                        <p className="text-white/60 text-sm font-medium">Generate reports for employees</p>
                                     </div>
                                     <button 
                                         onClick={() => setShowCompliance(false)}
