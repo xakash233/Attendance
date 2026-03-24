@@ -6,7 +6,15 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const getMinutes = (input) => {
         if (!input) return null;
         if (input instanceof Date) {
-            return input.getHours() * 60 + input.getMinutes();
+            // Force IST since production servers (Vercel) may be in UTC
+            const kolkataStr = input.toLocaleTimeString('en-US', { 
+                hour12: false, 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                timeZone: 'Asia/Kolkata' 
+            });
+            const [h, m] = kolkataStr.split(':').map(Number);
+            return h * 60 + m;
         }
         // Handle HH:mm or HH:mm:ss or HH:mm AM/PM
         const timeStr = String(input).toUpperCase();
