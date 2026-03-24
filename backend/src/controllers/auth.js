@@ -175,23 +175,24 @@ export const resetPassword = async (req, res, next) => {
 
         await prisma.passwordReset.deleteMany({ where: { email: email.toLowerCase() } });
 
-        sendEmail({
+        await sendEmail({
             email,
             subject: 'New System Cipher Dispatched',
             message: `Your new system cipher is: ${generatedPassword}. Please log in and change it immediately.`,
-            html: `<div style="font-family: sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto;">
-                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Access Restored</h2>
-                <p>Your authorization node has been reset with a new complex cipher.</p>
-                <div style="background: #000; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 24px; font-weight: 900; letter-spacing: 0.1em; word-break: break-all;">
+            html: `<div style="font-family: Arial, sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto; background: white;">
+                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em; color: #101828;">Access Restored</h2>
+                <p style="color: #667085;">Your authorization node has been reset with a new complex cipher.</p>
+                <div style="background: #101828; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 24px; font-weight: 900; letter-spacing: 0.1em; word-break: break-all;">
                     ${generatedPassword}
                 </div>
                 <p style="font-size: 11px; color: #999; font-weight: bold;">Log in with this key and update your security settings via your profile.</p>
             </div>`
-        }).catch(err => console.error(err));
+        });
 
         res.json({ message: 'New complex cipher generated and dispatched to your email.' });
     } catch (error) {
-        next(error);
+        console.error('Reset password error:', error);
+        res.status(500).json({ message: 'Failed to dispatch new cipher. Please contact hub admin.' });
     }
 };
 
