@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
-import { 
-    Clock, LogIn, LogOut, Coffee, Calendar, CheckCircle, 
+import {
+    Clock, LogIn, LogOut, Coffee, Calendar, CheckCircle,
     ArrowRight, MapPin, MousePointer2, Briefcase, Activity, Flame, Loader2,
     ChevronRight, AlertCircle, TrendingUp, History, ArrowDownLeft, ArrowUpRight
 } from 'lucide-react';
@@ -25,6 +25,7 @@ export default function DashboardPage() {
     const [showCompliance, setShowCompliance] = useState(false);
     const [complianceData, setComplianceData] = useState<any[]>([]);
     const [complianceLoading, setComplianceLoading] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -61,6 +62,26 @@ export default function DashboardPage() {
         }
     }, []);
 
+    const handleExportExcel = async () => {
+        setExportLoading(true);
+        try {
+            const response = await api.get('/attendance/export-compliance', { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Attendance_Report_${new Date().toLocaleDateString()}.xlsx`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            toast.success('Excel Report Exported Perfectly!');
+        } catch (error) {
+            console.error('Export failed', error);
+            toast.error('Failed to export Excel report');
+        } finally {
+            setExportLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchReport();
         const interval = setInterval(fetchReport, 5000); // 5s sync
@@ -92,7 +113,20 @@ export default function DashboardPage() {
     };
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' });
+        return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+    };
+
+    const formatDuration = (decimalHours: any) => {
+        if (typeof decimalHours === 'string' && decimalHours.includes('h+')) {
+            return decimalHours;
+        }
+        const val = parseFloat(decimalHours);
+        if (isNaN(val)) return '--.--';
+        
+        const totalMinutes = Math.round(val * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours}.${minutes.toString().padStart(2, '0')}`;
     };
 
     if (loading && !report) {
@@ -110,7 +144,7 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen pb-12 overflow-x-hidden selection:bg-[#101828] selection:text-white">
             {/* Header / Welcome Area */}
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-6"
@@ -128,7 +162,7 @@ export default function DashboardPage() {
                 </div>
 
                 {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                    <button 
+                    <button
                         onClick={fetchCompliance}
                         disabled={complianceLoading}
                         className="flex items-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-800 transition-all disabled:opacity-50 hover:shadow-xl shadow-[#101828]/10 active:scale-95 whitespace-nowrap"
@@ -141,7 +175,7 @@ export default function DashboardPage() {
 
             {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                
+
                 {/* Main Cards Area */}
                 <div className="lg:col-span-12 space-y-6">
                     {/* Cards grid wrapper if needed in future, currently empty since status card removed */}
@@ -149,7 +183,7 @@ export default function DashboardPage() {
                     </div>
 
                     {/* 4. Live Tracking Table */}
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3 }}
@@ -157,7 +191,7 @@ export default function DashboardPage() {
                     >
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-slate-50/50 flex-wrap gap-4">
                             <h3 className="font-black text-[13px] text-[#101828] uppercase tracking-[0.2em] flex items-center gap-2">
-                                <Activity size={16} className="text-emerald-500 animate-pulse" /> 
+                                <Activity size={16} className="text-emerald-500 animate-pulse" />
                                 Live Tracking Overview
                             </h3>
                         </div>
@@ -180,14 +214,14 @@ export default function DashboardPage() {
                                     ) : (
                                         liveData.map((emp) => (
                                             <React.Fragment key={emp.id}>
-                                                <tr 
+                                                <tr
                                                     className="hover:bg-slate-50/80 transition-all cursor-pointer group"
                                                     onClick={() => setExpandedRow(expandedRow === emp.id ? null : emp.id)}
                                                 >
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[12px] group-hover:bg-indigo-600 transition-colors">
-                                                                {emp.name.substring(0,2).toUpperCase()}
+                                                                {emp.name.substring(0, 2).toUpperCase()}
                                                             </div>
                                                             <div>
                                                                 <p className="text-[14px] font-bold text-[#101828]">{emp.name}</p>
@@ -197,12 +231,16 @@ export default function DashboardPage() {
                                                     <td className="px-6 py-4 text-center">
                                                         {emp.currentStatus === 'IN' ? (
                                                             <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`}/> 
-                                                                {emp.isWfh ? 'Working [WFH]' : 'On-Site'}
+                                                                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
+                                                                {emp.isWfh ? 'WORKING [WFH]' : 'On-Site'}
+                                                            </span>
+                                                        ) : emp.currentStatus === 'ABSENT' ? (
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-50 text-neutral-400 rounded-full border border-neutral-100 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" /> Absent
                                                             </span>
                                                         ) : (
                                                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[10px] font-black uppercase tracking-widest">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-neutral-400"/> Checked Out {emp.isWfh && '[WFH]'}
+                                                                <div className="w-1.5 h-1.5 rounded-full bg-neutral-400" /> Checked Out {emp.isWfh && '[WFH]'}
                                                             </span>
                                                         )}
                                                     </td>
@@ -220,7 +258,7 @@ export default function DashboardPage() {
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         <span className="text-[18px] font-black text-[#101828]">
-                                                            {emp.totalHours.toFixed(2)}
+                                                            {formatDuration(emp.totalHours)}
                                                         </span>
                                                         <span className="text-[11px] font-bold text-[#667085] ml-1">HRS</span>
                                                     </td>
@@ -228,6 +266,16 @@ export default function DashboardPage() {
                                                 {expandedRow === emp.id && (
                                                     <tr className="bg-slate-50 overflow-hidden">
                                                         <td colSpan={5} className="px-6 py-4 border-t border-slate-100">
+                                                            <div className="flex justify-between items-center py-1">
+                                                                <span className="text-slate-500">Working Hours:</span>
+                                                                <span className="font-bold text-[#101828]">{formatDuration(emp.totalHours)} HRS</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center py-1">
+                                                                <span className="text-slate-500">Monthly Deficit:</span>
+                                                                <span className={`font-bold ${emp.monthlyDeficit > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                                    {formatDuration(Math.abs(emp.monthlyDeficit))} HRS
+                                                                </span>
+                                                            </div>
                                                             <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-11">
                                                                 <span className="text-[11px] font-black text-[#667085] uppercase tracking-widest mr-2">Punches:</span>
                                                                 {emp.punches?.map((punchIso: string, idx: number) => (
@@ -252,13 +300,13 @@ export default function DashboardPage() {
             {mounted && createPortal(
                 <AnimatePresence>
                     {showCompliance && (
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
                         >
-                            <motion.div 
+                            <motion.div
                                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                                 animate={{ scale: 1, opacity: 1, y: 0 }}
                                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -269,14 +317,14 @@ export default function DashboardPage() {
                                         <h2 className="text-2xl font-black tracking-tight uppercase">Employee Reports</h2>
                                         <p className="text-white/60 text-sm font-medium">Generate reports for employees</p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() => setShowCompliance(false)}
                                         className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all"
                                     >
                                         ✕
                                     </button>
                                 </div>
-                                
+
                                 <div className="flex-grow overflow-auto p-0 no-scrollbar">
                                     <table className="w-full text-left border-collapse">
                                         <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
@@ -328,10 +376,17 @@ export default function DashboardPage() {
                                         </tbody>
                                     </table>
                                 </div>
-                                
+
                                 <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
                                     <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total compliance entries: {complianceData.length}</p>
-                                    <button className="px-6 py-3 bg-[#101828] text-white rounded-xl text-xs font-bold hover:shadow-lg transition-all">Export as CSV</button>
+                                    <button 
+                                        onClick={handleExportExcel}
+                                        disabled={exportLoading}
+                                        className="px-6 py-3 bg-[#101828] text-white rounded-xl text-xs font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                                    >
+                                        {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                                        Export Perfect Excel
+                                    </button>
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -363,26 +418,26 @@ export default function DashboardPage() {
 
 // Minimal Fingerprint icon as it wasn't correctly imported
 const Fingerprint = ({ size, className }: { size: number, className?: string }) => (
-    <svg 
-        xmlns="http://www.w3.org/2000/svg" 
-        width={size} 
-        height={size} 
-        viewBox="0 0 24 24" 
-        fill="none" 
-        stroke="currentColor" 
-        strokeWidth="2" 
-        strokeLinecap="round" 
-        strokeLinejoin="round" 
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         className={className}
     >
-        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.02-.26 3"/>
-        <path d="M7 10.74c0-2.62 2.24-4.74 5-4.74s5 2.12 5 4.74c0 1.24-.13 2.45-.4 3.63"/>
-        <path d="M11 15.6a14.79 14.79 0 0 1-5.63-4.86"/>
-        <path d="M14 15.39c1.1.23 2.19.57 3.23 1.01"/>
-        <path d="M21 15a13.91 13.91 0 0 1-4 4.5l-2.5 1.5"/>
-        <path d="M3 15a13.91 13.91 0 0 0 4 4.5l2.5 1.5"/>
-        <path d="M12 4a8 8 0 0 0-8 8c0 .2.01.4.03.6"/>
-        <path d="M20 12c0-.2-.01-.4-.03-.6"/>
-        <path d="M12 4a8 8 0 0 1 8 8"/>
+        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.02-.26 3" />
+        <path d="M7 10.74c0-2.62 2.24-4.74 5-4.74s5 2.12 5 4.74c0 1.24-.13 2.45-.4 3.63" />
+        <path d="M11 15.6a14.79 14.79 0 0 1-5.63-4.86" />
+        <path d="M14 15.39c1.1.23 2.19.57 3.23 1.01" />
+        <path d="M21 15a13.91 13.91 0 0 1-4 4.5l-2.5 1.5" />
+        <path d="M3 15a13.91 13.91 0 0 0 4 4.5l2.5 1.5" />
+        <path d="M12 4a8 8 0 0 0-8 8c0 .2.01.4.03.6" />
+        <path d="M20 12c0-.2-.01-.4-.03-.6" />
+        <path d="M12 4a8 8 0 0 1 8 8" />
     </svg>
 );

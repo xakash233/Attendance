@@ -32,7 +32,8 @@ async function main() {
     console.log(`Starting to seed realistic biometric data for today...`);
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0 - 5, 0 - 30, 0, 0); // Start of day in IST (Roughly 18:30 UTC previous day)
+    today.setUTCHours(0, 0, 0, 0); // Actually, Prisma @db.Date wants 00:00 UTC
 
     for (const userData of users) {
         // As you requested, no random/dummy emails stringed together.
@@ -74,11 +75,10 @@ async function main() {
         const seedValue = parseInt(userData.id);
         const punches = [];
 
-        // Punch In (Between 7:30 AM and 8:15 AM)
-        const inHour = 7;
-        const inMinute = 30 + (seedValue * 7) % 45; // 7:30 to 8:15
-        const punchIn = new Date(today);
-        punchIn.setHours(inHour, inMinute, 0, 0);
+        // Punch In (Between 9:00 AM and 10:30 AM)
+        const inHour = 9;
+        const inMinute = 0 + (seedValue * 13) % 90; // 9:00 to 10:30
+        const punchIn = new Date(today.getTime() + (inHour * 60 + inMinute - 330) * 60000);
         
         punches.push({
             userId: user.id,
@@ -92,8 +92,7 @@ async function main() {
         // Optional Lunch Break Out (Between 12:30 PM and 1:30 PM)
         const lunchOutHour = 12;
         const lunchOutMinute = 30 + (seedValue * 5) % 60;
-        const lunchOut = new Date(today);
-        lunchOut.setHours(lunchOutHour, lunchOutMinute, 0, 0);
+        const lunchOut = new Date(today.getTime() + (lunchOutHour * 60 + lunchOutMinute - 330) * 60000);
         
         punches.push({
             userId: user.id,
@@ -126,8 +125,7 @@ async function main() {
         const isPunchedOut = seedValue % 3 === 0; // 1/3rd are logged out
         const outHour = 17;
         const outMinute = 0 + (seedValue * 11) % 90;
-        const punchOut = new Date(today);
-        punchOut.setHours(outHour, outMinute, 0, 0);
+        const punchOut = new Date(today.getTime() + (outHour * 60 + outMinute - 330) * 60000);
 
         if (isPunchedOut && punchOut < now) {
             punches.push({

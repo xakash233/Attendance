@@ -6,7 +6,8 @@ import {
     getSummary, 
     getLiveAttendance, 
     getDashboardReport,
-    getComplianceReport 
+    getComplianceReport,
+    exportComplianceReport
 } from '../controllers/attendance.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -20,5 +21,6 @@ router.get('/user-summary/:id', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN')
 router.get('/live', protect, getLiveAttendance);
 router.get('/dashboard-report', protect, getDashboardReport);
 router.get('/compliance-report', protect, getComplianceReport);
+router.get('/export-compliance', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), exportComplianceReport);
 
 export default router;

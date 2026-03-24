@@ -48,6 +48,7 @@ export const login = async (req, res, next) => {
                 department: user.department,
                 profileImage: user.profileImage,
                 employeeCode: user.employeeCode,
+                needsPasswordChange: user.needsPasswordChange,
                 accessToken,
                 refreshToken
             });
@@ -120,23 +121,25 @@ export const forgotPassword = async (req, res, next) => {
             }
         });
 
-        sendEmail({
+        // Dispatch the recovery protocol
+        await sendEmail({
             email,
             subject: 'Password Recovery Protocol',
             message: `Your account recovery code is: ${otp}. Do not share this key with anyone.`,
-            html: `<div style="font-family: sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto;">
-                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em;">Access Recovery</h2>
-                <p>A password reset has been requested for your workforce node.</p>
-                <div style="background: #000; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">
+            html: `<div style="font-family: Arial, sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto; background: white;">
+                <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em; color: #101828;">Access Recovery</h2>
+                <p style="color: #667085;">A password reset has been requested for your workforce node. Enter the key below in the portal.</p>
+                <div style="background: #101828; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 32px; font-weight: 900; letter-spacing: 0.2em;">
                     ${otp}
                 </div>
                 <p style="font-size: 11px; color: #999;">Expires in 10 minutes. If you did not initiate this, secure your node immediately.</p>
             </div>`
-        }).catch(err => console.error(err));
-
+        });
+        
         res.json({ message: 'Recovery code dispatched to Registered Email' });
     } catch (error) {
-        next(error);
+        console.error('Forgot password error:', error);
+        res.status(500).json({ message: 'Failed to dispatch recovery code. Please contact hub admin.' });
     }
 };
 
@@ -209,7 +212,10 @@ export const changePassword = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await prisma.user.update({
             where: { id: req.user.id },
-            data: { password: hashedPassword }
+            data: { 
+                password: hashedPassword,
+                needsPasswordChange: false 
+            }
         });
 
         // Audit Log

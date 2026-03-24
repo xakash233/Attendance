@@ -6,10 +6,18 @@ const sendEmail = async (options) => {
         throw new Error("Missing credentials for 'PLAIN' - Email configuration is incomplete.");
     }
 
-    const transporter = nodemailer.createTransport({
+    const isGmail = process.env.SMTP_HOST?.includes('gmail.com');
+    
+    const transportConfig = isGmail ? {
+        service: 'gmail',
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        }
+    } : {
         host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        secure: process.env.SMTP_PORT == 465,
+        port: Number(process.env.SMTP_PORT),
+        secure: Number(process.env.SMTP_PORT) === 465,
         auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS,
@@ -17,9 +25,11 @@ const sendEmail = async (options) => {
         tls: {
             rejectUnauthorized: false
         }
-    });
+    };
+
+    const transporter = nodemailer.createTransport(transportConfig);
     const message = {
-        from: `${process.env.FROM_NAME || 'Tectra'} <${process.env.SMTP_USER}>`,
+        from: `${process.env.FROM_NAME || 'Tectra Hub'} <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
         to: options.email,
         subject: options.subject,
         text: options.message,

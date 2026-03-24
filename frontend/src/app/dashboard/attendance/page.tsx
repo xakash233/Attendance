@@ -53,6 +53,19 @@ export default function AttendancePage() {
         return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: true });
     };
 
+    const formatDuration = (decimalHours: any) => {
+        if (typeof decimalHours === 'string' && decimalHours.includes('h+')) {
+            return decimalHours;
+        }
+        const val = parseFloat(decimalHours);
+        if (isNaN(val)) return '--.--';
+        
+        const totalMinutes = Math.round(val * 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours}.${minutes.toString().padStart(2, '0')}`;
+    };
+
     if (loading && liveData.length === 0) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -145,7 +158,7 @@ export default function AttendancePage() {
                                             <div className="flex items-center justify-end gap-2">
                                                 <Clock size={18} className={emp.currentStatus === 'IN' ? 'text-emerald-500' : 'text-[#667085]'} />
                                                 <span className="text-[24px] font-black text-[#101828]">
-                                                    {emp.totalHours.toFixed(2)}
+                                                    {formatDuration(emp.totalHours)}
                                                 </span>
                                                 <span className="text-[14px] font-bold text-[#667085]">HRS</span>
                                             </div>

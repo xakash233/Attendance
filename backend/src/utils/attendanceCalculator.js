@@ -1,118 +1,153 @@
+/**
+ * ESSL Biometric Attendance Calculator (STRICT RULES)
+ */
 export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) => {
-  const parseTime = (timeStr) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-  };
+    const parseTime = (timeStr) => {
+        if (!timeStr) return null;
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
 
-  const formatTime = (mins) => {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  };
+    const formatTime = (mins) => {
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    };
 
-  if (!Array.isArray(attendanceLogs) || attendanceLogs.length === 0) {
-    return { shift: "B", totalWorkMinutes: 0, totalWorkHours: 0, roundedWorkHours: 0, status: "Absent", lastPunch: null };
-  }
+    const LUNCH_START = parseTime("13:00");
+    const LUNCH_END = parseTime("14:00");
+    const FULL_DAY_THRESHOLD = 450; // 7h 30m
+    const ROUNDING_LOWER = 505; // 8h 25m
+    const ROUNDING_LIMIT = 540; // 9h
 
-  // 1. Sort logs
-  const sortedLogs = [...attendanceLogs].sort((a, b) => parseTime(a.time) - parseTime(b.time));
+    if (!Array.isArray(attendanceLogs) || attendanceLogs.length === 0) {
+        return { shift: "B", totalWorkMinutes: 0, totalWorkHours: 0, roundedWorkHours: "0.00", status: "Absent", lastPunch: null, remarks: "No data" };
+    }
 
-  // 2. Detect shift (A: 9-6, B: 10-7)
-  const firstInTime = parseTime(sortedLogs[0].time);
-  let shiftName = "B";
-  let shiftStart = parseTime("10:00");
-  let shiftEnd = parseTime("19:00");
+    // 1. Sort and DATA VALIDATION (Reject duplicates < 2 mins)
+    const sortedLogs = [...attendanceLogs].sort((a, b) => parseTime(a.time) - parseTime(b.time));
+    const cleanLogs = [];
+    for (const log of sortedLogs) {
+        if (cleanLogs.length === 0) {
+            cleanLogs.push(log);
+        } else {
+            const lastLog = cleanLogs[cleanLogs.length - 1];
+            if (parseTime(log.time) - parseTime(lastLog.time) >= 2) {
+                cleanLogs.push(log);
+            }
+        }
+    }
 
-  if (firstInTime >= parseTime("08:00") && firstInTime <= parseTime("09:45")) {
-    shiftName = "A";
-    shiftStart = parseTime("09:00");
-    shiftEnd = parseTime("18:00");
-  }
+    // 2. Detect Shift
+    const firstInTime = parseTime(cleanLogs[0].time);
+    let shiftName = "B";
+    let shiftStart = parseTime("10:00");
+    let shiftEnd = parseTime("19:00");
 
-  const graceEnd = shiftEnd + 30;
+    if (firstInTime <= parseTime("09:45")) {
+        shiftName = "A";
+        shiftStart = parseTime("09:00");
+        shiftEnd = parseTime("18:00");
+    }
 
-  // 3. Filter valid punches (Ignore before shift start)
-  const validLogs = sortedLogs.filter(log => parseTime(log.time) >= shiftStart);
-  if (validLogs.length === 0) {
-    return { shift: shiftName, totalWorkMinutes: 0, totalWorkHours: 0, roundedWorkHours: 0, status: "Absent", lastPunch: null };
-  }
+    // 3. Filter valid punches (Ignore before day start 5 AM)
+    const dayStart = parseTime("05:00");
+    const dailyLogs = cleanLogs.filter(log => parseTime(log.time) >= dayStart);
+    
+    if (dailyLogs.length === 0) {
+        return { shift: shiftName, totalWorkMinutes: 0, totalWorkHours: 0, roundedWorkHours: "0.00", status: "Absent", lastPunch: null, remarks: "No valid logs" };
+    }
 
-  // 4. Handle Auto Logout & Current State
-  const nowMins = currentTimeStr ? parseTime(currentTimeStr) : null;
-  let isCurrentlyIn = validLogs[validLogs.length - 1].type === "IN";
-  let lastPunchMins = parseTime(validLogs[validLogs.length - 1].time);
+    // 4. Handle Current Status & Missing Out (Review)
+    const nowMins = currentTimeStr ? parseTime(currentTimeStr) : null;
+    const lastLog = dailyLogs[dailyLogs.length - 1];
+    let isCurrentlyIn = lastLog.type === "IN";
+    let status = "Review";
+    let remarks = "";
 
-  // If currently IN and it's past grace period -> Auto logout at shift end
-  if (isCurrentlyIn && nowMins && nowMins > graceEnd) {
-      isCurrentlyIn = false;
-      validLogs.push({ time: formatTime(shiftEnd), type: "OUT" });
-      lastPunchMins = shiftEnd;
-  } else if (!isCurrentlyIn && lastPunchMins > graceEnd) {
-      // If last OUT was after grace period, check if there was a punch IN THE GRACE
-      const punchInGrace = validLogs.some(l => {
-          const t = parseTime(l.time);
-          return t > shiftEnd && t <= graceEnd;
-      });
-      if (!punchInGrace) {
-          validLogs[validLogs.length - 1].time = formatTime(shiftEnd);
-          lastPunchMins = shiftEnd;
-      }
-  } else if (isCurrentlyIn && nowMins) {
-      // Currently in, still before grace
-      validLogs.push({ time: formatTime(nowMins), type: "OUT" });
-  } else if (isCurrentlyIn && !nowMins) {
-      // No current time provided, assume shift end
-      validLogs.push({ time: formatTime(shiftEnd), type: "OUT" });
-  }
+    // Sequential Validation
+    const sequences = [];
+    let expecting = "IN";
+    for (const log of dailyLogs) {
+        if (log.type === expecting) {
+            sequences.push(log);
+            expecting = expecting === "IN" ? "OUT" : "IN";
+        }
+    }
 
-  // 5. Clean sequences (ensure IN -> OUT -> IN -> OUT)
-  const cleanLogs = [];
-  let expected = "IN";
-  for (const log of validLogs) {
-      if (log.type === expected) {
-          cleanLogs.push(log);
-          expected = expected === "IN" ? "OUT" : "IN";
-      }
-  }
+    // If still expecting OUT, it's an open session
+    if (expecting === "IN" && sequences.length > 0) {
+        // Closed session
+    } else if (expecting === "OUT" && sequences.length > 0) {
+        // Open session
+        if (nowMins) {
+            // Virtual OUT for calculation
+            sequences.push({ time: formatTime(nowMins), type: "OUT", virtual: true });
+        } else {
+            // Missing OUT in history
+            remarks = "Pending Verification (Missing OUT)";
+            status = "Review";
+        }
+    }
 
-  // 6. Calculate Work and Breaks
-  let totalWorkMinutes = 0;
-  let totalBreakMinutes = 0;
+    // 5. Calculate Work Hours (Strict Pairs)
+    let totalWorkMinutes = 0;
+    for (let i = 0; i < sequences.length - 1; i += 2) {
+        const inM = parseTime(sequences[i].time);
+        const outM = parseTime(sequences[i+1].time);
+        
+        let sessionDur = outM - inM;
+        
+        // Exclude Lunch (1 PM - 2 PM)
+        // Rule: Do not count any time between 1 and 2
+        let lunchOverlap = 0;
+        const overlapStart = Math.max(inM, LUNCH_START);
+        const overlapEnd = Math.min(outM, LUNCH_END);
+        if (overlapEnd > overlapStart) {
+            lunchOverlap = overlapEnd - overlapStart;
+        }
+        
+        sessionDur -= lunchOverlap;
+        if (sessionDur > 0) totalWorkMinutes += sessionDur;
+    }
 
-  for (let i = 0; i < cleanLogs.length - 1; i += 2) {
-      const inT = parseTime(cleanLogs[i].time);
-      const outT = parseTime(cleanLogs[i+1].time);
-      const session = outT - inT;
-      
-      // Ignore sessions < 15 mins
-      if (session >= 15) {
-          totalWorkMinutes += session;
-      }
+    // 6. Applying Strict Rules
+    let roundedWorkHours = (totalWorkMinutes / 60).toFixed(2);
+    
+    if (totalWorkMinutes >= ROUNDING_LOWER && totalWorkMinutes <= ROUNDING_LIMIT) {
+        roundedWorkHours = "9.00";
+    } else if (totalWorkMinutes > ROUNDING_LIMIT) {
+        roundedWorkHours = "9h+";
+    }
 
-      // Calculate break (gap before next session)
-      if (cleanLogs[i+2]) {
-          const nextIn = parseTime(cleanLogs[i+2].time);
-          totalBreakMinutes += (nextIn - outT);
-      }
-  }
+    // Final Status (Mandatory)
+    if (totalWorkMinutes >= FULL_DAY_THRESHOLD) {
+        status = "Full Day";
+    } else if (totalWorkMinutes > 0) {
+        status = "Half Day";
+    } else {
+        status = "Absent";
+    }
 
-  // 7. Excess Break Rule (> 1hr)
-  if (totalBreakMinutes > 60) {
-      totalWorkMinutes -= (totalBreakMinutes - 60);
-  }
+    if (remarks.includes("Pending")) status = "Review";
 
-  totalWorkMinutes = Math.max(0, totalWorkMinutes);
+    // Final Status (Mandatory)
+    status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL_DAY" : "HALF_DAY";
+    const deficit = Math.max(0, 480 - totalWorkMinutes); // Based on 8h expected work
 
-  return {
-    shift: shiftName,
-    totalWorkMinutes,
-    totalWorkHours: Number((totalWorkMinutes / 60).toFixed(2)),
-    roundedWorkHours: Number((totalWorkMinutes / 60).toFixed(2)),
-    isCurrentlyIn: validLogs[validLogs.length - 1].type === "IN" && !(!isCurrentlyIn),
-    lastPunch: formatTime(lastPunchMins),
-    status: totalWorkMinutes >= 450 ? "Full Day" : (totalWorkMinutes > 0 ? "Half Day" : "Absent")
-  };
+    if (remarks.includes("Pending")) status = "REVIEW";
+
+    return {
+        employeeId: dailyLogs[0].employeeCode,
+        shift: shiftName,
+        totalWorkMinutes,
+        totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+        roundedWorkHours,
+        status,
+        deficit: (deficit / 60).toFixed(2),
+        lastPunch: lastLog.time,
+        remarks: remarks || `Status: ${status}`
+    };
 };
-
 
 export default calculateAttendance;

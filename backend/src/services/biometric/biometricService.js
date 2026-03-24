@@ -3,6 +3,7 @@ import prisma from '../../config/prisma.js';
 import auditService from '../audit/auditService.js';
 import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
+import calculateAttendance from '../../utils/attendanceCalculator.js';
 
 class BiometricService {
     /**
@@ -22,16 +23,16 @@ class BiometricService {
         }
 
         // Feature Request: Only sync March 2026 data, exclude all other months/years
-        const marchRecords = (recordsToProcess || []).filter(r => {
-            const d = new Date(r.timestamp);
-            return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
-        });
-
-        if (!marchRecords || !marchRecords.length) {
-            throw new Error('No valid records found for March 2026 to sync.');
-        }
-
-        recordsToProcess = marchRecords;
+        // const marchRecords = (recordsToProcess || []).filter(r => {
+        //     const d = new Date(r.timestamp);
+        //     return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
+        // });
+        // 
+        // if (!marchRecords || !marchRecords.length) {
+        //     throw new Error('No valid records found for March 2026 to sync.');
+        // }
+        // 
+        // recordsToProcess = marchRecords;
 
         const syncLog = await prisma.attendanceSyncLog.create({
             data: {
@@ -191,10 +192,16 @@ class BiometricService {
 
             // 3. Format device logs for our processSync method
             // Device returns data in format like: { deviceUserId: '1', recordTime: '2024-03-18 10:00:00', ... }
-            const formattedRecords = logs.data.map(log => ({
-                employeeCode: log.deviceUserId.toString(),
-                timestamp: new Date(log.recordTime).toISOString()
-            }));
+            const formattedRecords = logs.data.map(log => {
+                let ts = log.recordTime;
+                if (typeof ts === 'string' && !ts.includes('+')) {
+                    ts = `${ts}+05:30`;
+                }
+                return {
+                    employeeCode: log.deviceUserId.toString(),
+                    timestamp: new Date(ts).toISOString()
+                };
+            });
 
             // 4. Process the logs into our system
             const result = await this.processSync({
@@ -310,22 +317,20 @@ class BiometricService {
         const [startH, startM] = shift.start.split(':').map(Number);
         const [endH, endM] = shift.end.split(':').map(Number);
 
-        const shiftStart = new Date(date);
-        shiftStart.setUTCHours(startH, startM, 0, 0);
-
-        const shiftEnd = new Date(date);
-        shiftEnd.setUTCHours(endH, endM, 0, 0);
+        // Adjust for IST (+5:30)
+        const shiftStart = new Date(date.getTime() + (startH * 60 + startM - 330) * 60000);
+        const shiftEnd = new Date(date.getTime() + (endH * 60 + endM - 330) * 60000);
 
         const autoLogoutGrace = new Date(shiftEnd.getTime() + 30 * 60000); // 30 mins after shift end
 
-        // 1. Fetch all valid punches for this user on this day
-        // RULE: Punches before shift start should be ignored
+        // 1. Fetch ALL raw punches for today
+        const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
         const punches = await tx.biometricAttendance.findMany({
             where: {
                 userId,
                 timestamp: {
-                    gte: shiftStart,
-                    lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) // End of day
+                    gte: date,
+                    lt: nextDay
                 }
             },
             orderBy: { timestamp: 'asc' }
@@ -333,113 +338,55 @@ class BiometricService {
 
         if (punches.length === 0) return;
 
-        // 2. Identify First and Last Punch
-        let firstPunch = punches[0].timestamp;
-        let lastPunch = punches[punches.length - 1].timestamp;
+        // 2. Format for centralized utility
+        const formattedLogs = punches.map((p, idx) => ({
+            time: p.timestamp.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
+            type: idx % 2 === 0 ? 'IN' : 'OUT',
+            employeeCode: user.employeeCode
+        }));
 
-        // 3. AUTO LOGOUT RULE
-        // If employee does NOT punch out within 30 minutes after shift end:
-        // Automatically consider logout at shift end time
-        if (punches.length === 1 && new Date() > autoLogoutGrace) {
-            lastPunch = shiftEnd;
-        } else if (punches.length > 1 && lastPunch > autoLogoutGrace) {
-            // Check if there was any punch between shiftEnd and autoLogoutGrace
-            const hasPunchInGrace = punches.some(p => p.timestamp > shiftEnd && p.timestamp <= autoLogoutGrace);
-            if (!hasPunchInGrace) {
-                lastPunch = shiftEnd;
-            }
-        }
+        // 3. Process with STRICT RULES
+        const result = calculateAttendance(formattedLogs);
 
-        // 4. Calculate Effective Working Time & Sessions
-        // RULE: Ignore sessions shorter than 15 minutes
-        let effectiveWorkingMs = 0;
-        let breakMs = 0;
-        
-        if (punches.length >= 2) {
-            for (let i = 0; i < punches.length - 1; i += 2) {
-                const inPunch = punches[i].timestamp;
-                const outPunch = punches[i + 1] ? punches[i + 1].timestamp : lastPunch;
-                
-                const sessionMs = outPunch.getTime() - inPunch.getTime();
-                
-                if (sessionMs >= 15 * 60000) {
-                    effectiveWorkingMs += sessionMs;
-                }
-
-                // Calculate gap (break) before current session if not the first session
-                if (i > 0) {
-                    const prevOutPunch = punches[i - 1].timestamp;
-                    breakMs += inPunch.getTime() - prevOutPunch.getTime();
-                }
-            }
-        } else {
-            // Only one punch, and auto-logout triggered
-            effectiveWorkingMs = lastPunch.getTime() - firstPunch.getTime();
-        }
-
-        // 5. BREAK RULE
-        // Maximum allowed break: 1 hour. If exceeds: Deduct extra from working hours
-        let finalWorkingHours = effectiveWorkingMs / (1000 * 60 * 60);
-        const breakHours = breakMs / (1000 * 60 * 60);
-        
-        if (breakHours > 1) {
-            const extraBreak = breakHours - 1;
-            finalWorkingHours -= extraBreak;
-        }
-
-        // 6. Thresholding: 7.5 hrs (7:29 with grace)
-        const THRESHOLD = 7.5;
-        const GRACE_THRESHOLD = 7.4833; // 7 hours 29 minutes
-        
-        let status = 'HALF_DAY';
+        // 4. Leave Deduction (Strict Rule: 0.5 per Half Day)
         let leaveDeducted = 0;
-        let deficit = 0;
-
-        if (finalWorkingHours >= GRACE_THRESHOLD) {
-            status = 'FULL_DAY';
-            deficit = parseFloat((8 - finalWorkingHours).toFixed(2)); // 8 is expected. Negative means overtime.
-        } else {
-            status = 'HALF_DAY';
+        if (result.status === 'HALF_DAY') {
             leaveDeducted = 0.5;
-            deficit = parseFloat((8 - finalWorkingHours).toFixed(2));
+            await this.applyLeaveDeduction(tx, userId, 0.5);
         }
 
-        // 7. Holiday/Sunday Rule: If worked on Sunday, mark optionally as overtime
+        // 5. Sunday/Holiday Handling
         const isSunday = date.getUTCDay() === 0;
-        if (isSunday && finalWorkingHours > 0) {
-            status = 'OVERTIME_SUNDAY';
-            leaveDeducted = 0; // Don't deduct leave for working on Sunday
+        let finalStatus = result.status;
+        if (isSunday && result.totalWorkMinutes > 0) {
+            finalStatus = 'OVERTIME_SUNDAY';
+            leaveDeducted = 0;
         }
 
-        // 8. Apply Leave Priority (CL -> SL -> PL) if Half Day
-        if (leaveDeducted > 0) {
-            await this.applyLeaveDeduction(tx, userId, leaveDeducted);
-        }
-
-        // 9. Upsert Attendance Record
+        // 6. Final Sync to Database
         await tx.attendance.upsert({
             where: { userId_date: { userId, date } },
             update: {
-                checkIn: firstPunch,
-                checkOut: lastPunch,
-                workingHours: parseFloat(finalWorkingHours.toFixed(2)),
-                breakTime: parseFloat(breakHours.toFixed(2)),
-                deficit: parseFloat(deficit.toFixed(2)),
+                checkIn: punches[0].timestamp,
+                checkOut: punches[punches.length - 1].timestamp,
+                workingHours: parseFloat(result.totalWorkHours),
+                breakTime: 1.0, 
+                deficit: parseFloat(result.deficit),
                 leaveDeducted,
-                status,
-                shiftType
+                status: finalStatus,
+                shiftType: result.shift
             },
             create: {
                 userId,
                 date,
-                checkIn: firstPunch,
-                checkOut: lastPunch,
-                workingHours: parseFloat(finalWorkingHours.toFixed(2)),
-                breakTime: parseFloat(breakHours.toFixed(2)),
-                deficit: parseFloat(deficit.toFixed(2)),
+                checkIn: punches[0].timestamp,
+                checkOut: punches[punches.length - 1].timestamp,
+                workingHours: parseFloat(result.totalWorkHours),
+                breakTime: 1.0,
+                deficit: parseFloat(result.deficit),
                 leaveDeducted,
-                status,
-                shiftType
+                status: finalStatus,
+                shiftType: result.shift
             }
         });
     }

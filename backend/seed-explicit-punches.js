@@ -1,109 +1,68 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const explicitLogs = [
-    { name: 'Monisha', id: '2', time: '09:10', ip: '192.168.1.2' },
-    { name: 'Monisha', id: '2', time: '10:38', ip: '192.168.1.2' },
-    { name: 'Harikaran', id: '10', time: '10:34', ip: '192.168.1.2' },
-    { name: 'Vishwa', id: '15', time: '10:23', ip: '192.168.1.2' },
-    { name: 'Harikaran', id: '10', time: '10:23', ip: '192.168.1.2' },
-    { name: 'Gokulavasan', id: '22', time: '10:19', ip: '192.168.1.2' },
-    { name: 'Akash', id: '12', time: '10:19', ip: '192.168.1.2' },
-    { name: 'Monisha', id: '2', time: '10:19', ip: '192.168.1.2' },
-    { name: 'Sabeetha', id: '3', time: '10:18', ip: '192.168.1.2' },
-    { name: 'NiranjanP', id: '25', time: '10:18', ip: '192.168.1.2' },
-    { name: 'NITHINN', id: '27', time: '10:17', ip: '192.168.1.2' }
-];
-
-const allUsers = [
-    { id: '1', name: 'SANTOSH' },
-    { id: '2', name: 'Monisha' },
-    { id: '3', name: 'Sabeetha' },
-    { id: '4', name: 'Nishanth' },
-    { id: '5', name: 'Jane' },
-    { id: '7', name: 'NIKITAKHARCHE' },
-    { id: '8', name: 'MONIKA' },
-    { id: '9', name: 'VIJAYKUMAR' },
-    { id: '10', name: 'Harikaran' },
-    { id: '12', name: 'Akash' },
-    { id: '15', name: 'Vishwa' },
-    { id: '16', name: 'Ramprasath' },
-    { id: '17', name: 'Sreeheran' },
-    { id: '22', name: 'Gokulavasan' },
-    { id: '23', name: 'Shaffna' },
-    { id: '25', name: 'NiranjanP' },
-    { id: '26', name: 'SudaG' },
-    { id: '27', name: 'NITHINN' },
-    { id: '28', name: 'UshaC' },
-    { id: '29', name: 'Samson' },
-    { id: '30', name: 'Bismi' }
-];
-
 async function main() {
-    console.log('Applying explicit live tracking logs for today...');
-    
-    // Target today's date
+    const defaultPassword = await bcrypt.hash('Tectra@123', 10);
     const today = new Date();
-    
-    // Clear today's biometrics to prevent duplicates
-    const todayStart = new Date(today);
-    todayStart.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(todayStart);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    today.setUTCHours(18, 30, 0, 0); // Start of day in IST (00:00 IST)
+    // Actually simpler:
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    await prisma.biometricAttendance.deleteMany({
-        where: {
-            timestamp: {
-                gte: todayStart,
-                lt: tomorrow
+    const testUsers = [
+        { id: '101', name: 'FULL_DAY_EXACT', shift: 'A' }, // 9:00 - 17:30 (8.5 gross - 1h lunch = 7.5h) -> FULL DAY
+        { id: '102', name: 'HALF_DAY_729', shift: 'B' }, // 10:00 - 18:29 (8.5 gross - 1h lunch = 7.5h? No, 10 to 18:29 is 8h 29m. -1h = 7h 29m) -> HALF DAY
+        { id: '103', name: 'ROUNDING_TEST', shift: 'B' }, // 10:00 - 19:26 (9h 26m gross - 1h lunch = 8h 26m) -> 9.00 ROUNDED
+        { id: '104', name: 'OVERTIME_TEST', shift: 'B' }, // 10:00 - 20:30 (10.5h gross - 1h lunch = 9.5h) -> 9h+ OVERTIME
+    ];
+
+    for (const u of testUsers) {
+        const user = await prisma.user.upsert({
+            where: { employeeCode: u.id },
+            update: { name: u.name, shift: u.shift },
+            create: {
+                name: u.name,
+                email: `${u.name.toLowerCase()}@vmls.edu.in`,
+                employeeCode: u.id,
+                password: defaultPassword,
+                role: 'EMPLOYEE',
+                shift: u.shift
             }
-        }
-    });
-
-    const userMap = {};
-    const dbUsers = await prisma.user.findMany({
-        where: { employeeCode: { in: allUsers.map(u => u.id) } }
-    });
-    
-    for (const u of dbUsers) {
-        userMap[u.employeeCode] = u.id;
-    }
-
-    const punchesToInsert = [];
-
-    // 2. Add the explicit intermediate punches (e.g. going out for break/tea)
-    for (const log of explicitLogs) {
-        const userId = userMap[log.id];
-        if (!userId) continue;
-
-        const [hourStr, minStr] = log.time.split(':');
-        const exactTime = new Date(today);
-        exactTime.setHours(parseInt(hourStr), parseInt(minStr), 0, 0);
-
-        punchesToInsert.push({
-            userId: userId,
-            employeeCode: log.id,
-            timestamp: exactTime,
-            deviceIP: log.ip,
-            verificationMode: 1, // Fingerprint
-            deviceLogId: `LOG_${log.id}_EXPLICIT_${hourStr}${minStr}`
         });
+
+        // Clear today
+        await prisma.biometricAttendance.deleteMany({
+            where: { userId: user.id, timestamp: { gte: new Date(todayStr) } }
+        });
+
+        const punches = [];
+        if (u.id === '101') {
+            punches.push(`${todayStr}T09:00:00+05:30`);
+            punches.push(`${todayStr}T17:30:00+05:30`);
+        } else if (u.id === '102') {
+            punches.push(`${todayStr}T10:00:00+05:30`);
+            punches.push(`${todayStr}T18:29:00+05:30`);
+        } else if (u.id === '103') {
+            punches.push(`${todayStr}T10:00:00+05:30`);
+            punches.push(`${todayStr}T19:26:00+05:30`);
+        } else if (u.id === '104') {
+            punches.push(`${todayStr}T10:00:00+05:30`);
+            punches.push(`${todayStr}T20:30:00+05:30`);
+        }
+
+        for (const p of punches) {
+            await prisma.biometricAttendance.create({
+                data: {
+                    userId: user.id,
+                    employeeCode: u.id,
+                    timestamp: new Date(p),
+                    deviceIP: '127.0.0.1'
+                }
+            });
+        }
     }
-
-    // Insert to DB
-    await prisma.biometricAttendance.createMany({
-        data: punchesToInsert
-    });
-
-    console.log(`✅ Inserted ${punchesToInsert.length} exact punches! Live tracking is updated!`);
+    console.log('✅ Strict Rule Test Data Seeded!');
 }
 
-main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+main().catch(console.error).finally(() => prisma.$disconnect());

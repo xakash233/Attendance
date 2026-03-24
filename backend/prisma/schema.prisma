@@ -32,6 +32,10 @@ model User {
   departmentId         String?
   shift                String                @default("B") // A: 9-6, B: 10-7
   monthlySalary        Float                 @default(0)
+  emailVerified        Boolean               @default(true) // Default to true for existing real users
+  otp                  String?
+  otpExpires           DateTime?
+  needsPasswordChange  Boolean               @default(false)
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   attendances          Attendance[]

@@ -70,14 +70,21 @@ export default function UsersPage() {
         setLoading(true);
         try {
             if (isEditing && editingUserId) {
-                // Direct update for existing users
-                await api.put(`/users/${editingUserId}`, {
+                const res = await api.put(`/users/${editingUserId}`, {
                     name: formData.name,
                     email: formData.email,
                     role: formData.role,
                     departmentId: formData.departmentId,
                     employeeCode: formData.employeeCode
                 });
+
+                if (res.data.verificationRequired) {
+                    setStep(3); // OTP for Email update
+                    toast.success('Verification OTP sent to new email');
+                    setLoading(false);
+                    return;
+                }
+
                 toast.success('User updated successfully');
                 resetModal();
                 fetchData();
@@ -95,6 +102,21 @@ export default function UsersPage() {
             }
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Operation failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyEmailUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.post(`/users/${editingUserId}/verify-email`, { otp: otpInput, newEmail: formData.email });
+            toast.success('Email verified and password reset successfully');
+            resetModal();
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Verification failed');
         } finally {
             setLoading(false);
         }
@@ -563,6 +585,42 @@ export default function UsersPage() {
                                     </button>
                                     <button type="button" onClick={() => setStep(1)} className="text-[13px] font-medium text-[#667085] hover:text-[#101828] transition-all text-center">
                                         Back to form
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+                        {/* Step 3: Verification for Email Update (Existing User) */}
+                        {step === 3 && isEditing && (
+                            <form onSubmit={handleVerifyEmailUpdate} className="p-6 space-y-6">
+                                <div className="text-center space-y-4">
+                                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto border border-blue-100">
+                                        <Mail size={28} />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[14px] font-medium text-[#101828]">Email update requires verification</p>
+                                        <p className="text-[13px] text-[#667085]">OTP sent to <strong>{formData.email}</strong></p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <input
+                                        type="text"
+                                        maxLength={6}
+                                        className="input-field text-center text-2xl tracking-widest py-4"
+                                        placeholder="000000"
+                                        value={otpInput}
+                                        onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                                        required
+                                    />
+                                    <p className="text-center text-[12px] text-[#667085]">Enter the 6-digit code to finalize</p>
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5">
+                                        {loading ? <Loader2 size={16} className="animate-spin text-white" /> : 'Confirm Update'}
+                                    </button>
+                                    <button type="button" onClick={() => setStep(1)} className="text-[13px] font-medium text-[#667085] hover:text-[#101828] transition-all text-center">
+                                        Back to edit
                                     </button>
                                 </div>
                             </form>

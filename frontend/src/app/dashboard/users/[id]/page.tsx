@@ -3,15 +3,29 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/axios';
-import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 
 export default function EmployeeProfileView() {
     const { id } = useParams();
     const router = useRouter();
+    const { user: currentUser } = useAuth();
     const [employee, setEmployee] = useState<any>(null);
+    const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [editStep, setEditStep] = useState(1);
+    const [otpInput, setOtpInput] = useState('');
+    const [editData, setEditData] = useState({
+        email: '',
+        departmentId: '',
+        name: '',
+        employeeCode: ''
+    });
 
     useEffect(() => {
         if (employee?.name) {
@@ -22,15 +36,22 @@ export default function EmployeeProfileView() {
     }, [employee]);
 
     useEffect(() => {
-        const fetchEmployee = async () => {
+        const fetchInitialData = async () => {
             try {
-                // To fetch an employee, we can just grab from the all users endpoint
-                // or if there is a specific endpoint for user by ID.
-                // Assuming we use the list and find it or a new endpoint.
-                const res = await api.get('/users');
-                const found = res.data.find((u: any) => u.id === id);
+                const [usersRes, deptsRes] = await Promise.all([
+                    api.get('/users'),
+                    api.get('/departments')
+                ]);
+                setDepartments(deptsRes.data);
+                const found = usersRes.data.find((u: any) => u.id === id);
                 if (found) {
                     setEmployee(found);
+                    setEditData({
+                        email: found.email,
+                        departmentId: found.departmentId || '',
+                        name: found.name,
+                        employeeCode: found.employeeCode
+                    });
                 }
             } catch (err) {
                 console.error(err);
@@ -38,8 +59,48 @@ export default function EmployeeProfileView() {
                 setLoading(false);
             }
         };
-        fetchEmployee();
+        fetchInitialData();
     }, [id]);
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            const res = await api.put(`/users/${id}`, editData);
+            if (res.data.verificationRequired) {
+                setEditStep(2);
+                toast.success('Verification OTP sent to new email');
+                return;
+            }
+            toast.success('Profile updated successfully');
+            setIsEditModalOpen(false);
+            // Refresh data
+            const updated = await api.get('/users');
+            setEmployee(updated.data.find((u: any) => u.id === id));
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Update failed');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSaving(true);
+        try {
+            await api.post(`/users/${id}/verify-email`, { otp: otpInput, newEmail: editData.email });
+            toast.success('Email verified and updated');
+            setIsEditModalOpen(false);
+            setEditStep(1);
+            setOtpInput('');
+            const updated = await api.get('/users');
+            setEmployee(updated.data.find((u: any) => u.id === id));
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Verification failed');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -74,9 +135,20 @@ export default function EmployeeProfileView() {
                 Back to Users
             </button>
 
-            <header className="flex flex-col gap-1">
-                <h2 className="text-[24px] font-semibold text-[#101828] leading-none">User Profile</h2>
-                <p className="text-[13px] font-medium text-[#667085] mt-1">View personal details and attendance records.</p>
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h2 className="text-[24px] font-semibold text-[#101828] leading-none">User Profile</h2>
+                    <p className="text-[13px] font-medium text-[#667085] mt-1">View personal details and attendance records.</p>
+                </div>
+                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN') && (
+                    <button 
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="btn-secondary py-2.5 px-6"
+                    >
+                        <Edit2 size={16} />
+                        Edit Profile
+                    </button>
+                )}
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -154,6 +226,100 @@ export default function EmployeeProfileView() {
                     </div>
                 </div>
             </div>
+
+            {/* Edit Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-xl p-0 overflow-hidden border border-[#E6E8EC]">
+                        <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
+                            <div>
+                                <h3 className="text-[18px] font-semibold text-[#101828] leading-none">
+                                    {editStep === 1 ? 'Edit Personnel Data' : 'Security Verification'}
+                                </h3>
+                                <p className="text-[13px] font-medium text-[#667085] mt-1">
+                                    {editStep === 1 ? `Updating registry for ${employee.name}.` : 'OTP confirmation required.'}
+                                </p>
+                            </div>
+                            <button onClick={() => setIsEditModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#667085] hover:bg-slate-100 transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {editStep === 1 ? (
+                            <form onSubmit={handleUpdate} className="p-6 space-y-5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Full Name</label>
+                                    <input 
+                                        type="text" 
+                                        className="input-field" 
+                                        value={editData.name} 
+                                        onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Email Address</label>
+                                    <input 
+                                        type="email" 
+                                        className="input-field" 
+                                        value={editData.email} 
+                                        onChange={(e) => setEditData({ ...editData, email: e.target.value.toLowerCase() })}
+                                        required
+                                    />
+                                    <p className="text-[11px] text-slate-400 font-medium">* Changing email triggers a security OTP flow.</p>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Department Unit</label>
+                                    <div className="relative">
+                                        <select 
+                                            className="input-field appearance-none pr-10" 
+                                            value={editData.departmentId} 
+                                            onChange={(e) => setEditData({ ...editData, departmentId: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">Select Department</option>
+                                            {departments.map((d: any) => (
+                                                <option key={d.id} value={d.id}>{d.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] pointer-events-none" />
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
+                                    <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-secondary flex-1 py-3 font-bold uppercase tracking-widest text-[11px]">Cancel</button>
+                                    <button type="submit" disabled={saving} className="btn-primary flex-1 py-3 font-bold uppercase tracking-widest text-[11px]">
+                                        {saving ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Save Registry Changes'}
+                                    </button>
+                                </div>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleVerifyOtp} className="p-6 space-y-6">
+                                <div className="text-center space-y-2">
+                                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-100">
+                                        <Mail size={32} />
+                                    </div>
+                                    <p className="text-[14px] font-bold text-[#101828]">OTP Dispatched</p>
+                                    <p className="text-[13px] text-[#667085]">Verify the update to <strong>{editData.email}</strong></p>
+                                </div>
+                                <input 
+                                    type="text" 
+                                    className="input-field text-center text-3xl font-black tracking-widest py-4" 
+                                    placeholder="000000"
+                                    value={otpInput}
+                                    onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
+                                    maxLength={6}
+                                    required
+                                />
+                                <button type="submit" disabled={saving} className="btn-primary w-full py-3.5 font-bold uppercase tracking-widest text-[12px]">
+                                    {saving ? <Loader2 size={18} className="animate-spin mx-auto" /> : 'Confirm Identity & Update'}
+                                </button>
+                                <button onClick={() => setEditStep(1)} type="button" className="w-full text-[12px] font-bold text-[#667085] hover:text-[#101828] transition-all uppercase tracking-widest">Back to Data Entry</button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

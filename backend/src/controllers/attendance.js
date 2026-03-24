@@ -465,8 +465,7 @@ export const getLiveAttendance = async (req, res, next) => {
 
         // Filter out unknown/test datas (unless it's the requesting user)
         const cleanUsers = users.filter(u => 
-            u.id === req.user.id || 
-            (!u.employeeCode.includes('OLD') && !u.employeeCode.includes('TECH') && u.employeeCode.trim() !== '')
+            u.employeeCode && u.employeeCode.trim() !== ''
         );
 
         const liveData = cleanUsers.map(user => {
@@ -529,15 +528,17 @@ export const getLiveAttendance = async (req, res, next) => {
                 department: user.department?.name || 'Unassigned',
                 profileImage: user.profileImage,
                 firstPunch: firstPunch ? firstPunch.toISOString() : null,
-                lastPunch: calcResult.lastPunch ? new Date(firstPunch.getFullYear(), firstPunch.getMonth(), firstPunch.getDate(), parseInt(calcResult.lastPunch.split(':')[0]), parseInt(calcResult.lastPunch.split(':')[1])).toISOString() : null,
-                currentStatus,
+                lastPunch: (calcResult.lastPunch && firstPunch) 
+                    ? new Date(`${firstPunch.toISOString().split('T')[0]}T${calcResult.lastPunch}:00+05:30`).toISOString() 
+                    : null,
+                currentStatus: rawPunches.length === 0 ? 'ABSENT' : currentStatus,
                 isWfh,
                 totalHours: calcResult.roundedWorkHours,
                 punchesCount: rawPunches.length,
                 punches: rawPunches.map(p => p.toISOString())
             };
         });
-        const activeLiveData = liveData.filter(emp => emp.punchesCount > 0 || emp.id === req.user.id);
+        const activeLiveData = liveData;
         res.json(activeLiveData);
     } catch (error) {
         next(error);
@@ -705,7 +706,6 @@ export const getComplianceReport = async (req, res, next) => {
                         id: true,
                         name: true,
                         employeeCode: true,
-                        monthlySalary: true,
                         shift: true,
                         department: { select: { name: true } }
                     }
@@ -714,46 +714,20 @@ export const getComplianceReport = async (req, res, next) => {
             orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }]
         });
 
-        // Calculate Monthly Summary per Employee
-        const summaryMap = new Map();
-
+        // Current Month Formatting
         const formattedOutput = reportData.map(att => {
-            const user = att.user;
-            const empId = user.employeeCode;
-            
-            if (!summaryMap.has(empId)) {
-                summaryMap.set(empId, {
-                    totalDeficit: 0,
-                    leaveDeductionsFromHalfDays: 0,
-                    salaryDeductionPossible: false
-                });
-            }
-
-            const stats = summaryMap.get(empId);
-            stats.totalDeficit += att.deficit || 0;
-            if (att.status === 'HALF_DAY') {
-                stats.leaveDeductionsFromHalfDays += 0.5;
-            }
-
-            // Salary Deduction Rule: Max 1.5 leave per month (from half days)
-            // If exceeded AND hours not compensated -> salary deduction applies
-            if (stats.leaveDeductionsFromHalfDays > 1.5 && stats.totalDeficit > 0) {
-                stats.salaryDeductionPossible = true;
-            }
-
+            const statusLabel = att.status.replace(/_/g, ' ');
             return {
-                EmployeeID: empId,
-                Name: user.name,
+                EmployeeID: att.user.employeeCode,
+                Name: att.user.name,
                 Date: att.date.toISOString().split('T')[0],
-                ShiftType: att.shiftType || user.shift || 'B',
+                ShiftType: att.shiftType || att.user.shift || 'B',
                 FirstPunch: att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
                 LastPunch: att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
-                TotalWorkedHours: att.workingHours.toFixed(2),
-                BreakTime: att.breakTime.toFixed(2),
-                Status: att.status.replace(/_/g, ' '),
+                TotalWorkedHours: att.workingHours, 
+                Status: statusLabel,
                 LeaveDeducted: att.leaveDeducted,
-                'Monthly Deficit': stats.totalDeficit.toFixed(2),
-                SalaryDeduction: stats.salaryDeductionPossible ? 'YES' : 'NO'
+                Remarks: att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : 'OK'
             };
         });
 
@@ -764,6 +738,110 @@ export const getComplianceReport = async (req, res, next) => {
             },
             report: formattedOutput
         });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+import ExcelJS from 'exceljs';
+
+export const exportComplianceReport = async (req, res, next) => {
+    try {
+        const { month, userId } = req.query;
+        let queryDate = new Date();
+        if (month) {
+            const [y, m] = month.split('-');
+            queryDate = new Date(y, parseInt(m) - 1, 1);
+        }
+
+        const startOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth(), 1);
+        const endOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth() + 1, 0);
+
+        const reportData = await prisma.attendance.findMany({
+            where: {
+                date: { gte: startOfMonth, lte: endOfMonth },
+                ...(userId && { userId })
+            },
+            include: {
+                user: { select: { name: true, employeeCode: true, department: { select: { name: true } } } }
+            },
+            orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }]
+        });
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Attendance Report');
+
+        // Professional Styling & Headers
+        worksheet.columns = [
+            { header: 'Employee ID', key: 'id', width: 15 },
+            { header: 'Employee Name', key: 'name', width: 25 },
+            { header: 'Department', key: 'dept', width: 20 },
+            { header: 'Date', key: 'date', width: 15 },
+            { header: 'Shift', key: 'shift', width: 10 },
+            { header: 'Check In', key: 'in', width: 15 },
+            { header: 'Check Out', key: 'out', width: 15 },
+            { header: 'Daily Work (H.MM)', key: 'daily', width: 18 },
+            { header: 'Weekly Total (H.MM)', key: 'weekly', width: 20 },
+            { header: 'Status', key: 'status', width: 15 },
+            { header: 'Leave Deducted', key: 'leave', width: 15 }
+        ];
+
+        // Format duration helper for Excel (H.MM)
+        const toHMM = (decimal) => {
+            const totalMins = Math.round(decimal * 60);
+            const h = Math.floor(totalMins / 60);
+            const m = totalMins % 60;
+            return `${h}.${m.toString().padStart(2, '0')}`;
+        };
+
+        // Grouping logic for Weekly Totals
+        let currentEmployee = null;
+        let currentWeeklyMinutes = 0;
+        let lastWeekNumber = -1;
+
+        reportData.forEach((att) => {
+            const attDate = new Date(att.date);
+            // ISO Week number logic
+            const dayNum = (attDate.getUTCDay() + 6) % 7;
+            attDate.setUTCDate(attDate.getUTCDate() - dayNum + 3);
+            const firstThursday = attDate.getTime();
+            attDate.setUTCMonth(0, 1);
+            if (attDate.getUTCDay() !== 4) attDate.setUTCMonth(0, 1 + ((4 - attDate.getUTCDay()) + 7) % 7);
+            const weekNumber = 1 + Math.ceil((firstThursday - attDate) / 604800000);
+
+            if (currentEmployee !== att.userId || weekNumber !== lastWeekNumber) {
+                currentWeeklyMinutes = 0;
+                lastWeekNumber = weekNumber;
+                currentEmployee = att.userId;
+            }
+
+            currentWeeklyMinutes += Math.round(att.workingHours * 60);
+
+            worksheet.addRow({
+                id: att.user.employeeCode,
+                name: att.user.name,
+                dept: att.user.department?.name || 'N/A',
+                date: att.date.toISOString().split('T')[0],
+                shift: att.shiftType || 'B',
+                in: att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true }) : '--',
+                out: att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true }) : '--',
+                daily: toHMM(att.workingHours),
+                weekly: toHMM(currentWeeklyMinutes / 60),
+                status: att.status.replace(/_/g, ' '),
+                leave: att.leaveDeducted
+            });
+        });
+
+        // Style the headers
+        worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Attendance_Report_${month || 'Current'}.xlsx`);
+
+        await workbook.xlsx.write(res);
+        res.end();
 
     } catch (error) {
         next(error);

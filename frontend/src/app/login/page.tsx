@@ -8,9 +8,12 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 
 export default function LoginPage() {
-    const [view, setView] = useState<'LOGIN' | 'FORGOT' | 'RESET'>('LOGIN');
+    const [view, setView] = useState<'LOGIN' | 'FORGOT' | 'RESET' | 'UPDATE_PASSWORD'>('LOGIN');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [tempAuth, setTempAuth] = useState<any>(null);
     const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -35,19 +38,27 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await api.post('/auth/login', { email, password });
+            const loginRes = await api.post('/auth/login', { email, password });
+            
+            if (loginRes.data.needsPasswordChange) {
+                setTempAuth(loginRes.data);
+                setView('UPDATE_PASSWORD');
+                setLoading(false);
+                return;
+            }
+
             setLoginErrorState('NONE');
             setIsSuccess(true);
 
             setTimeout(() => {
-                login(response.data.accessToken, {
-                    id: response.data.id,
-                    name: response.data.name,
-                    email: response.data.email,
-                    role: response.data.role,
-                    department: response.data.department,
-                    profileImage: response.data.profileImage,
-                    employeeCode: response.data.employeeCode,
+                login(loginRes.data.accessToken, {
+                    id: loginRes.data.id,
+                    name: loginRes.data.name,
+                    email: loginRes.data.email,
+                    role: loginRes.data.role,
+                    department: loginRes.data.department,
+                    profileImage: loginRes.data.profileImage,
+                    employeeCode: loginRes.data.employeeCode,
                 });
             }, 2000);
         } catch (error: any) {
@@ -66,6 +77,40 @@ export default function LoginPage() {
                     toast.error(errorMsg, { icon: '⚠️' });
                 }
             }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFirstPasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            return toast.error("Security ciphers do not match.");
+        }
+        setLoading(true);
+        try {
+            // Update password using the temporary token
+            await api.put('/auth/change-password', 
+                { oldPassword: password, newPassword: newPassword },
+                { headers: { Authorization: `Bearer ${tempAuth.accessToken}` } }
+            );
+
+            toast.success("Security cipher updated successfully.");
+            setIsSuccess(true);
+            
+            setTimeout(() => {
+                login(tempAuth.accessToken, {
+                    id: tempAuth.id,
+                    name: tempAuth.name,
+                    email: tempAuth.email,
+                    role: tempAuth.role,
+                    department: tempAuth.department,
+                    profileImage: tempAuth.profileImage,
+                    employeeCode: tempAuth.employeeCode,
+                });
+            }, 2000);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || "Failed to update cipher.");
         } finally {
             setLoading(false);
         }
@@ -106,6 +151,45 @@ export default function LoginPage() {
 
     const renderForm = (isDesktop: boolean) => (
         <>
+            {view === 'UPDATE_PASSWORD' && (
+                <form onSubmit={handleFirstPasswordChange} className="space-y-6 lg:space-y-10 animate-slide-up w-full">
+                    <header className={`space-y-2 lg:space-y-4 mb-4 lg:mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
+                        <h2 className="text-3xl lg:text-4xl font-black text-black tracking-tighter leading-none">Security Protocol</h2>
+                        <p className="text-[12px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Mandatory security update required for first-time access.</p>
+                    </header>
+                    <div className="space-y-4">
+                        <div className="space-y-1.5 lg:space-y-2.5">
+                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">New Security Cipher</label>
+                            <input
+                                type="password"
+                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
+                                placeholder="Enter secret key..."
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="space-y-1.5 lg:space-y-2.5">
+                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Confirm Cipher</label>
+                            <input
+                                type="password"
+                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
+                                placeholder="Re-enter secret key..."
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                            />
+                        </div>
+                    </div>
+                    <button type="submit" disabled={loading} className="w-full h-14 lg:h-16 bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center transition-all hover:bg-neutral-900">
+                        {loading ? <Loader2 size={18} className="animate-spin" /> : 'Update & Access Hub'}
+                    </button>
+                    <button type="button" onClick={() => setView('LOGIN')} className="w-full h-12 text-[11px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                        <ArrowLeft size={16} /> Cancel Session
+                    </button>
+                </form>
+            )}
+
             {view === 'LOGIN' && (
                 <form onSubmit={handleLogin} className="space-y-6 lg:space-y-10 animate-slide-up w-full">
                     <header className={`space-y-2 lg:space-y-4 mb-4 lg:mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>

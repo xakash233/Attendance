@@ -439,27 +439,54 @@ export const updateUser = async (req, res, next) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Hierarchy rule:
-        // SUPER_ADMIN can edit anyone
-        // HR can only edit EMPLOYEE records
+        // Hierarchy Enforcement
         if (req.user.role === 'HR' && targetUser.role !== 'EMPLOYEE') {
             return res.status(403).json({ message: 'HR can only edit Employee accounts.' });
         }
-
-        // Prevent HR from escalating someone to HR or ADMIN
-        if (req.user.role === 'HR' && role && role !== 'EMPLOYEE') {
-            return res.status(403).json({ message: 'HR can only manage Employee roles.' });
-        }
-
         if (req.user.role === 'ADMIN' && targetUser.role === 'SUPER_ADMIN') {
             return res.status(403).json({ message: 'Admins cannot edit Super Admin accounts.' });
+        }
+
+        let emailSyncNeeded = false;
+        let newEmail = email?.toLowerCase();
+
+        // If email is changing, we initiate verification flow
+        if (newEmail && newEmail !== targetUser.email) {
+            emailSyncNeeded = true;
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            await prisma.user.update({
+                where: { id },
+                data: {
+                    otp,
+                    otpExpires: new Date(Date.now() + 15 * 60 * 1000), // 15 mins
+                    emailVerified: false
+                }
+            });
+
+            await sendEmail({
+                email: newEmail,
+                subject: 'Security: Confirm Your New Email Address',
+                message: `Your verification code is: ${otp}`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; padding: 25px; background: #fff; border: 1px solid #eee; border-radius: 12px;">
+                        <h2 style="color: #101828; font-weight: 900;">Confirm Identity</h2>
+                        <p style="color: #667085;">An administrator is updating your account email to this address. Enter the code below to verify.</p>
+                        <div style="background: #101828; color: #fff; padding: 30px; border-radius: 12px; margin: 30px 0; text-align: center; font-size: 36px; font-weight: 900; letter-spacing: 0.3em;">
+                            ${otp}
+                        </div>
+                        <p style="font-size: 12px; color: #999;">If you did not request this, please ignore this message.</p>
+                    </div>
+                `
+            });
         }
 
         const updatedUser = await prisma.user.update({
             where: { id },
             data: {
                 name,
-                email: email?.toLowerCase(),
+                // We only update the actual email if it didn't change (or if we skipped verification logic here)
+                // For this requirement, we will update other fields now, and email later after OTP
                 role,
                 departmentId,
                 employeeCode,
@@ -470,22 +497,69 @@ export const updateUser = async (req, res, next) => {
             include: { department: true }
         });
 
-        // Audit Log
-        await prisma.auditLog.create({
-            data: {
-                userId: req.user.id,
-                action: 'USER_UPDATED',
-                entity: 'User',
-                entityId: id,
-                details: { role: updatedUser.role, employeeCode: updatedUser.employeeCode }
-            }
+        res.json({
+            ...updatedUser,
+            verificationRequired: emailSyncNeeded,
+            message: emailSyncNeeded ? 'Email update initiated. OTP sent to new email.' : 'User updated successfully.'
         });
-
-        res.json(updatedUser);
     } catch (error) {
         if (error.code === 'P2002') {
             return res.status(400).json({ message: 'Email or Employee Code already in use.' });
         }
+        next(error);
+    }
+};
+
+// @desc    Verify Email Update & Reset Password
+// @route   POST /api/users/:id/verify-email
+// @access  Private (SUPER_ADMIN)
+export const verifyEmailUpdate = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { otp, newEmail } = req.body;
+
+        const user = await prisma.user.findUnique({ where: { id } });
+
+        if (!user || user.otp !== otp || new Date() > user.otpExpires) {
+            return res.status(400).json({ message: 'Invalid or expired OTP.' });
+        }
+
+        // Generate Random Password
+        const randomPassword = crypto.randomBytes(4).toString('hex'); // 8 chars
+        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+        await prisma.user.update({
+            where: { id },
+            data: {
+                email: newEmail.toLowerCase(),
+                password: hashedPassword,
+                emailVerified: true,
+                needsPasswordChange: true,
+                otp: null,
+                otpExpires: null
+            }
+        });
+
+        // Send credentials to new email
+        await sendEmail({
+            email: newEmail,
+            subject: 'Account Verified - Your Temporary Password',
+            message: `Your email has been verified. Temporary password: ${randomPassword}`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 25px; background: #fff; border: 1px solid #eee; border-radius: 12px;">
+                    <h2 style="color: #101828; font-weight: 900;">Verification Successful</h2>
+                    <p style="color: #667085;">Your email has been successfully updated. Use the credentials below for your next login.</p>
+                    <div style="background: #f9fafb; padding: 30px; border-radius: 12px; margin: 30px 0; border: 1px solid #eaecf0;">
+                         <p style="margin: 0; font-size: 14px; font-weight: 700; color: #101828;">Temporary Password:</p>
+                         <p style="font-size: 24px; font-weight: 900; color: #101828; margin: 5px 0;">${randomPassword}</p>
+                    </div>
+                    <p style="color: #667085; font-size: 14px;"><strong>Note:</strong> You will be required to change this password on your first login.</p>
+                </div>
+            `
+        });
+
+        res.json({ message: 'Email verified and temporary password sent.' });
+    } catch (error) {
         next(error);
     }
 };
