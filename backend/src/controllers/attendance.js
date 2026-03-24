@@ -432,11 +432,16 @@ export const getSummary = async (req, res, next) => {
 // @access  Private
 export const getLiveAttendance = async (req, res, next) => {
     try {
-        const todayStart = new Date();
+        // Synchronize boundaries to Asia/Kolkata (IST)
+        const kolkataNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+        const todayStart = new Date(kolkataNow);
         todayStart.setHours(0, 0, 0, 0);
         
-        const endOfDay = new Date();
+        const endOfDay = new Date(kolkataNow);
         endOfDay.setHours(23, 59, 59, 999);
+
+        // Debug log for production drift analysis
+        console.log(`[Attendance] IST todayStart: ${todayStart.toISOString()} - endOfDay: ${endOfDay.toISOString()}`);
 
         const now = new Date();
         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
@@ -486,14 +491,15 @@ export const getLiveAttendance = async (req, res, next) => {
             // Merge and sort
             const allPunches = [...biometricPunches, ...manualPunches].sort((a,b) => a.getTime() - b.getTime());
             
-            // Deduplicate punches that happen within 60 seconds (prevents biometric + manual duplicating)
+            // Deduplicate punches that happen within 5 minutes (prevents duplication from multiple syncs/manual errors)
             const rawPunches = [];
             for (let punch of allPunches) {
                 if (rawPunches.length === 0) {
                     rawPunches.push(punch);
                 } else {
                     const last = rawPunches[rawPunches.length - 1];
-                    if (punch.getTime() - last.getTime() > 60000) { // 1 min diff
+                    // Standard biometric deduplication (increase to 2 mins for production stability)
+                    if (punch.getTime() - last.getTime() > 120000) { 
                         rawPunches.push(punch);
                     }
                 }
@@ -549,8 +555,13 @@ export const getLiveAttendance = async (req, res, next) => {
 export const getDashboardReport = async (req, res, next) => {
     try {
         const userId = req.user.id;
-        const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(); endOfDay.setHours(23, 59, 59, 999);
+        // Synchronize boundaries to Asia/Kolkata (IST)
+        const kolkataNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+        const todayStart = new Date(kolkataNow);
+        todayStart.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(kolkataNow);
+        endOfDay.setHours(23, 59, 59, 999);
         
         // Settings
         const settings = await prisma.systemSettings.findFirst() || { workStartTime: '10:00', workEndTime: '19:00' };
@@ -577,10 +588,10 @@ export const getDashboardReport = async (req, res, next) => {
         }
         allPunches.sort((a, b) => a.time - b.time);
 
-        // Deduplicate punches within 60s
+        // Deduplicate punches within 120s
         const rawPunches = [];
         for (let p of allPunches) {
-            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 60000)) {
+            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 120000)) {
                 rawPunches.push(p);
             }
         }
