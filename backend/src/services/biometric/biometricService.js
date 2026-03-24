@@ -22,17 +22,18 @@ class BiometricService {
             recordsToProcess = await parseBiometricFile(fileBuffer, mimeType, filename);
         }
 
-        // Feature Request: Only sync March 2026 data, exclude all other months/years
-        // const marchRecords = (recordsToProcess || []).filter(r => {
-        //     const d = new Date(r.timestamp);
-        //     return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
-        // });
-        // 
-        // if (!marchRecords || !marchRecords.length) {
-        //     throw new Error('No valid records found for March 2026 to sync.');
-        // }
-        // 
-        // recordsToProcess = marchRecords;
+        // Strict Protection: Only sync March 2026 data to prevent database bloat
+        const marchRecords = (recordsToProcess || []).filter(r => {
+            const d = new Date(r.timestamp);
+            return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
+        });
+        
+        if (!marchRecords || !marchRecords.length) {
+            console.log('[BiometricService] No valid records found for March 2026 in this sync.');
+            return { status: 'SKIPPED', message: 'No March 2026 records found' };
+        }
+        
+        recordsToProcess = marchRecords;
 
         const syncLog = await prisma.attendanceSyncLog.create({
             data: {
@@ -318,10 +319,9 @@ class BiometricService {
         const [endH, endM] = shift.end.split(':').map(Number);
 
         // Adjust for IST (+5:30)
-        const shiftStart = new Date(date.getTime() + (startH * 60 + startM - 330) * 60000);
-        const shiftEnd = new Date(date.getTime() + (endH * 60 + endM - 330) * 60000);
-
-        const autoLogoutGrace = new Date(shiftEnd.getTime() + 30 * 60000); // 30 mins after shift end
+        // const shiftStart = new Date(date.getTime() + (startH * 60 + startM - 330) * 60000);
+        // const shiftEnd = new Date(date.getTime() + (endH * 60 + endM - 330) * 60000);
+        // const autoLogoutGrace = new Date(shiftEnd.getTime() + 30 * 60000); // 30 mins after shift end
 
         // 1. Fetch ALL raw punches for today
         const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
@@ -338,14 +338,13 @@ class BiometricService {
 
         if (punches.length === 0) return;
 
-        // 2. Format for centralized utility
-        const formattedLogs = punches.map((p, idx) => ({
-            time: p.timestamp.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }),
-            type: idx % 2 === 0 ? 'IN' : 'OUT',
+        // 2. Format for centralized utility (Pass Raw Date for 100% precision)
+        const formattedLogs = punches.map((p) => ({
+            timestamp: p.timestamp,
             employeeCode: user.employeeCode
         }));
 
-        // 3. Process with STRICT RULES
+        // 3. Process with ROBUST LOGIC
         const result = calculateAttendance(formattedLogs);
 
         // 4. Leave Deduction (Strict Rule: 0.5 per Half Day)
@@ -428,7 +427,7 @@ class BiometricService {
     /**
      * Legacy method kept for compatibility, now calls updated logic
      */
-    async calculateAndSetCheckout(tx, attendance, checkOutTime, settings) {
+    async calculateAndSetCheckout(tx, attendance) {
         await this.updateDailyAttendance(tx, attendance.userId, attendance.date);
     }
 

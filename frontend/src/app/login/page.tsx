@@ -38,7 +38,7 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const loginRes = await api.post('/auth/login', { email, password });
+            const loginRes = await api.post('/auth/login', { email: email.trim(), password });
             
             if (loginRes.data.needsPasswordChange) {
                 setTempAuth(loginRes.data);
@@ -120,7 +120,7 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/auth/forgot-password', { email });
+            await api.post('/auth/forgot-password', { email: email.trim() });
             toast.success(`Activation link sent. Check email: ${email}`, {
                 style: {
                     borderTop: '4px solid #10B981',
@@ -139,7 +139,7 @@ export default function LoginPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const res = await api.post('/auth/reset-password', { email, otp });
+            const res = await api.post('/auth/reset-password', { email: email.trim(), otp });
             toast.success(res.data.message);
             setView('LOGIN');
         } catch (error: any) {

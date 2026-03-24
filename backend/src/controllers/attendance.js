@@ -519,7 +519,7 @@ export const getLiveAttendance = async (req, res, next) => {
                 }
             }
 
-            const calcResult = calculateAttendance(formattedPunchesForCalc, currentTimeStr);
+            const calcResult = calculateAttendance(rawPunches, currentTimeStr);
 
             return {
                 id: user.id,
@@ -528,12 +528,10 @@ export const getLiveAttendance = async (req, res, next) => {
                 department: user.department?.name || 'Unassigned',
                 profileImage: user.profileImage,
                 firstPunch: firstPunch ? firstPunch.toISOString() : null,
-                lastPunch: (calcResult.lastPunch && firstPunch) 
-                    ? new Date(`${firstPunch.toISOString().split('T')[0]}T${calcResult.lastPunch}:00+05:30`).toISOString() 
-                    : null,
+                lastPunch: lastPunch ? lastPunch.toISOString() : null,
                 currentStatus: rawPunches.length === 0 ? 'ABSENT' : currentStatus,
                 isWfh,
-                totalHours: calcResult.roundedWorkHours,
+                totalHours: calcResult.totalWorkHours,
                 punchesCount: rawPunches.length,
                 punches: rawPunches.map(p => p.toISOString())
             };
@@ -588,30 +586,26 @@ export const getDashboardReport = async (req, res, next) => {
         }
 
         // Calculate Stats
-        let workMs = 0;
+        // Robust Calculation Sync (100% precision with administrative view)
+        const now = new Date();
+        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+        const calcPunchesForSync = rawPunches.map(p => ({ timestamp: p.time }));
+        const calcResult = calculateAttendance(calcPunchesForSync, currentTimeStr);
+
+        let workMs = calcResult.totalWorkMinutes * 60000;
         let breakMs = 0;
         let breaksCount = 0;
         let dailyActivity = [];
         let currentStatus = 'OUT';
-        let lastIn = null;
-        let lastOut = null;
 
         for (let i = 0; i < rawPunches.length; i++) {
             const p = rawPunches[i];
             const isFirst = i === 0;
-            const isEven = i % 2 === 0; // 0, 2... are INs, 1, 3... are OUTs
+            const isEven = i % 2 === 0;
+            const isLast = i === rawPunches.length - 1;
             
-            let label = '';
-            if (isFirst) label = 'Start of Day';
-            else if (i === rawPunches.length - 1 && !isEven) label = 'End of Day';
-            else if (isEven) {
-                label = 'Back to Work';
-                if (rawPunches[i-1]) breakMs += (p.time - rawPunches[i-1].time);
-            } else {
-                label = 'Break Start';
-                breaksCount++;
-                workMs += (p.time - rawPunches[i-1].time);
-            }
+            let label = isEven ? (isFirst ? 'Start of Day' : 'Back to Work') : 'Break Start';
+            if (isLast && !isEven) label = 'End of Day';
 
             dailyActivity.push({
                 time: p.time,
@@ -622,18 +616,13 @@ export const getDashboardReport = async (req, res, next) => {
                 label: label
             });
 
-            if (isEven) {
-                lastIn = p.time;
-                currentStatus = 'IN';
-            } else {
-                lastOut = p.time;
-                currentStatus = 'OUT';
-            }
-        }
+            if (isEven) currentStatus = 'IN';
+            else currentStatus = 'OUT';
 
-        if (currentStatus === 'IN' && lastIn) {
-            const now = Date.now();
-            workMs += (now - lastIn.getTime());
+            if (i > 0 && isEven) {
+                breakMs += (p.time - rawPunches[i-1].time);
+                breaksCount++;
+            }
         }
 
         // 2. Weekly Overview (Last 5 days)
@@ -648,6 +637,14 @@ export const getDashboardReport = async (req, res, next) => {
             where: { assignedToId: userId, deadline: { gte: todayStart, lte: endOfDay } },
             orderBy: { createdAt: 'desc' }
         });
+
+        // Determine Last In and Last Out
+        let lastIn = null;
+        let lastOut = null;
+        for (let i = 0; i < rawPunches.length; i++) {
+            if (i % 2 === 0) lastIn = rawPunches[i].time;
+            else lastOut = rawPunches[i].time;
+        }
 
         res.json({
             user: { name: req.user.name, id: req.user.id },

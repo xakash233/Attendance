@@ -17,27 +17,13 @@ import { createPortal } from 'react-dom';
 export default function SettingsPage() {
     const { user } = useAuth();
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-    const [isAuditModalOpen, setIsAuditModalOpen] = useState(false);
-    const [auditLogs, setAuditLogs] = useState([]);
-    const [loadingLogs, setLoadingLogs] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
 
-    const fetchAuditLogs = async () => {
-        setLoadingLogs(true);
-        try {
-            const res = await api.get('/audit');
-            setAuditLogs(res.data);
-        } catch (err) {
-            toast.error('Failed to load activity logs.');
-        } finally {
-            setLoadingLogs(false);
-        }
-    };
+
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
@@ -71,69 +57,8 @@ export default function SettingsPage() {
                             icon={Key} 
                             onClick={() => setIsPasswordModalOpen(true)}
                         />
-                        {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && (
-                            <>
-                                <SettingItem 
-                                    title="Two-Factor Auth" 
-                                    desc="Add an extra layer of security to your account." 
-                                    value="Disabled" 
-                                    icon={ShieldCheck} 
-                                    onClick={() => toast.success('2FA configuration coming soon')}
-                                />
-                                <SettingItem 
-                                    title="Session Timeout" 
-                                    desc="Automatically logout after a period of inactivity." 
-                                    value="30 Mins" 
-                                    icon={Clock} 
-                                    onClick={() => toast.success('Session configuration coming soon')}
-                                />
-                            </>
-                        )}
                     </div>
                 </div>
-
-                {/* System & Notification Section */}
-                {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && (
-                    <div className="card overflow-hidden h-full">
-                        <div className="p-6 border-b border-[#E6E8EC]">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
-                                    <BellRing size={20} />
-                                </div>
-                                <div>
-                                    <h3 className="text-[16px] font-semibold text-[#101828]">System & Notifications</h3>
-                                    <p className="text-[13px] text-[#667085]">Track system logs and global configuration.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="p-2">
-                            <SettingItem 
-                                title="Email Alerts" 
-                                desc="Receive daily summaries and critical alerts by email." 
-                                value="Enabled" 
-                                icon={Mail} 
-                                onClick={() => toast.success('Email alert configuration coming soon')}
-                            />
-                            <SettingItem 
-                                title="Push Notifications" 
-                                desc="Get real-time updates on your device." 
-                                value="Enabled" 
-                                icon={Bell} 
-                                onClick={() => toast.success('Push notification configuration coming soon')}
-                            />
-                            <SettingItem 
-                                title="Audit Logs" 
-                                desc="Track all major changes and activities." 
-                                value="Full Data" 
-                                icon={ActivityIcon} 
-                                onClick={() => {
-                                    fetchAuditLogs();
-                                    setIsAuditModalOpen(true);
-                                }}
-                            />
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Modals */}
@@ -141,17 +66,6 @@ export default function SettingsPage() {
                 {isPasswordModalOpen && mounted && (
                     <Portal>
                         <ChangePasswordModal onClose={() => setIsPasswordModalOpen(false)} />
-                    </Portal>
-                )}
-                {isAuditModalOpen && mounted && (
-                    <Portal>
-                        <AuditLogsModal 
-                            logs={auditLogs} 
-                            loading={loadingLogs} 
-                            searchQuery={searchQuery}
-                            setSearchQuery={setSearchQuery}
-                            onClose={() => setIsAuditModalOpen(false)} 
-                        />
                     </Portal>
                 )}
             </AnimatePresence>
@@ -219,7 +133,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                                 className="input-field py-2.5 pr-10" 
                                 required 
                                 autoComplete="one-time-code"
-                                placeholder="••••••••"
+                                placeholder="Enter Current Password"
                                 onChange={e => setFormData({...formData, oldPassword: e.target.value})}
                             />
                             <button 
@@ -239,7 +153,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                                 className="input-field py-2.5 pr-10" 
                                 required 
                                 autoComplete="new-password"
-                                placeholder="••••••••"
+                                placeholder="Enter New Password"
                                 onChange={e => setFormData({...formData, newPassword: e.target.value})}
                             />
                             <button 
@@ -259,7 +173,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                                 className="input-field py-2.5 pr-10" 
                                 required 
                                 autoComplete="new-password"
-                                placeholder="••••••••"
+                                placeholder="Re-Enter New Password"
                                 onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
                             />
                             <button 
@@ -283,101 +197,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
     );
 };
 
-const AuditLogsModal = ({ logs, loading, onClose, searchQuery, setSearchQuery }: any) => {
-    const filteredLogs = logs.filter((log: any) => 
-        log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.entity.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (log.user?.name || 'System').toLowerCase().includes(searchQuery.toLowerCase())
-    );
 
-    return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl overflow-hidden border border-[#E6E8EC] flex flex-col max-h-[85vh]"
-            >
-                <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white sticky top-0 z-10">
-                    <div>
-                        <h2 className="text-[20px] font-semibold text-[#101828]">Audit Registry</h2>
-                        <p className="text-[13px] text-[#667085] mt-1">Immutable record of all high-privilege system modifications.</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={15} />
-                            <input 
-                                type="text" 
-                                placeholder="Search logs..." 
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="input-field pl-9 py-1.5 text-[13px] w-64"
-                            />
-                        </div>
-                        <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-[#667085] transition-all"><X size={20} /></button>
-                    </div>
-                </div>
-
-                <div className="overflow-y-auto no-scrollbar flex-1 p-6">
-                    {loading ? (
-                        <div className="flex flex-col items-center justify-center py-20 gap-4">
-                            <Loader2 className="animate-spin text-[#101828]" size={32} />
-                            <p className="text-[13px] font-medium text-[#667085]">Compiling system events...</p>
-                        </div>
-                    ) : filteredLogs.length === 0 ? (
-                        <div className="text-center py-20 bg-slate-50 rounded-xl border border-dashed border-[#E6E8EC]">
-                            <HistoryIcon size={40} className="mx-auto text-[#D0D5DD] mb-3" />
-                            <p className="text-[14px] font-medium text-[#667085]">No matching system events detected.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {filteredLogs.map((log: any) => (
-                                <div key={log.id} className="p-4 rounded-xl border border-[#E6E8EC] hover:bg-slate-50 transition-all flex items-start justify-between gap-4">
-                                    <div className="flex gap-4">
-                                        <div className={`mt-1 p-2 rounded-lg ${
-                                            log.action.includes('PASSWORD') ? 'bg-rose-50 text-rose-600' :
-                                            log.action.includes('ATTENDANCE') ? 'bg-blue-50 text-blue-600' :
-                                            'bg-emerald-50 text-emerald-600'
-                                        }`}>
-                                            <ActivityIcon size={18} />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[13px] font-bold text-[#101828] uppercase tracking-wide">{log.action.replace(/_/g, ' ')}</span>
-                                                <span className="w-1 h-1 bg-[#D0D5DD] rounded-full"></span>
-                                                <span className="text-[12px] font-medium text-[#667085]">{log.entity}</span>
-                                            </div>
-                                            <p className="text-[13px] text-[#475467] mt-1.5">
-                                                Triggered by <span className="font-semibold text-[#101828]">{log.user?.name || 'System Auto-Node'}</span>
-                                            </p>
-                                            <div className="flex items-center gap-3 mt-2">
-                                                <span className="text-[11px] font-medium text-[#667085] flex items-center gap-1.5">
-                                                    <Clock size={12} /> {new Date(log.createdAt).toLocaleString('en-IN')}
-                                                </span>
-                                                {log.ipAddress && (
-                                                    <span className="text-[11px] font-medium text-[#667085] flex items-center gap-1.5">
-                                                        <Globe size={12} /> {log.ipAddress}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <button className="text-[11px] font-bold text-[#101828] bg-slate-200 px-2 py-1 rounded hover:bg-[#101828] hover:text-white transition-all">DETAILS</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-                <div className="p-4 bg-[#F8F9FB] border-t border-[#E6E8EC] flex justify-between items-center text-[12px] text-[#667085]">
-                    <p>Showing {filteredLogs.length} verified system events</p>
-                    <p className="flex items-center gap-1.5 font-medium text-emerald-600"><ShieldCheck size={14} /> Immutable Ledger Active</p>
-                </div>
-            </motion.div>
-        </div>
-    );
-};
 
 const SettingItem = ({ title, desc, value, icon: Icon, onClick }: any) => (
     <div 

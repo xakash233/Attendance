@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
+import { createPortal } from 'react-dom';
 
 export default function EmployeeProfileView() {
     const { id } = useParams();
@@ -26,6 +27,11 @@ export default function EmployeeProfileView() {
         name: '',
         employeeCode: ''
     });
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (employee?.name) {
@@ -228,9 +234,9 @@ export default function EmployeeProfileView() {
             </div>
 
             {/* Edit Modal */}
-            {isEditModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-xl p-0 overflow-hidden border border-[#E6E8EC]">
+            {mounted && isEditModalOpen && createPortal(
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
+                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-0 overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
                                 <h3 className="text-[18px] font-semibold text-[#101828] leading-none">
@@ -318,7 +324,8 @@ export default function EmployeeProfileView() {
                             </form>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -1,35 +1,36 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from './src/config/prisma.js';
 import biometricService from './src/services/biometric/biometricService.js';
 
-const prisma = new PrismaClient();
-
-async function main() {
-    console.log('Recalculating attendance for today...');
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
-    const biometrics = await prisma.biometricAttendance.findMany({
-        where: {
-            timestamp: {
-                gte: today,
-                lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-            }
-        },
-        select: { userId: true }
-    });
-
-    const userIds = [...new Set(biometrics.map(b => b.userId))];
-    console.log(`Found ${userIds.length} users with biometrics today.`);
-
-    for (const userId of userIds) {
-        process.stdout.write(`Updating ${userId}... `);
-        await biometricService.updateDailyAttendance(prisma, userId, today);
-        console.log('Done.');
+async function recalculate() {
+    const userId = 'd827cb65-679d-4d37-bdf7-719939f82210'; // Akash
+    
+    // Dates from the user's report
+    const dates = [
+        new Date('2026-03-02'),
+        new Date('2026-03-03'),
+        new Date('2026-03-04')
+    ];
+    
+    console.log(`[RECALC] Starting attendance overhaul for Akash (ID: 12)...`);
+    
+    for (const date of dates) {
+        date.setUTCHours(0,0,0,0);
+        console.log(`[PROCESS] ${date.toDateString()}`);
+        
+        // Find a punch on that day to trigger the service's update logic
+        const punch = await prisma.biometricAttendance.findFirst({
+            where: { userId, timestamp: { gte: date, lt: new Date(date.getTime() + 86400000) } }
+        });
+        
+        if (punch) {
+            await biometricService.updateDailyAttendance(prisma, userId, punch.timestamp);
+            console.log(`[SUCCESS] Recalculated for ${date.toDateString()}`);
+        } else {
+            console.log(`[SKIP] No raw punches found for ${date.toDateString()}`);
+        }
     }
-
-    console.log('Completed.');
+    
+    process.exit(0);
 }
 
-main()
-    .catch(console.error)
-    .finally(() => prisma.$disconnect());
+recalculate();

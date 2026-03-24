@@ -25,6 +25,7 @@ export default function DashboardPage() {
     const [showCompliance, setShowCompliance] = useState(false);
     const [complianceData, setComplianceData] = useState<any[]>([]);
     const [complianceLoading, setComplianceLoading] = useState(false);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [exportLoading, setExportLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -47,13 +48,14 @@ export default function DashboardPage() {
             console.error('Failed to fetch dashboard report', error);
             setLoading(false);
         }
-    }, [setLoading, setReport]);
+    }, []);
 
     const fetchCompliance = useCallback(async () => {
         setComplianceLoading(true);
         try {
             const res = await api.get('/attendance/compliance-report');
             setComplianceData(res.data.report);
+            setSelectedEmployeeId(null);
             setShowCompliance(true);
         } catch (error) {
             toast.error('Failed to fetch compliance report');
@@ -84,7 +86,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchReport();
-        const interval = setInterval(fetchReport, 5000); // 5s sync
+        const interval = setInterval(fetchReport, 5000);
         return () => clearInterval(interval);
     }, [fetchReport]);
 
@@ -95,7 +97,14 @@ export default function DashboardPage() {
             if (user?.role === 'EMPLOYEE') {
                 data = data.filter((u: any) => u.id === user.id);
             }
-            setLiveData(data);
+            const sortedData = data.sort((a: any, b: any) => {
+                const statusOrder: { [key: string]: number } = { 'IN': 0, 'OUT': 1, 'ABSENT': 2 };
+                const orderA = statusOrder[a.currentStatus] ?? 3;
+                const orderB = statusOrder[b.currentStatus] ?? 3;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.name.localeCompare(b.name);
+            });
+            setLiveData(sortedData);
         } catch (error) {
             console.error(error);
         }
@@ -103,7 +112,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         fetchLiveAttendance();
-        const interval = setInterval(fetchLiveAttendance, 2000); // 2s fast sync
+        const interval = setInterval(fetchLiveAttendance, 2000);
         return () => clearInterval(interval);
     }, [fetchLiveAttendance]);
 
@@ -117,12 +126,9 @@ export default function DashboardPage() {
     };
 
     const formatDuration = (decimalHours: any) => {
-        if (typeof decimalHours === 'string' && decimalHours.includes('h+')) {
-            return decimalHours;
-        }
+        if (typeof decimalHours === 'string' && decimalHours.includes('h+')) return decimalHours;
         const val = parseFloat(decimalHours);
         if (isNaN(val)) return '--.--';
-        
         const totalMinutes = Math.round(val * 60);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
@@ -138,19 +144,14 @@ export default function DashboardPage() {
         );
     }
 
-    const today = report?.today || {};
-    const workPercent = Math.min(100, (today.workHours / (today.totalExpectedHours || 1)) * 100);
-
     return (
         <div className="min-h-screen pb-12 overflow-x-hidden selection:bg-[#101828] selection:text-white">
-            {/* Header / Welcome Area */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex flex-col md:flex-row md:items-center justify-between gap-5 mb-6"
             >
                 <div className="flex items-center gap-5">
-
                     <div>
                         <h1 className="text-[28px] font-bold text-[#101828] tracking-tight leading-none mb-1">
                             Welcome, <span className="text-slate-800">{user?.name}</span>
@@ -173,16 +174,8 @@ export default function DashboardPage() {
                 )}
             </motion.div>
 
-            {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-                {/* Main Cards Area */}
                 <div className="lg:col-span-12 space-y-6">
-                    {/* Cards grid wrapper if needed in future, currently empty since status card removed */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 invisible hidden">
-                    </div>
-
-                    {/* 4. Live Tracking Table */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -270,14 +263,11 @@ export default function DashboardPage() {
                                                                 <span className="text-slate-500">Working Hours:</span>
                                                                 <span className="font-bold text-[#101828]">{formatDuration(emp.totalHours)} HRS</span>
                                                             </div>
-                                                            <div className="flex justify-between items-center py-1">
-                                                                <span className="text-slate-500">Monthly Deficit:</span>
-                                                                <span className={`font-bold ${emp.monthlyDeficit > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                                                    {formatDuration(Math.abs(emp.monthlyDeficit))} HRS
-                                                                </span>
+                                                            <div className="flex justify-between items-center py-1 text-slate-500">
+                                                                <span>Gaps identified by biometric pairing: {emp.punchesCount > 2 ? 'Analysis enabled' : 'None'}</span>
                                                             </div>
-                                                            <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-11">
-                                                                <span className="text-[11px] font-black text-[#667085] uppercase tracking-widest mr-2">Punches:</span>
+                                                            <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-4 mt-2">
+                                                                <span className="text-[11px] font-black text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>
                                                                 {emp.punches?.map((punchIso: string, idx: number) => (
                                                                     <span key={idx} className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                                                                         {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso).split(' ')[0]}
@@ -314,78 +304,106 @@ export default function DashboardPage() {
                             >
                                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#101828] text-white">
                                     <div>
-                                        <h2 className="text-2xl font-black tracking-tight uppercase">Employee Reports</h2>
-                                        <p className="text-white/60 text-sm font-medium">Generate reports for employees</p>
+                                        <h2 className="text-2xl font-black tracking-tight uppercase">Registry Protocol Analysis</h2>
+                                        <p className="text-white/60 text-[11px] font-black uppercase tracking-widest mt-1">Multi-node compliance & attendance insight</p>
                                     </div>
                                     <button
                                         onClick={() => setShowCompliance(false)}
-                                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all"
+                                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all font-bold"
                                     >
-                                        ✕
+                                        x
                                     </button>
                                 </div>
 
-                                <div className="flex-grow overflow-auto p-0 no-scrollbar">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
-                                            <tr>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Employee/ID</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Date/Shift</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Punches</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Work/Break</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-center">Status</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Deduction</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-100">
-                                            {complianceData.map((row, idx) => (
-                                                <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <p className="font-bold text-[#101828] text-sm">{row.Name}</p>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">ID: {row.EmployeeID}</p>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <p className="text-xs font-bold text-slate-600">{row.Date}</p>
-                                                        <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-800 rounded text-[9px] font-black uppercase">Shift {row.ShiftType}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex flex-col gap-1 items-center">
-                                                            <span className="text-[11px] font-bold text-emerald-600">IN: {row.FirstPunch}</span>
-                                                            <span className="text-[11px] font-bold text-rose-600">OUT: {row.LastPunch}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <p className="text-sm font-black text-[#101828]">{row.TotalWorkedHours} h</p>
-                                                        <p className="text-[10px] font-bold text-slate-400">Break: {row.BreakTime}h</p>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${row.Status === 'FULL DAY' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                            {row.Status}
-                                                        </span>
-                                                        {row.LeaveDeducted > 0 && (
-                                                            <p className="text-[9px] font-bold text-rose-500 mt-1">-{row.LeaveDeducted} Leave</p>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <span className={`text-xs font-black p-1.5 rounded-lg ${row.SalaryDeduction === 'YES' ? 'bg-rose-500 text-white animate-pulse' : 'bg-slate-100 text-slate-400'}`}>
-                                                            {row.SalaryDeduction === 'YES' ? 'SALARY DEDUCTION' : 'NONE'}
-                                                        </span>
-                                                    </td>
+                                <div className="flex-grow overflow-hidden flex flex-row">
+                                    <div className="w-[300px] border-r border-slate-100 bg-slate-50/50 flex flex-col p-6 overflow-y-auto no-scrollbar">
+                                        <p className="text-[10px] font-black text-[#667085] uppercase tracking-[0.2em] mb-4">Node Selection</p>
+                                        <div className="space-y-1">
+                                            <button 
+                                                onClick={() => setSelectedEmployeeId(null)}
+                                                className={`w-full px-4 py-3 rounded-xl flex items-center justify-between transition-all border ${!selectedEmployeeId ? 'bg-[#101828] text-white border-transparent' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                                            >
+                                                <span className="text-[13px] font-bold">All Employees</span>
+                                                <ChevronRight size={14} className={!selectedEmployeeId ? 'opacity-40' : 'opacity-0'} />
+                                            </button>
+
+                                            {Array.from(new Set(complianceData.map(r => r.EmployeeID))).map(empId => {
+                                                const empName = complianceData.find(r => r.EmployeeID === empId)?.Name;
+                                                const isActive = selectedEmployeeId === empId;
+                                                return (
+                                                    <button 
+                                                        key={empId}
+                                                        onClick={() => setSelectedEmployeeId(empId)}
+                                                        className={`w-full group px-4 py-3 rounded-xl flex items-center justify-between transition-all border ${isActive ? 'bg-[#101828] text-white border-transparent shadow-lg shadow-[#101828]/20' : 'bg-white text-slate-500 border-transparent hover:border-slate-200'}`}
+                                                    >
+                                                        <span className="text-[13px] font-bold truncate pr-2">{empName}</span>
+                                                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded bg-slate-100/50 group-hover:bg-[#101828] group-hover:text-white transition-all ${isActive ? '!bg-white/20 !text-white' : 'text-slate-400'}`}>Get Report</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-grow overflow-auto bg-white no-scrollbar">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="sticky top-0 bg-white border-b border-slate-100 z-10 shadow-sm">
+                                                <tr>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee/ID</th>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Chronology</th>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Punches</th>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Calculated Work</th>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Flag</th>
+                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debit</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50">
+                                                {complianceData
+                                                    .filter(row => !selectedEmployeeId || row.EmployeeID === selectedEmployeeId)
+                                                    .map((row, idx) => (
+                                                        <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
+                                                            <td className="px-6 py-4">
+                                                                <p className="font-bold text-[#101828] text-sm">{row.Name}</p>
+                                                                <p className="text-[10px] font-black text-slate-400 uppercase">ID: {row.EmployeeID}</p>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <p className="text-[11px] font-bold text-slate-600">{row.Date}</p>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <div className="flex flex-col gap-0.5 text-[10px] font-black items-center">
+                                                                    <span className="text-emerald-500">IN: {row.FirstPunch}</span>
+                                                                    <span className="text-rose-500">OUT: {row.LastPunch}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <p className="text-sm font-black text-[#101828]">{row.TotalWorkedHours} h</p>
+                                                                <p className="text-[9px] font-black text-slate-400">Break: {row.BreakTime}h</p>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase ${row.Status === 'FULL DAY' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                                    {row.Status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 text-right">
+                                                                <span className={`text-[9px] font-black p-1 rounded ${row.SalaryDeduction === 'YES' ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                                                                    {row.SalaryDeduction === 'YES' ? 'DEDUCTION' : 'OK'}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
 
                                 <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Total compliance entries: {complianceData.length}</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total compliance data nodes: {complianceData.length}</p>
                                     <button 
                                         onClick={handleExportExcel}
                                         disabled={exportLoading}
-                                        className="px-6 py-3 bg-[#101828] text-white rounded-xl text-xs font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                                        className="px-8 py-3 bg-[#101828] text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:shadow-xl transition-all disabled:opacity-50 flex items-center gap-3"
                                     >
                                         {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
-                                        Export Perfect Excel
+                                        Initialize Export
                                     </button>
                                 </div>
                             </motion.div>
@@ -396,48 +414,9 @@ export default function DashboardPage() {
             )}
 
             <style jsx>{`
-                .glass-card {
-                    background: rgba(255, 255, 255, 0.75);
-                    backdrop-filter: blur(12px);
-                    -webkit-backdrop-filter: blur(12px);
-                    border: 1px solid rgba(255, 255, 255, 0.5);
-                    border-radius: 20px;
-                    box-shadow: 0 8px 32px 0 rgba(16, 24, 40, 0.05);
-                }
-                .glass-card:hover {
-                    background: rgba(255, 255, 255, 0.85);
-                    border-color: rgba(16, 24, 40, 0.1);
-                    box-shadow: 0 12px 48px 0 rgba(16, 24, 40, 0.08);
-                    transform: translateY(-2px);
-                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                }
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
         </div>
     );
 }
-
-// Minimal Fingerprint icon as it wasn't correctly imported
-const Fingerprint = ({ size, className }: { size: number, className?: string }) => (
-    <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-    >
-        <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.02-.26 3" />
-        <path d="M7 10.74c0-2.62 2.24-4.74 5-4.74s5 2.12 5 4.74c0 1.24-.13 2.45-.4 3.63" />
-        <path d="M11 15.6a14.79 14.79 0 0 1-5.63-4.86" />
-        <path d="M14 15.39c1.1.23 2.19.57 3.23 1.01" />
-        <path d="M21 15a13.91 13.91 0 0 1-4 4.5l-2.5 1.5" />
-        <path d="M3 15a13.91 13.91 0 0 0 4 4.5l2.5 1.5" />
-        <path d="M12 4a8 8 0 0 0-8 8c0 .2.01.4.03.6" />
-        <path d="M20 12c0-.2-.01-.4-.03-.6" />
-        <path d="M12 4a8 8 0 0 1 8 8" />
-    </svg>
-);

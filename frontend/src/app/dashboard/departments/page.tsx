@@ -9,6 +9,7 @@ import {
     ArrowRight, Loader2, Globe, MoreHorizontal, ShieldCheck, X, Trash2,
     Video, Palette, Terminal, Code2
 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 export default function DepartmentsPage() {
     const { user: currentUser, logout } = useAuth();
@@ -18,7 +19,10 @@ export default function DepartmentsPage() {
     const [isCreating, setIsCreating] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
+    const [mounted, setMounted] = useState(false);
+
     useEffect(() => {
+        setMounted(true);
         const handleClickOutside = () => setOpenMenuId(null);
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
@@ -191,9 +195,9 @@ export default function DepartmentsPage() {
             </div>
 
             {/* Department Creation Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
+            {mounted && isModalOpen && createPortal(
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
+                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
                             <div className="space-y-1">
                                 <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Create Department</h2>
@@ -231,7 +235,8 @@ export default function DepartmentsPage() {
                             </div>
                         </form>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

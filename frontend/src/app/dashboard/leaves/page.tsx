@@ -303,7 +303,7 @@ export default function LeavesPage() {
                                             <td colSpan={5} className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center gap-3">
                                                     <Search size={32} className="text-[#D0D5DD] opacity-20" />
-                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching &quot;{searchQuery}&quot;</p>
+                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching</p>
                                                 </div>
                                             </td>
                                         </tr>

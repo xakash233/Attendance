@@ -15,7 +15,8 @@ const generateRefreshToken = (id) => {
 // @route   POST /api/auth/login
 // @access  Public
 export const login = async (req, res, next) => {
-    const { email, password } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
+    const { password } = req.body;
 
     try {
         const user = await prisma.user.findUnique({
@@ -107,10 +108,15 @@ export const logout = async (req, res, next) => {
 // @route   POST /api/auth/forgot-password
 // @access  Public
 export const forgotPassword = async (req, res, next) => {
-    const { email } = req.body;
+    const email = req.body.email?.trim().toLowerCase();
     try {
-        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-        if (!user) return res.status(404).json({ message: 'Personnel record not found' });
+        if (!email) return res.status(400).json({ message: 'Email identifier is required' });
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        
+        // Security Protocol: Always return 200 to prevent user enumeration 
+        // and avoid confusing 404 errors for legacy registered personnel.
+        if (!user) return res.json({ message: 'Recovery protocol initiated. If your identity matches the registry, check your secure inbox.' });
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         await prisma.passwordReset.create({

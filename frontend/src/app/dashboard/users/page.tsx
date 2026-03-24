@@ -6,11 +6,12 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     UserPlus, Search, Filter, Mail, Shield,
-    Briefcase, Command, X, ArrowRight, Loader2, MoreVertical, User as UserIcon,
+    Briefcase, Command, X, ArrowRight, Loader2, User as UserIcon,
     ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { createPortal } from 'react-dom';
 
 export default function UsersPage() {
     const [users, setUsers] = useState([]);
@@ -19,19 +20,15 @@ export default function UsersPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingUserId, setEditingUserId] = useState<string | null>(null);
-    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<any>(null);
     const [filterRole, setFilterRole] = useState('ALL');
     const [filterDepartment, setFilterDepartment] = useState('ALL');
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        const handleClickOutside = () => setOpenMenuId(null);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        setMounted(true);
     }, []);
-
     const [step, setStep] = useState(1); // 1: Form, 2: OTP Verification
     const [pendingId, setPendingId] = useState('');
     const [otpInput, setOtpInput] = useState('');
@@ -325,7 +322,7 @@ export default function UsersPage() {
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee Code</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Role</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Department</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center w-10"></th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center w-28">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E6E8EC]">
@@ -393,55 +390,27 @@ export default function UsersPage() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 {canManage(u) && u.id !== currentUser?.id && (
-                                                    <div className="relative flex gap-2 items-center">
-                                                        {currentUser?.role === 'SUPER_ADMIN' && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleDeleteClick(u);
-                                                                }}
-                                                                className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#D92D20] rounded-lg hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
-                                                                title="Quick Delete"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
-                                                        )}
+                                                    <div className="flex items-center justify-center gap-2">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setOpenMenuId(openMenuId === u.id ? null : u.id);
+                                                                handleEditClick(u);
                                                             }}
-                                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-lg hover:bg-slate-50 transition-all ml-auto"
+                                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-lg hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200"
+                                                            title="Edit User"
                                                         >
-                                                            <MoreVertical size={16} />
+                                                            <Edit2 size={16} />
                                                         </button>
-
-                                                        {openMenuId === u.id && (
-                                                            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]">
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setOpenMenuId(null);
-                                                                        handleEditClick(u);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#101828] hover:bg-slate-50 text-left transition-colors"
-                                                                >
-                                                                    <Edit2 size={14} />
-                                                                    Edit User
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setOpenMenuId(null);
-                                                                        handleDeleteClick(u);
-                                                                    }}
-                                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 text-left transition-colors border-t border-[#E6E8EC]"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                    Delete User
-                                                                </button>
-                                                            </div>
-                                                        )}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteClick(u);
+                                                            }}
+                                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#D92D20] rounded-lg hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
+                                                            title="Delete User"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
@@ -455,9 +424,10 @@ export default function UsersPage() {
             </div>
 
             {/* Account Creation / Edit Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+            {mounted && isModalOpen && createPortal(
+                <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
+                    <div className="bg-white max-w-xl w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+
                         {/* Header */}
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
@@ -626,12 +596,13 @@ export default function UsersPage() {
                             </form>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
             {/* Delete Confirmation Modal */}
-            {isDeleteModalOpen && userToDelete && (
-                <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white max-w-md w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 p-8 border border-[#E6E8EC]">
+            {mounted && isDeleteModalOpen && userToDelete && createPortal(
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-fade-in" style={{ marginLeft: 0 }}>
+                    <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 p-8 border border-[#E6E8EC]">
                         <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Trash2 size={32} />
                         </div>
@@ -660,7 +631,8 @@ export default function UsersPage() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );

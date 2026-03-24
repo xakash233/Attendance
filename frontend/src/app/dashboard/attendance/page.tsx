@@ -20,7 +20,14 @@ export default function AttendancePage() {
             if (user?.role === 'EMPLOYEE') {
                 data = data.filter((u: any) => u.id === user.id);
             }
-            setLiveData(data);
+            const sortedData = data.sort((a: any, b: any) => {
+                const statusOrder: { [key: string]: number } = { 'IN': 0, 'OUT': 1, 'ABSENT': 2 };
+                const orderA = statusOrder[a.currentStatus] ?? 3;
+                const orderB = statusOrder[b.currentStatus] ?? 3;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.name.localeCompare(b.name);
+            });
+            setLiveData(sortedData);
             setLoading(false);
         } catch (error) {
             console.error(error);
