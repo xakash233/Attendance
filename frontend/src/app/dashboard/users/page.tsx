@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     UserPlus, Search, Filter, Mail, Shield,
     Briefcase, Command, X, ArrowRight, Loader2, User as UserIcon,
-    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2
+    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2, MoreVertical
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -24,7 +24,9 @@ export default function UsersPage() {
     const [userToDelete, setUserToDelete] = useState<any>(null);
     const [filterRole, setFilterRole] = useState('ALL');
     const [filterDepartment, setFilterDepartment] = useState('ALL');
-    const [showFilters, setShowFilters] = useState(false);    const [mounted, setMounted] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -231,27 +233,16 @@ export default function UsersPage() {
                 {/* Filters */}
                 <div className="card border-[#E6E8EC] bg-white overflow-hidden">
                     <div className="p-5 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-50">
-                        <div className="relative w-full max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search users by name, email, or code..."
-                                className="input-field pl-9 py-2 text-[13px]"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 w-full md:w-auto">
-                            {(filterRole !== 'ALL' || filterDepartment !== 'ALL' || searchTerm) && (
+                        <div className="flex items-center gap-3 w-full md:w-auto ml-auto">
+                            {(filterRole !== 'ALL' || filterDepartment !== 'ALL') && (
                                 <button
                                     onClick={() => {
-                                        setSearchTerm('');
                                         setFilterRole('ALL');
                                         setFilterDepartment('ALL');
                                     }}
                                     className="text-[12px] font-bold text-[#D92D20] hover:text-red-700 px-3 py-2 flex items-center gap-1.5 transition-colors uppercase tracking-widest"
                                 >
-                                    <X size={14} /> Clear
+                                    <X size={14} /> Clear All
                                 </button>
                             )}
                             <button
@@ -389,28 +380,48 @@ export default function UsersPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                {canManage(u) && u.id !== currentUser?.id && (
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button
+                                                {canManage(u) && (
+                                                    <div className="flex items-center justify-center relative">
+                                                        <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                handleEditClick(u);
+                                                                setOpenMenuId(openMenuId === u.id ? null : u.id);
                                                             }}
-                                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-lg hover:bg-slate-50 transition-all border border-transparent hover:border-slate-200"
-                                                            title="Edit User"
+                                                            className="w-10 h-10 flex items-center justify-center text-[#667085] hover:bg-slate-50 rounded-lg transition-all"
                                                         >
-                                                            <Edit2 size={16} />
+                                                            <MoreVertical size={18} />
                                                         </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteClick(u);
-                                                            }}
-                                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#D92D20] rounded-lg hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
-                                                            title="Delete User"
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
+
+                                                        {openMenuId === u.id && (
+                                                            <>
+                                                                <div 
+                                                                    className="fixed inset-0 z-[10]" 
+                                                                    onClick={() => setOpenMenuId(null)}
+                                                                />
+                                                                <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-xl border border-[#E6E8EC] z-[20] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleEditClick(u);
+                                                                            setOpenMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#344054] hover:bg-slate-50 transition-all border-b border-[#F8F9FB]"
+                                                                    >
+                                                                        <Edit2 size={14} /> Edit
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteClick(u);
+                                                                            setOpenMenuId(null);
+                                                                        }}
+                                                                        className="w-full flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 transition-all"
+                                                                    >
+                                                                        <Trash2 size={14} /> Delete
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                             </td>
@@ -477,6 +488,7 @@ export default function UsersPage() {
                                                     <option value="EMPLOYEE">Employee</option>
                                                     {currentUser?.role !== 'HR' && <option value="HR">HR</option>}
                                                     {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && <option value="ADMIN">Admin</option>}
+                                                    {currentUser?.role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">Super Admin</option>}
                                                 </select>
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
                                                     <ChevronDown size={16} />

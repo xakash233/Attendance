@@ -6,8 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 import {
     Clock, LogIn, LogOut, Coffee, Calendar, CheckCircle,
     ArrowRight, MapPin, MousePointer2, Briefcase, Activity, Flame, Loader2,
-    ChevronRight, AlertCircle, TrendingUp, History, ArrowDownLeft, ArrowUpRight
+    ChevronRight, AlertCircle, TrendingUp, History, ArrowDownLeft, ArrowUpRight, User, Download, Plus, Filter, RefreshCw, Users, UserMinus, UserCheck
 } from 'lucide-react';
+import WFHModal from '@/components/dashboard/WFHModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
@@ -27,11 +28,22 @@ export default function DashboardPage() {
     const [complianceLoading, setComplianceLoading] = useState(false);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [exportLoading, setExportLoading] = useState(false);
+    const [isWfhModalOpen, setIsWfhModalOpen] = useState(false);
+    const [existingWfhDates, setExistingWfhDates] = useState<Date[]>([]);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
     }, []);
+
+    const stats = useMemo(() => {
+        if (!liveData) return { total: 0, present: 0, absent: 0, wfh: 0 };
+        const total = liveData.length;
+        const present = liveData.filter(e => e.currentStatus !== 'ABSENT').length;
+        const absent = liveData.filter(e => e.currentStatus === 'ABSENT').length;
+        const wfh = liveData.filter(e => e.isWfh).length;
+        return { total, present, absent, wfh };
+    }, [liveData]);
 
     // Update time every second
     useEffect(() => {
@@ -110,11 +122,21 @@ export default function DashboardPage() {
         }
     }, [user]);
 
+    const fetchWfhDates = useCallback(async () => {
+        try {
+            const res = await api.get('/wfh/my-wfh');
+            setExistingWfhDates(res.data.map((r: any) => new Date(r.wfhDate)));
+        } catch (error) {
+            console.error(error);
+        }
+    }, []);
+
     useEffect(() => {
         fetchLiveAttendance();
+        fetchWfhDates();
         const interval = setInterval(fetchLiveAttendance, 2000);
         return () => clearInterval(interval);
-    }, [fetchLiveAttendance]);
+    }, [fetchLiveAttendance, fetchWfhDates]);
 
     const formatTime = (date: any) => {
         if (!date) return '--:--';
@@ -156,22 +178,33 @@ export default function DashboardPage() {
                         <h1 className="text-[28px] font-bold text-[#101828] tracking-tight leading-none mb-1">
                             Welcome, <span className="text-slate-800">{user?.name}</span>
                         </h1>
-                        <p className="text-[14px] font-medium text-[#667085]">
-                            Date: <span className="text-[#101828]">{formatDate(currentTime)}</span>
+                        <p className="text-[13px] font-medium text-[#667085]">
+                            Date: <span className="text-[#101828] font-bold">{formatDate(currentTime)}</span>
                         </p>
                     </div>
                 </div>
 
-                {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                    <button
-                        onClick={fetchCompliance}
-                        disabled={complianceLoading}
-                        className="flex items-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-800 transition-all disabled:opacity-50 hover:shadow-xl shadow-[#101828]/10 active:scale-95 whitespace-nowrap"
-                    >
-                        {complianceLoading ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
-                        Employee Reports
-                    </button>
-                )}
+                <div className="flex flex-col md:flex-row gap-3">
+                    {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
+                        <button
+                            onClick={fetchCompliance}
+                            disabled={complianceLoading}
+                            className="flex items-center justify-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-800 transition-all disabled:opacity-50 hover:shadow-xl shadow-[#101828]/10 active:scale-95 whitespace-nowrap"
+                        >
+                            {complianceLoading ? <Loader2 size={16} className="animate-spin" /> : <Activity size={16} />}
+                            Employee Reports
+                        </button>
+                    )}
+                    {user?.role !== 'SUPER_ADMIN' && (
+                        <button
+                            onClick={() => setIsWfhModalOpen(true)}
+                            className="flex items-center justify-center gap-3 px-8 py-3 bg-white text-[#101828] border-2 border-[#101828]/10 rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                        >
+                            <Calendar size={16} />
+                            WFH Request
+                        </button>
+                    )}
+                </div>
             </motion.div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -182,10 +215,9 @@ export default function DashboardPage() {
                         transition={{ delay: 0.3 }}
                         className="bg-white border border-[#E6E8EC] rounded-[24px] shadow-sm overflow-hidden"
                     >
-                        <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-slate-50/50 flex-wrap gap-4">
-                            <h3 className="font-black text-[13px] text-[#101828] uppercase tracking-[0.2em] flex items-center gap-2">
-                                <Activity size={16} className="text-emerald-500 animate-pulse" />
-                                Live Tracking Overview
+                        <div className="px-8 py-6 border-b border-[#E6E8EC] bg-slate-50/50">
+                            <h3 className="font-bold text-[14px] text-[#101828] flex items-center gap-2 uppercase tracking-widest">
+                                Live Tracking
                             </h3>
                         </div>
                         <div className="overflow-x-auto no-scrollbar">
@@ -417,6 +449,16 @@ export default function DashboardPage() {
                 .no-scrollbar::-webkit-scrollbar { display: none; }
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
+            {/* WFH Modal */}
+            <WFHModal 
+                isOpen={isWfhModalOpen} 
+                onClose={() => setIsWfhModalOpen(false)} 
+                onSuccess={() => {
+                    fetchLiveAttendance();
+                    fetchWfhDates();
+                }} 
+                existingWfhDates={existingWfhDates}
+            />
         </div>
     );
 }

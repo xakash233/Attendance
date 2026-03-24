@@ -5,9 +5,10 @@ import {
     Settings as SettingsIcon, Shield, Bell, Database, Lock, Clock, Package, Zap,
     History as HistoryIcon, Activity as ActivityIcon, Globe, Wifi, Mail,
     ChevronRight, ArrowRight, ShieldCheck, Cpu, BellRing, Key, Fingerprint, Eye, EyeOff,
-    X, Loader2, Search
+    X, Loader2, Search, User as UserIcon
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +17,7 @@ import { createPortal } from 'react-dom';
 
 export default function SettingsPage() {
     const { user } = useAuth();
+    const router = useRouter();
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
 
@@ -35,30 +37,63 @@ export default function SettingsPage() {
                 </p>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Security Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Profile Card */}
                 <div className="card overflow-hidden h-full">
                     <div className="p-6 border-b border-[#E6E8EC]">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
-                                <Shield size={20} />
+                                <UserIcon size={20} />
                             </div>
                             <div>
-                                <h3 className="text-[16px] font-semibold text-[#101828]">Security</h3>
-                                <p className="text-[13px] text-[#667085]">Manage your account security and authentication.</p>
+                                <h3 className="text-[16px] font-semibold text-[#101828]">Profile</h3>
+                                <p className="text-[13px] text-[#667085]">Personal identity and preferences.</p>
                             </div>
                         </div>
                     </div>
                     <div className="p-2">
                         <SettingItem 
+                            title="Personal Information" 
+                            desc="View your public profile" 
+                            value="View" 
+                            icon={Package} 
+                            onClick={() => router.push(`/dashboard/users/${user?.id}`)}
+                        />
+                        <SettingItem 
                             title="Password" 
-                            desc="Update your password" 
+                            desc="Update your cipher key" 
                             value="Change" 
                             icon={Key} 
                             onClick={() => setIsPasswordModalOpen(true)}
                         />
                     </div>
                 </div>
+
+                {/* Biometric Card (Admin Only) */}
+                {(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
+                    <div className="card overflow-hidden h-full">
+                        <div className="p-6 border-b border-[#E6E8EC]">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
+                                    <Fingerprint size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-[16px] font-semibold text-[#101828]">Biometric</h3>
+                                    <p className="text-[13px] text-[#667085]">Manage device synchronization.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-2">
+                            <SettingItem 
+                                title="Device Sync" 
+                                desc="Connect and sync devices" 
+                                value="Configure" 
+                                icon={Globe} 
+                                onClick={() => router.push('/dashboard/biometric')}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modals */}

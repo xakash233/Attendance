@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     FolderPlus, Users, Briefcase,
-    ArrowRight, Loader2, Globe, MoreHorizontal, ShieldCheck, X, Trash2,
+    ArrowRight, Loader2, Globe, MoreHorizontal, ShieldCheck, X, Trash2, Edit2,
     Video, Palette, Terminal, Code2
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -16,8 +16,10 @@ export default function DepartmentsPage() {
     const [departments, setDepartments] = useState([]);
     const [newDept, setNewDept] = useState('');
     const [loading, setLoading] = useState(true);
-    const [isCreating, setIsCreating] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [editingDept, setEditingDept] = useState<any>(null);
+    const [editName, setEditName] = useState('');
+    const [isCreating, setIsCreating] = useState(false);
 
     const [mounted, setMounted] = useState(false);
 
@@ -57,6 +59,22 @@ export default function DepartmentsPage() {
             fetchDepts();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to create department');
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editName.trim() || !editingDept) return;
+        setIsCreating(true);
+        try {
+            await api.put(`/departments/${editingDept.id}`, { name: editName });
+            toast.success('Department updated');
+            setEditingDept(null);
+            fetchDepts();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to update department');
         } finally {
             setIsCreating(false);
         }
@@ -129,7 +147,7 @@ export default function DepartmentsPage() {
                                 <div className="w-12 h-12 bg-[#F8F9FB] border border-[#E6E8EC] text-[#344054] rounded-xl flex items-center justify-center transition-all group-hover:bg-[#101828] group-hover:text-white">
                                     {getDeptIcon(dept.name)}
                                 </div>
-                                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
+                                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'HR') && (
                                     <div className="relative">
                                         <button
                                             onClick={(e) => {
@@ -143,6 +161,18 @@ export default function DepartmentsPage() {
 
                                         {openMenuId === dept.id && (
                                             <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setOpenMenuId(null);
+                                                        setEditingDept(dept);
+                                                        setEditName(dept.name);
+                                                    }}
+                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#344054] hover:bg-slate-50 text-left transition-colors border-b border-[#E6E8EC]"
+                                                >
+                                                    <Edit2 size={14} />
+                                                    Edit Dept
+                                                </button>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
@@ -231,6 +261,51 @@ export default function DepartmentsPage() {
                                     className="btn-primary"
                                 >
                                     {isCreating ? <Loader2 className="animate-spin text-white" size={18} /> : 'Create Department'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Department Edit Modal */}
+            {mounted && editingDept && createPortal(
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
+                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
+                        <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
+                            <div className="space-y-1">
+                                <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Edit Department</h2>
+                                <p className="text-[13px] font-medium text-[#667085]">Modify the organizational unit.</p>
+                            </div>
+                            <button onClick={() => setEditingDept(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085] transition-all">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdate} className="p-6 space-y-6" autoComplete="off">
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-medium text-[#344054]">Department Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Ex: Engineering"
+                                    className="input-field"
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    required
+                                />
+                            </div>
+
+                            <div className="pt-2 border-t border-[#E6E8EC] flex justify-end gap-3 mt-6">
+                                <button type="button" onClick={() => setEditingDept(null)} className="btn-secondary">
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isCreating}
+                                    className="btn-primary"
+                                >
+                                    {isCreating ? <Loader2 className="animate-spin text-white" size={18} /> : 'Save Changes'}
                                 </button>
                             </div>
                         </form>

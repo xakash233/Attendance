@@ -295,17 +295,39 @@ class BiometricService {
      * Implements strict MNC shift rules: Shift A (9-6), Shift B (10-7)
      */
     async updateDailyAttendance(tx, userId, timestamp) {
-        // Normalize date to start of day (UTC) for the attendance record
-        const date = new Date(timestamp);
-        date.setUTCHours(0, 0, 0, 0);
+        // Normalize date based on Asia/Kolkata to handle production drift correctly
+        const dateStr = new Date(timestamp).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const date = new Date(`${dateStr}T00:00:00.000Z`); // Using 00:00 UTC as our standard "date" mark in DB
+        
+        const istStart = new Date(`${dateStr}T00:00:00.000+05:30`);
+        const istEnd = new Date(`${dateStr}T23:59:59.999+05:30`);
 
         // Fetch User and their shift preference
         const user = await tx.user.findUnique({
             where: { id: userId },
-            select: { id: true, shift: true, employeeCode: true }
+            select: { id: true, shift: true, employeeCode: true, wfhRequests: { where: { wfhDate: date } } }
         });
 
         if (!user) return;
+
+        // SKIP Biometric validation if WFH is applied for this day
+        if (user.wfhRequests.length > 0) {
+            await tx.attendance.upsert({
+                where: { userId_date: { userId, date } },
+                update: { status: 'PRESENT_WFH', workingHours: 8.0, deficit: 0, leaveDeducted: 0 },
+                create: { 
+                    userId, 
+                    date, 
+                    status: 'PRESENT_WFH', 
+                    workingHours: 8.0, 
+                    deficit: 0, 
+                    leaveDeducted: 0,
+                    shiftType: user.shift || 'B'
+                }
+            });
+            console.log(`[BiometricSync] Skipping validation for ${user.employeeCode} - Auto-Approved WFH`);
+            return;
+        }
 
         // Shift Configuration
         const SHIFTS = {
@@ -323,14 +345,13 @@ class BiometricService {
         // const shiftEnd = new Date(date.getTime() + (endH * 60 + endM - 330) * 60000);
         // const autoLogoutGrace = new Date(shiftEnd.getTime() + 30 * 60000); // 30 mins after shift end
 
-        // 1. Fetch ALL raw punches for today
-        const nextDay = new Date(date.getTime() + 24 * 60 * 60 * 1000);
+        // 1. Fetch ALL raw punches for this user on this IST day
         const punches = await tx.biometricAttendance.findMany({
             where: {
                 userId,
                 timestamp: {
-                    gte: date,
-                    lt: nextDay
+                    gte: istStart,
+                    lte: istEnd
                 }
             },
             orderBy: { timestamp: 'asc' }

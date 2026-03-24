@@ -433,15 +433,13 @@ export const getSummary = async (req, res, next) => {
 export const getLiveAttendance = async (req, res, next) => {
     try {
         // Synchronize boundaries to Asia/Kolkata (IST)
-        const kolkataNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-        const todayStart = new Date(kolkataNow);
-        todayStart.setHours(0, 0, 0, 0);
-        
-        const endOfDay = new Date(kolkataNow);
-        endOfDay.setHours(23, 59, 59, 999);
+        const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const todayStart = new Date(`${dateStr}T00:00:00.000Z`); // Using 00:00 UTC as our standard "date" mark
+        const istTodayStart = new Date(`${dateStr}T00:00:00.000+05:30`);
+        const istEndOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
 
         // Debug log for production drift analysis
-        console.log(`[Attendance] IST todayStart: ${todayStart.toISOString()} - endOfDay: ${endOfDay.toISOString()}`);
+        console.log(`[Attendance] IST todayStart: ${todayStart.toISOString()} - endOfDay: ${istEndOfDay.toISOString()}`);
 
         const now = new Date();
         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
@@ -457,13 +455,17 @@ export const getLiveAttendance = async (req, res, next) => {
                 department: { select: { name: true } },
                 profileImage: true,
                 biometricAttendances: {
-                    where: { timestamp: { gte: todayStart, lte: endOfDay } },
+                    where: { timestamp: { gte: istTodayStart, lte: istEndOfDay } },
                     orderBy: { timestamp: 'asc' },
                     select: { timestamp: true }
                 },
                 attendances: {
                     where: { date: todayStart, isManual: true },
                     select: { checkIn: true, checkOut: true, status: true }
+                },
+                wfhRequests: {
+                    where: { wfhDate: todayStart },
+                    select: { wfhDate: true }
                 }
             }
         });
@@ -488,18 +490,23 @@ export const getLiveAttendance = async (req, res, next) => {
                 if (att.checkOut) manualPunches.push(new Date(att.checkOut));
             }
 
+            // Also check centralized WFH table
+            if (user.wfhRequests.length > 0) {
+                isWfh = true;
+            }
+
             // Merge and sort
             const allPunches = [...biometricPunches, ...manualPunches].sort((a,b) => a.getTime() - b.getTime());
             
-            // Deduplicate punches that happen within 5 minutes (prevents duplication from multiple syncs/manual errors)
+            // Deduplicate extremely close punches (within 30s) to handle hardware double-triggers
             const rawPunches = [];
             for (let punch of allPunches) {
                 if (rawPunches.length === 0) {
                     rawPunches.push(punch);
                 } else {
                     const last = rawPunches[rawPunches.length - 1];
-                    // Standard biometric deduplication (increase to 2 mins for production stability)
-                    if (punch.getTime() - last.getTime() > 120000) { 
+                    // 30 seconds is enough to catch biometric double-presents without skipping valid separate sessions
+                    if (punch.getTime() - last.getTime() > 30000) { 
                         rawPunches.push(punch);
                     }
                 }
@@ -556,19 +563,17 @@ export const getDashboardReport = async (req, res, next) => {
     try {
         const userId = req.user.id;
         // Synchronize boundaries to Asia/Kolkata (IST)
-        const kolkataNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-        const todayStart = new Date(kolkataNow);
-        todayStart.setHours(0, 0, 0, 0);
-        
-        const endOfDay = new Date(kolkataNow);
-        endOfDay.setHours(23, 59, 59, 999);
+        const dateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const todayStart = new Date(`${dateStr}T00:00:00.000Z`); // Standard mark
+        const istTodayStart = new Date(`${dateStr}T00:00:00.000+05:30`);
+        const istEndOfDay = new Date(`${dateStr}T23:59:59.999+05:30`);
         
         // Settings
         const settings = await prisma.systemSettings.findFirst() || { workStartTime: '10:00', workEndTime: '19:00' };
 
         // 1. All punches today (Biometric + Manual)
         const biometricPunches = await prisma.biometricAttendance.findMany({
-            where: { userId, timestamp: { gte: todayStart, lte: endOfDay } },
+            where: { userId, timestamp: { gte: istTodayStart, lte: istEndOfDay } },
             orderBy: { timestamp: 'asc' }
         });
         const manualAtt = await prisma.attendance.findUnique({
@@ -588,10 +593,10 @@ export const getDashboardReport = async (req, res, next) => {
         }
         allPunches.sort((a, b) => a.time - b.time);
 
-        // Deduplicate punches within 120s
+        // Deduplicate punches within 30s
         const rawPunches = [];
         for (let p of allPunches) {
-            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 120000)) {
+            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 30000)) {
                 rawPunches.push(p);
             }
         }
@@ -645,7 +650,7 @@ export const getDashboardReport = async (req, res, next) => {
 
         // 3. Tasks
         const tasks = await prisma.dailyTask.findMany({
-            where: { assignedToId: userId, deadline: { gte: todayStart, lte: endOfDay } },
+            where: { assignedToId: userId, deadline: { gte: istTodayStart, lte: istEndOfDay } },
             orderBy: { createdAt: 'desc' }
         });
 

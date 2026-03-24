@@ -17,12 +17,10 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const links = [
         { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Timecard', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Profile', href: '/dashboard/profile', icon: User, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Leave Requests', href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
-        { label: 'Biometric', href: '/dashboard/biometric', icon: Fingerprint, roles: ['SUPER_ADMIN', 'ADMIN'] },
     ];
 
     const filteredLinks = links.filter(link => link.roles.includes(user?.role || ''));

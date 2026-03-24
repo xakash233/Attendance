@@ -64,3 +64,22 @@ export const deleteDepartment = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Update department name
+// @route   PUT /api/departments/:id
+// @access  Private (SUPER_ADMIN, ADMIN)
+export const updateDepartment = async (req, res, next) => {
+    const { name } = req.body;
+    try {
+        const department = await prisma.department.update({
+            where: { id: req.params.id },
+            data: { name }
+        });
+        res.json(department);
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({ message: 'A hub with this name already exists in the registry.' });
+        }
+        next(error);
+    }
+};

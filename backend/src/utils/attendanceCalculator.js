@@ -61,7 +61,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
         .map(log => {
             let mins = null;
             if (log instanceof Date) {
-                mins = log.getHours() * 60 + log.getMinutes();
+                mins = getMinutes(log);
             } else if (log && typeof log === 'object') {
                 const inner = log.time || log.timestamp || log.mins;
                 mins = getMinutes(inner);

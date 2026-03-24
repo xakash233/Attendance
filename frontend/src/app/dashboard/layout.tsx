@@ -3,13 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
-import HeaderSearch from '@/components/layout/HeaderSearch';
+
 import { Toaster } from 'react-hot-toast';
-import { Search, Bell, ChevronDown, Menu, X, Home, LogOut, User, Clock } from 'lucide-react';
+import { Bell, ChevronDown, Menu, X, Home, LogOut, User, Clock } from 'lucide-react';
 import Link from 'next/link';
 import socket from '@/lib/socket';
 import api from '@/lib/axios';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import Image from 'next/image';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +22,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [headerStats, setHeaderStats] = useState({ total: 0, present: 0, absent: 0 });
+
+    const fetchHeaderStats = useCallback(async () => {
+        try {
+            const res = await api.get('/attendance/live');
+            const data = res.data;
+            const total = data.length;
+            const present = data.filter((e: any) => e.currentStatus !== 'ABSENT').length;
+            const absent = data.filter((e: any) => e.currentStatus === 'ABSENT').length;
+            setHeaderStats({ total, present, absent });
+        } catch (err) {
+            console.error(err);
+        }
+    }, []);
 
     // Listen for custom title updates from child components
     useEffect(() => {
@@ -93,6 +107,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             socket.on('connect', onConnect);
             socket.on('notification', onNotification);
+
+            // Fetch live stats for admins
+            if (['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role)) {
+                fetchHeaderStats();
+                const interval = setInterval(fetchHeaderStats, 10000);
+                return () => clearInterval(interval);
+            }
 
             // If already connected, join immediately
             if (socket.connected) {
@@ -220,11 +241,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div className="flex items-center gap-4 lg:gap-8 flex-1 justify-end">
-                        <div className="hidden lg:block w-full max-w-md">
-                            <HeaderSearch />
-                        </div>
-
-                        {/* Audit Alerts */}
+                        {user && ['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role) && (
+                            <div className="hidden lg:flex items-center gap-10 mr-12 animate-fade-in border-r border-[#E6E8EC]/50 pr-8">
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Total Force</p>
+                                    <p className="text-[18px] font-bold text-[#101828] leading-none tabular-nums">{headerStats.total}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Present</p>
+                                    <p className="text-[18px] font-bold text-emerald-600 leading-none tabular-nums">{headerStats.present}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Absent</p>
+                                    <p className="text-[18px] font-bold text-red-600 leading-none tabular-nums">{headerStats.absent}</p>
+                                </div>
+                            </div>
+                        )}
                         <div className="relative" id="notifications-dropdown">
                             <button
                                 onClick={(e) => {

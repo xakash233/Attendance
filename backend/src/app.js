@@ -22,6 +22,7 @@ import systemRoutes from './routes/system.js';
 import auditRoutes from './routes/audit.js';
 import healthRoutes from './routes/health.js';
 import notificationRoutes from './routes/notification.js';
+import wfhRoutes from './routes/wfh.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,6 +72,7 @@ app.use('/api/biometric', biometricRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/wfh', wfhRoutes);
 app.use('/health', healthRoutes);
 
 // Root route

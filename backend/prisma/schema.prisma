@@ -50,6 +50,7 @@ model User {
   refreshTokens        RefreshToken[]
   TaskSubmission       TaskSubmission[]
   department           Department?           @relation("DeptEmployees", fields: [departmentId], references: [id])
+  wfhRequests          WfhRequest[]
   @@index([role])
   @@index([departmentId])
 }
@@ -276,4 +277,16 @@ model PasswordReset {
   expires   DateTime
   createdAt DateTime @default(now())
 }
+model WfhRequest {
+  id         String   @id @default(uuid())
+  userId     String
+  wfhDate    DateTime @db.Date
+  status     String   @default("AUTO_APPROVED")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, wfhDate])
+  @@index([userId])
+  @@index([wfhDate])
+}
