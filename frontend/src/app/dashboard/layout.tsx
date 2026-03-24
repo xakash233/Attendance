@@ -244,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         {user && ['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role) && (
                             <div className="hidden lg:flex items-center gap-10 mr-12 animate-fade-in border-r border-[#E6E8EC]/50 pr-8">
                                 <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Total Force</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Total </p>
                                     <p className="text-[18px] font-bold text-[#101828] leading-none tabular-nums">{headerStats.total}</p>
                                 </div>
                                 <div className="text-right">
