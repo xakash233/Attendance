@@ -21,7 +21,7 @@ class LeaveService {
         return count;
     }
 
-    async applyLeave({ userId, departmentId, leaveTypeId, durationType, startDate, endDate, reason }) {
+    async applyLeave({ userId, departmentId, userRole, leaveTypeId, durationType, startDate, endDate, reason }) {
         const start = new Date(startDate);
         const end = new Date(endDate);
         let totalDays = 0;
@@ -82,8 +82,10 @@ class LeaveService {
                 // Note: Needs more complex monthly aggregation check here for full robustness
             }
 
-            // 3. Create Request - Always route to HR pending first
-            const initialStatus = 'PENDING_HR';
+            // 3. Create Request - HR/Admin/SuperAdmin route to SuperAdmin pending, Employees to HR
+            const initialStatus = (userRole === 'HR' || userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') 
+                ? 'PENDING_SUPERADMIN' 
+                : 'PENDING_HR';
 
             const leaveRequest = await tx.leaveRequest.create({
                 data: {

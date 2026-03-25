@@ -641,12 +641,23 @@ export const getDashboardReport = async (req, res, next) => {
             }
         }
 
-        // 2. Weekly Overview (Last 5 days)
-        const fiveDaysAgo = new Date(); fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-        const weeklyHistory = await prisma.attendance.findMany({
-            where: { userId, date: { gte: fiveDaysAgo, lt: todayStart } },
-            orderBy: { date: 'asc' }
-        });
+        // 2. Weekly Overview (Continuous Last 5 days)
+        const weeklyHistory = [];
+        for (let i = 5; i >= 1; i--) {
+            const d = new Date(todayStart);
+            d.setDate(d.getDate() - i);
+            const dStr = d.toISOString().split('T')[0];
+            
+            const att = await prisma.attendance.findUnique({
+                where: { userId_date: { userId, date: d } }
+            });
+            
+            weeklyHistory.push({
+                date: d,
+                hours: att ? (att.workingHours || 0) : 0,
+                status: att ? att.status : 'ABSENT'
+            });
+        }
 
         // 3. Tasks
         const tasks = await prisma.dailyTask.findMany({
@@ -675,7 +686,7 @@ export const getDashboardReport = async (req, res, next) => {
                 expectedWorkHours: 8,
                 totalExpectedHours: 9
             },
-            weekly: weeklyHistory.map(h => ({ date: h.date, hours: h.workingHours || 0 })),
+            weekly: weeklyHistory,
             tasks: tasks.map(t => ({ id: t.id, title: t.title, time: t.createdAt })),
             settings
         });
@@ -691,62 +702,166 @@ export const getDashboardReport = async (req, res, next) => {
  */
 export const getComplianceReport = async (req, res, next) => {
     try {
-        const { month, userId } = req.query; // Expecting YYYY-MM
-        let queryDate = new Date();
-        if (month) {
+        const { month, userId, startDate, endDate } = req.query;
+        let start, end;
+
+        if (startDate && endDate) {
+            start = new Date(startDate); start.setHours(0,0,0,0);
+            end = new Date(endDate); end.setHours(23,59,59,999);
+        } else if (month) {
             const [y, m] = month.split('-');
-            queryDate = new Date(y, parseInt(m) - 1, 1);
+            start = new Date(parseInt(y), parseInt(m) - 1, 1);
+            end = new Date(parseInt(y), parseInt(m), 0);
+        } else {
+            // ROBUST DEFAULT: Last 30 Days from today (IST aware)
+            const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            end = new Date(`${dateStrNow}T23:59:59.999Z`);
+            start = new Date(`${dateStrNow}T00:00:00.000Z`);
+            start.setDate(end.getDate() - 29); // Total 30 days including today
         }
+        
+        const reportTitle = month ? start.toLocaleString('default', { month: 'long', year: 'numeric' }) : 
+                          (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : "Last 30 Days");
 
-        const startOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth(), 1);
-        const endOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth() + 1, 0);
-
-        let whereClause = {
-            date: { gte: startOfMonth, lte: endOfMonth }
-        };
-
+        // Fetch all relevant users
+        let userFilter = {};
         if (userId) {
-            whereClause.userId = userId;
+            userFilter.id = userId;
         } else if (req.user.role === 'HR') {
-            whereClause.user = { departmentId: req.user.departmentId };
+            userFilter.departmentId = req.user.departmentId;
         }
 
-        const reportData = await prisma.attendance.findMany({
-            where: whereClause,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        employeeCode: true,
-                        shift: true,
-                        department: { select: { name: true } }
-                    }
-                }
-            },
-            orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }]
+        const users = await prisma.user.findMany({
+            where: userFilter,
+            select: {
+                id: true,
+                name: true,
+                employeeCode: true,
+                shift: true,
+                department: { select: { name: true } }
+            }
         });
 
-        // Current Month Formatting
-        const formattedOutput = reportData.map(att => {
-            const statusLabel = att.status.replace(/_/g, ' ');
-            return {
-                EmployeeID: att.user.employeeCode,
-                Name: att.user.name,
-                Date: att.date.toISOString().split('T')[0],
-                ShiftType: att.shiftType || att.user.shift || 'B',
-                FirstPunch: att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
-                LastPunch: att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true }) : 'N/A',
-                TotalWorkedHours: att.workingHours, 
-                Status: statusLabel,
-                LeaveDeducted: att.leaveDeducted,
-                Remarks: att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : 'OK'
-            };
-        });
+        // Batch fetch all data for the month
+        const [allAttendance, allLeaves, allHolidays] = await Promise.all([
+            prisma.attendance.findMany({
+                where: { date: { gte: start, lte: end }, userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) }
+            }),
+            prisma.leaveRequest.findMany({
+                where: { 
+                    status: { in: ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'] },
+                    OR: [
+                        { startDate: { gte: start, lte: end } },
+                        { endDate: { gte: start, lte: end } },
+                        { AND: [{ startDate: { lte: start } }, { endDate: { gte: end } }] }
+                    ],
+                    userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                },
+                include: { leaveType: true }
+            }),
+            prisma.holiday.findMany({
+                where: { date: { gte: start, lte: end } }
+            })
+        ]);
+
+        const formattedOutput = [];
+
+        for (const user of users) {
+            let iter = new Date(start);
+            let weeklyHoursToDate = 0;
+            let previousDayHours = 0;
+            let weeklyActualSum = 0;
+            let weeklySeries = [];
+            let weeklyTarget = 0;
+
+            while (iter <= end) {
+                const dateStr = iter.toISOString().split('T')[0];
+                const dayOfWeek = iter.getDay(); // 0 is Sunday
+                const isWeekend = dayOfWeek === 0;
+                
+                // Reset weekly total on Monday (assuming Mon-Sat week)
+                if (dayOfWeek === 1) { 
+                    weeklyHoursToDate = 0;
+                    weeklyActualSum = 0;
+                    weeklySeries = [];
+                    weeklyTarget = 0;
+                }
+
+                const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
+                const att = allAttendance.find(a => a.userId === user.id && a.date.toISOString().split('T')[0] === dateStr);
+                const leave = allLeaves.find(l => {
+                    const ls = new Date(l.startDate); ls.setHours(0,0,0,0);
+                    const le = new Date(l.endDate); le.setHours(0,0,0,0);
+                    const d = new Date(iter); d.setHours(0,0,0,0);
+                    return l.userId === user.id && d >= ls && d <= le;
+                });
+
+                let status = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
+                let hours = att ? (att.workingHours || 0) : 0;
+                let remarks = att && att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : 'N/A';
+                
+                if (att) {
+                    status = att.status.replace(/_/g, ' ');
+                }
+
+                if (leave) {
+                    const lType = leave.leaveType?.name || 'LEAVE';
+                    if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
+                        status = `HALF DAY ${lType.toUpperCase()}`;
+                        hours = Math.max(hours, 4); // Credit 4 hours for half day leave
+                    } else {
+                        status = lType.toUpperCase();
+                        hours = Math.max(hours, 8.5); // Credit full shift for leave
+                    }
+                    remarks = 'LEAVE APPLIED';
+                }
+
+                if (holiday) {
+                    remarks = holiday.name;
+                    hours = Math.max(hours, 8.5); // Credit holiday hours
+                }
+                
+                if (isWeekend) {
+                    hours = Math.max(hours, 0); // No automatic credit for weekend unless worked (att)
+                } else if (!leave && !holiday) {
+                    // Regular working day: add to target
+                    weeklyTarget += 8.5;
+                }
+
+                const actualWorkedToday = att ? (att.workingHours || 0) : 0;
+                weeklyActualSum += actualWorkedToday;
+                weeklyHoursToDate += hours;
+                
+                let dayIcon = actualWorkedToday > 0 ? actualWorkedToday.toFixed(1) : (leave ? 'L' : (holiday ? 'H' : '0'));
+                weeklySeries.push(dayIcon);
+                const weekHistorySoFar = weeklySeries.slice(0, -1).join(' + ') || 'Start';
+
+                formattedOutput.push({
+                    EmployeeID: user.employeeCode,
+                    Name: user.name,
+                    Date: dateStr,
+                    ShiftType: user.shift || 'B',
+                    FirstPunch: att && att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : 'N/A')),
+                    LastPunch: att && att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : 'N/A')),
+                    TotalWorkedHours: hours.toFixed(2),
+                    PreviousDayHours: previousDayHours.toFixed(2),
+                    WeeklyCumulative: weeklyHoursToDate.toFixed(2),
+                    WeeklyActual: weeklyActualSum.toFixed(2),
+                    WeeklyVariance: (weeklyActualSum - weeklyTarget).toFixed(2),
+                    WeekHistory: weekHistorySoFar,
+                    Status: status,
+                    LeaveDeducted: att ? att.leaveDeducted : (leave ? 1 : 0),
+                    Remarks: remarks
+                });
+
+                previousDayHours = hours;
+                iter.setDate(iter.getDate() + 1);
+            }
+        }
 
         res.json({
             meta: {
-                month: queryDate.toLocaleString('default', { month: 'long', year: 'numeric' }),
+                month: reportTitle,
                 totalRecords: formattedOutput.length
             },
             report: formattedOutput
@@ -761,97 +876,150 @@ import ExcelJS from 'exceljs';
 
 export const exportComplianceReport = async (req, res, next) => {
     try {
-        const { month, userId } = req.query;
-        let queryDate = new Date();
-        if (month) {
+        const { month, userId, startDate, endDate } = req.query;
+        let start, end;
+
+        if (startDate && endDate) {
+            start = new Date(startDate); start.setHours(0,0,0,0);
+            end = new Date(endDate); end.setHours(23,59,59,999);
+        } else if (month) {
             const [y, m] = month.split('-');
-            queryDate = new Date(y, parseInt(m) - 1, 1);
+            start = new Date(parseInt(y), parseInt(m) - 1, 1);
+            end = new Date(parseInt(y), parseInt(m), 0);
+        } else {
+            // SYNCED DEFAULT: Last 30 Days
+            const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            end = new Date(`${dateStrNow}T23:59:59.999Z`);
+            start = new Date(`${dateStrNow}T00:00:00.000Z`);
+            start.setDate(end.getDate() - 29);
         }
 
-        const startOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth(), 1);
-        const endOfMonth = new Date(queryDate.getFullYear(), queryDate.getMonth() + 1, 0);
+        const reportFilename = month ? `Registry_Report_${month}` : "Registry_Report_Last30Days";
 
-        const reportData = await prisma.attendance.findMany({
-            where: {
-                date: { gte: startOfMonth, lte: endOfMonth },
-                ...(userId && { userId })
-            },
-            include: {
-                user: { select: { name: true, employeeCode: true, department: { select: { name: true } } } }
-            },
-            orderBy: [{ user: { name: 'asc' } }, { date: 'asc' }]
+        // Fetch all relevant users
+        let userFilter = {};
+        if (userId) {
+            userFilter.id = userId;
+        } else if (req.user.role === 'HR') {
+            userFilter.departmentId = req.user.departmentId;
+        }
+
+        const users = await prisma.user.findMany({
+            where: userFilter,
+            select: {
+                id: true,
+                name: true,
+                employeeCode: true,
+                shift: true,
+                department: { select: { name: true } }
+            }
         });
+
+        // Batch fetch all data
+        const [allAttendance, allLeaves, allHolidays] = await Promise.all([
+            prisma.attendance.findMany({
+                where: { date: { gte: start, lte: end }, userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) }
+            }),
+            prisma.leaveRequest.findMany({
+                where: { 
+                    status: { in: ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'] },
+                    OR: [
+                        { startDate: { gte: start, lte: end } },
+                        { endDate: { gte: start, lte: end } }
+                    ],
+                    userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                },
+                include: { leaveType: true }
+            }),
+            prisma.holiday.findMany({
+                where: { date: { gte: start, lte: end } }
+            })
+        ]);
 
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Attendance Report');
 
-        // Professional Styling & Headers
         worksheet.columns = [
-            { header: 'Employee ID', key: 'id', width: 15 },
-            { header: 'Employee Name', key: 'name', width: 25 },
-            { header: 'Department', key: 'dept', width: 20 },
+            { header: 'ID', key: 'id', width: 10 },
+            { header: 'Name', key: 'name', width: 25 },
+            { header: 'Dept', key: 'dept', width: 15 },
             { header: 'Date', key: 'date', width: 15 },
-            { header: 'Shift', key: 'shift', width: 10 },
-            { header: 'Check In', key: 'in', width: 15 },
-            { header: 'Check Out', key: 'out', width: 15 },
-            { header: 'Daily Work (H.MM)', key: 'daily', width: 18 },
-            { header: 'Weekly Total (H.MM)', key: 'weekly', width: 20 },
-            { header: 'Status', key: 'status', width: 15 },
-            { header: 'Leave Deducted', key: 'leave', width: 15 }
+            { header: 'First Punch', key: 'in', width: 15 },
+            { header: 'Last Punch', key: 'out', width: 15 },
+            { header: 'Daily Work', key: 'daily', width: 12 },
+            { header: 'Weekly Actual', key: 'weekly', width: 12 },
+            { header: 'Net Balance', key: 'balance', width: 12 },
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Remarks', key: 'remarks', width: 25 }
         ];
 
-        // Format duration helper for Excel (H.MM)
-        const toHMM = (decimal) => {
-            const totalMins = Math.round(decimal * 60);
-            const h = Math.floor(totalMins / 60);
-            const m = totalMins % 60;
-            return `${h}.${m.toString().padStart(2, '0')}`;
-        };
+        for (const user of users) {
+            let iter = new Date(start);
+            let weeklyActualSum = 0;
+            let weeklyTarget = 0;
 
-        // Grouping logic for Weekly Totals
-        let currentEmployee = null;
-        let currentWeeklyMinutes = 0;
-        let lastWeekNumber = -1;
+            while (iter <= end) {
+                const dateStr = iter.toISOString().split('T')[0];
+                const dayOfWeek = iter.getDay();
 
-        reportData.forEach((att) => {
-            const attDate = new Date(att.date);
-            // ISO Week number logic
-            const dayNum = (attDate.getUTCDay() + 6) % 7;
-            attDate.setUTCDate(attDate.getUTCDate() - dayNum + 3);
-            const firstThursday = attDate.getTime();
-            attDate.setUTCMonth(0, 1);
-            if (attDate.getUTCDay() !== 4) attDate.setUTCMonth(0, 1 + ((4 - attDate.getUTCDay()) + 7) % 7);
-            const weekNumber = 1 + Math.ceil((firstThursday - attDate) / 604800000);
+                if (dayOfWeek === 1) {
+                    weeklyActualSum = 0;
+                    weeklyTarget = 0;
+                }
 
-            if (currentEmployee !== att.userId || weekNumber !== lastWeekNumber) {
-                currentWeeklyMinutes = 0;
-                lastWeekNumber = weekNumber;
-                currentEmployee = att.userId;
+                const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
+                const att = allAttendance.find(a => a.userId === user.id && a.date.toISOString().split('T')[0] === dateStr);
+                const leave = allLeaves.find(l => {
+                    const ls = new Date(l.startDate); ls.setHours(0,0,0,0);
+                    const le = new Date(l.endDate); le.setHours(0,0,0,0);
+                    const d = new Date(iter); d.setHours(0,0,0,0);
+                    return l.userId === user.id && d >= ls && d <= le;
+                });
+
+                let status = dayOfWeek === 0 ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
+                const actualWorkedToday = att ? (att.workingHours || 0) : 0;
+                
+                if (dayOfWeek !== 0 && !leave && !holiday) {
+                    weeklyTarget += 8.5;
+                }
+
+                let remarks = att && att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : '';
+                if (att) status = att.status.replace(/_/g, ' ');
+
+                if (leave) {
+                    status = (leave.leaveType?.name || 'LEAVE').toUpperCase();
+                    remarks = 'LEAVE APPLIED';
+                }
+
+                if (holiday) {
+                    remarks = holiday.name;
+                }
+
+                weeklyActualSum += actualWorkedToday;
+
+                worksheet.addRow({
+                    id: user.employeeCode,
+                    name: user.name,
+                    dept: user.department?.name || 'N/A',
+                    date: dateStr,
+                    in: att && att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '--')),
+                    out: att && att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '--')),
+                    daily: actualWorkedToday.toFixed(2),
+                    weekly: weeklyActualSum.toFixed(2),
+                    balance: (weeklyActualSum - weeklyTarget).toFixed(2),
+                    status: status,
+                    remarks: remarks
+                });
+
+                iter.setDate(iter.getDate() + 1);
             }
+        }
 
-            currentWeeklyMinutes += Math.round(att.workingHours * 60);
-
-            worksheet.addRow({
-                id: att.user.employeeCode,
-                name: att.user.name,
-                dept: att.user.department?.name || 'N/A',
-                date: att.date.toISOString().split('T')[0],
-                shift: att.shiftType || 'B',
-                in: att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true }) : '--',
-                out: att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true }) : '--',
-                daily: toHMM(att.workingHours),
-                weekly: toHMM(currentWeeklyMinutes / 60),
-                status: att.status.replace(/_/g, ' '),
-                leave: att.leaveDeducted
-            });
-        });
-
-        // Style the headers
         worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
         worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Attendance_Report_${month || 'Current'}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=${reportFilename}.xlsx`);
 
         await workbook.xlsx.write(res);
         res.end();

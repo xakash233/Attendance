@@ -25,10 +25,12 @@ export default function DashboardPage() {
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
     const [showCompliance, setShowCompliance] = useState(false);
     const [complianceData, setComplianceData] = useState<any[]>([]);
+    const [complianceMeta, setComplianceMeta] = useState<any>(null);
     const [complianceLoading, setComplianceLoading] = useState(false);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
     const [exportLoading, setExportLoading] = useState(false);
     const [isWfhModalOpen, setIsWfhModalOpen] = useState(false);
+    const [complianceMonth, setComplianceMonth] = useState<string>('');
     const [existingWfhDates, setExistingWfhDates] = useState<Date[]>([]);
     const [mounted, setMounted] = useState(false);
 
@@ -62,35 +64,44 @@ export default function DashboardPage() {
         }
     }, []);
 
-    const fetchCompliance = useCallback(async () => {
+    const fetchCompliance = async () => {
         setComplianceLoading(true);
         try {
-            const res = await api.get('/attendance/compliance-report');
+            const params: any = {};
+            if (complianceMonth) params.month = complianceMonth;
+            const res = await api.get('/attendance/compliance-report', { params });
             setComplianceData(res.data.report);
-            setSelectedEmployeeId(null);
+            setComplianceMeta(res.data.meta);
             setShowCompliance(true);
-        } catch (error) {
-            toast.error('Failed to fetch compliance report');
+        } catch (err) {
+            console.error('Failed to fetch compliance report', err);
+            toast.error('Failed to load compliance report');
         } finally {
             setComplianceLoading(false);
         }
-    }, []);
+    };
+
+    useEffect(() => {
+        if (showCompliance) {
+            fetchCompliance();
+        }
+    }, [complianceMonth, showCompliance]); // Added showCompliance to dependencies
 
     const handleExportExcel = async () => {
         setExportLoading(true);
         try {
-            const response = await api.get('/attendance/export-compliance', { responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const params = complianceMonth ? `?month=${complianceMonth}` : '';
+            const res = await api.get(`/attendance/export-compliance${params}`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Attendance_Report_${new Date().toLocaleDateString()}.xlsx`);
+            link.setAttribute('download', `Attendance_Report_${complianceMonth || 'Last30Days'}.xlsx`);
             document.body.appendChild(link);
             link.click();
-            link.parentNode?.removeChild(link);
-            toast.success('Excel Report Exported Perfectly!');
-        } catch (error) {
-            console.error('Export failed', error);
-            toast.error('Failed to export Excel report');
+            link.remove();
+        } catch (err) {
+            console.error('Export failed', err);
+            toast.error('Failed to export report');
         } finally {
             setExportLoading(false);
         }
@@ -206,6 +217,39 @@ export default function DashboardPage() {
                     )}
                 </div>
             </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm">
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Strength</p>
+                    <div className="flex items-end justify-between">
+                        <h4 className="text-2xl font-black text-[#101828]">{stats.total}</h4>
+                        <Users className="text-slate-300" size={20} />
+                    </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm">
+                    <p className="text-[11px] font-black text-emerald-500 uppercase tracking-widest mb-1">Present Today</p>
+                    <div className="flex items-end justify-between">
+                        <h4 className="text-2xl font-black text-[#101828]">{stats.present}</h4>
+                        <UserCheck className="text-emerald-200" size={20} />
+                    </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm">
+                    <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest mb-1">Absent Today</p>
+                    <div className="flex items-end justify-between">
+                        <h4 className="text-2xl font-black text-[#101828]">{stats.absent}</h4>
+                        <UserMinus className="text-rose-200" size={20} />
+                    </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm">
+                    <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-1">Yesterday&apos;s Hours</p>
+                    <div className="flex items-end justify-between">
+                        <h4 className="text-2xl font-black text-[#101828]">
+                            {report?.weekly?.length > 0 ? formatDuration(report.weekly[report.weekly.length - 1].hours) : '0.00'}
+                        </h4>
+                        <History className="text-indigo-200" size={20} />
+                    </div>
+                </motion.div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 <div className="lg:col-span-12 space-y-6">
@@ -337,7 +381,9 @@ export default function DashboardPage() {
                                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#101828] text-white">
                                     <div>
                                         <h2 className="text-2xl font-black tracking-tight uppercase">Registry Protocol Analysis</h2>
-                                        <p className="text-white/60 text-[11px] font-black uppercase tracking-widest mt-1">Multi-node compliance & attendance insight</p>
+                                        <p className="text-white/60 text-[11px] font-black uppercase tracking-widest mt-1">
+                                            {complianceMeta?.month || 'Loading...'} &bull; Multi-node compliance & attendance insight
+                                        </p>
                                     </div>
                                     <button
                                         onClick={() => setShowCompliance(false)}
@@ -349,6 +395,27 @@ export default function DashboardPage() {
 
                                 <div className="flex-grow overflow-hidden flex flex-row">
                                     <div className="w-[300px] border-r border-slate-100 bg-slate-50/50 flex flex-col p-6 overflow-y-auto no-scrollbar">
+                                        <p className="text-[10px] font-black text-[#667085] uppercase tracking-[0.2em] mb-4">Historical Archive</p>
+                                        <div className="mb-8 space-y-3">
+                                            <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all hover:border-indigo-200">
+                                                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-2">Temporal Filter</p>
+                                                <input 
+                                                    type="month" 
+                                                    value={complianceMonth}
+                                                    onChange={(e) => setComplianceMonth(e.target.value)}
+                                                    className="w-full bg-slate-50 border-none rounded-lg p-2 text-[12px] font-bold text-[#101828] focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                                                />
+                                                <div className="mt-3 flex gap-2">
+                                                    <button 
+                                                        onClick={() => setComplianceMonth('')}
+                                                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${!complianceMonth ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                                    >
+                                                        Current 30 Days
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <p className="text-[10px] font-black text-[#667085] uppercase tracking-[0.2em] mb-4">Node Selection</p>
                                         <div className="space-y-1">
                                             <button 
@@ -383,8 +450,11 @@ export default function DashboardPage() {
                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee/ID</th>
                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Chronology</th>
                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Punches</th>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Calculated Work</th>
-                                                    <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Flag</th>
+                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Calculated Work</th>
+                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Prev</th>
+                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Weekly Logic</th>
+                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Balance</th>
+                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Flag</th>
                                                     <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Debit</th>
                                                 </tr>
                                             </thead>
@@ -408,9 +478,23 @@ export default function DashboardPage() {
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
                                                                 <p className="text-sm font-black text-[#101828]">{row.TotalWorkedHours} h</p>
-                                                                <p className="text-[9px] font-black text-slate-400">Break: {row.BreakTime}h</p>
+                                                                <p className="text-[9px] font-black text-slate-400">Break: {row.BreakTime || '0.0'}h</p>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
+                                                                 <p className="text-[12px] font-bold text-slate-500">{row.PreviousDayHours}h</p>
+                                                             </td>
+                                                             <td className="px-6 py-4 text-center">
+                                                                 <div className="flex flex-col items-center">
+                                                                     <p className="text-[10px] font-black text-[#101828] mb-1">{row.WeekHistory}</p>
+                                                                     <p className="text-[12px] font-black text-indigo-600 bg-indigo-50 px-2 rounded">{row.WeeklyActual}h Total</p>
+                                                                 </div>
+                                                             </td>
+                                                             <td className="px-6 py-4 text-center">
+                                                                 <div className={`inline-flex flex-col items-center px-1.5 py-0.5 rounded-lg border ${parseFloat(row.WeeklyVariance) >= 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
+                                                                     <p className="text-[12px] font-black">{row.WeeklyVariance > 0 ? '+' : ''}{row.WeeklyVariance}h</p>
+                                                                 </div>
+                                                             </td>
+                                                             <td className="px-6 py-4 text-center">
                                                                 <span className={`px-2 py-1 rounded-full text-[9px] font-black uppercase ${row.Status === 'FULL DAY' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                                                                     {row.Status}
                                                                 </span>

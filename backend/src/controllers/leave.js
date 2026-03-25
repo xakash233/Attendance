@@ -7,6 +7,7 @@ export const applyLeave = async (req, res, next) => {
         const leaveRequest = await leaveService.applyLeave({
             userId: req.user.id,
             departmentId: req.user.departmentId,
+            userRole: req.user.role,
             ...req.body
         });
 
@@ -31,11 +32,13 @@ export const applyLeave = async (req, res, next) => {
             }
         };
 
-        // Broadcast to HR (Department specific)
-        notificationService.broadcastToRole({
-            ...notificationPayload,
-            role: 'HR'
-        }).catch(err => console.error(err));
+        // Broadcast to HR (Department specific) - Only for non-HR employees
+        if (req.user.role === 'EMPLOYEE' || req.user.role === 'ADMIN') {
+            notificationService.broadcastToRole({
+                ...notificationPayload,
+                role: 'HR'
+            }).catch(err => console.error(err));
+        }
 
         // Broadcast to Super Admin (Global)
         notificationService.broadcastToRole({
