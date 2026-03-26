@@ -257,37 +257,40 @@ export default function UsersPage() {
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full lg:w-auto">
-                        <div className="relative flex-1 lg:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                            <input 
-                                type="text"
-                                placeholder="Search Name, Email, ID..."
-                                className="input-field py-2.5 pl-10 text-[13px] border-slate-200 focus:border-black transition-all"
-                                value={debouncedSearch}
-                                onChange={(e) => setDebouncedSearch(e.target.value)}
-                            />
-                        </div>
-
-                        {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
-                            <button
-                                onClick={() => {
-                                    resetModal();
-                                    setIsModalOpen(true);
-                                }}
-                                className="btn-primary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95"
-                            >
-                                <UserPlus size={18} className="mr-2" />
-                                Add User
-                            </button>
-                        )}
-                    </div>
+                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
+                        <button
+                            onClick={() => {
+                                resetModal();
+                                setIsModalOpen(true);
+                            }}
+                            className="btn-primary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
+                        >
+                            <UserPlus size={18} className="mr-2" />
+                            Add User
+                        </button>
+                    )}
                 </header>
 
-                {/* Filters */}
+                {/* Search & Filters */}
                 <div className="card border-[#E6E8EC] bg-white overflow-hidden">
-                    <div className="p-5 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-50">
-                        <div className="flex items-center gap-3 w-full md:w-auto ml-auto">
+                    <div className="p-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-50">
+                        <div className="flex items-center gap-3 w-full md:flex-1">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input 
+                                    type="text"
+                                    placeholder="Search Personnel Matrix..."
+                                    className="input-field py-2 pl-9 text-[12px] bg-slate-50/50 border-slate-100 focus:border-black transition-all"
+                                    value={debouncedSearch}
+                                    onChange={(e) => setDebouncedSearch(e.target.value)}
+                                />
+                            </div>
+                            <button className="bg-[#101828] text-white p-2 rounded-lg hover:bg-slate-800 transition-all shrink-0">
+                                <Search size={14} />
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full md:w-auto">
                             {(filterRole !== 'ALL' || filterDepartment !== 'ALL') && (
                                 <button
                                     onClick={() => {
@@ -517,7 +520,7 @@ export default function UsersPage() {
                                         <input 
                                             type="text" 
                                             className={`input-field py-2.5 ${formErrors.name ? 'border-red-500 bg-red-50/10' : ''}`} 
-                                            placeholder="e.g. John Doe" 
+                                            placeholder="Enter full name" 
                                             value={formData.name} 
                                             onChange={(e) => {
                                                 setFormData({ ...formData, name: e.target.value });
@@ -534,7 +537,7 @@ export default function UsersPage() {
                                             <input 
                                                 type="email" 
                                                 className={`input-field py-2.5 ${formErrors.email ? 'border-red-500' : ''}`} 
-                                                placeholder="e.g. john@company.com" 
+                                                placeholder="Enter email address" 
                                                 value={formData.email} 
                                                 onChange={(e) => {
                                                     setFormData({ ...formData, email: e.target.value.toLowerCase() });
@@ -549,7 +552,7 @@ export default function UsersPage() {
                                             <input 
                                                 type="text" 
                                                 className={`input-field py-2.5 ${formErrors.employeeCode ? 'border-red-500' : ''}`} 
-                                                placeholder="e.g. EMP-001" 
+                                                placeholder="Enter employee code" 
                                                 value={formData.employeeCode} 
                                                 onChange={(e) => {
                                                     setFormData({ ...formData, employeeCode: e.target.value.toUpperCase() });

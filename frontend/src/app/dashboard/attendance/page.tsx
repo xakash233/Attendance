@@ -14,7 +14,15 @@ export default function AttendancePage() {
     const fetchLiveAttendance = useCallback(async () => {
         try {
             const res = await api.get('/attendance/live');
-            setLiveData(res.data);
+            const data = res.data;
+            const sortedData = data.sort((a: any, b: any) => {
+                const statusOrder: { [key: string]: number } = { 'IN': 0, 'OUT': 1, 'ABSENT': 2 };
+                const orderA = statusOrder[a.currentStatus] ?? 3;
+                const orderB = statusOrder[b.currentStatus] ?? 3;
+                if (orderA !== orderB) return orderA - orderB;
+                return a.name.localeCompare(b.name);
+            });
+            setLiveData(sortedData);
             setIsFetchingLive(false);
         } catch (error) {
             console.error('Failed to fetch live attendance:', error);

@@ -221,16 +221,32 @@ export default function ReportPage() {
                                 <tbody className="divide-y divide-slate-50">
                                     {reportData.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-6 py-20 text-center text-[#667085] font-medium italic">
-                                                No records found for this period. Try adjusting your filters.
+                                            <td colSpan={8} className="px-6 py-32 text-center">
+                                                <div className="flex flex-col items-center gap-5 max-w-sm mx-auto">
+                                                    <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
+                                                        <Activity size={32} />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[16px] font-bold text-[#101828]">No compliance data found</p>
+                                                        <p className="text-[13px] text-[#667085] leading-relaxed">
+                                                            Try adjusting the month or selecting a different employee to view historical records.
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => { setComplianceMonth(''); setSelectedEmployeeId(null); fetchReport(); }}
+                                                        className="btn-secondary py-2 px-6 text-[11px] font-black uppercase tracking-widest border-2"
+                                                    >
+                                                        Reset Filters
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ) : (
                                         reportData
-                                            .filter(row => !selectedEmployeeId || row.EmployeeID === selectedEmployeeId)
                                             .map((row, idx) => {
                                                 const variance = parseFloat(row.WeeklyVariance || "0");
                                                 const isDeficit = variance < 0;
+                                                const totalHours = parseFloat(row.TotalWorkedHours || "0");
                                                 
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
@@ -242,17 +258,28 @@ export default function ReportPage() {
                                                             <p className="text-[12px] font-black text-[#101828] tracking-tighter">{row.Date}</p>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <div className="inline-flex flex-col gap-1 items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 min-w-[120px]">
-                                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-tighter">
-                                                                    IN: {row.FirstPunch || '--:--'}
-                                                                </span>
-                                                                <span className="text-[10px] font-black text-rose-600 uppercase tracking-tighter">
-                                                                    OUT: {row.LastPunch || '--:--'}
-                                                                </span>
+                                                            <div className="flex flex-col gap-1 auto-cols-auto text-[11px] font-bold items-center min-w-[130px]">
+                                                                {(row.FirstPunch === 'N/A' && row.LastPunch === 'N/A') ? (
+                                                                    <span className="text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-full text-center">No punch records</span>
+                                                                ) : (
+                                                                    <>
+                                                                        <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.FirstPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-emerald-700 bg-emerald-50 border border-emerald-100'}`}>
+                                                                            IN: {row.FirstPunch === 'N/A' ? '--:--' : row.FirstPunch.replace(':00 ', ' ')}
+                                                                        </span>
+                                                                        <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.LastPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-rose-700 bg-rose-50 border border-rose-100'}`}>
+                                                                            OUT: {row.LastPunch === 'N/A' ? '--:--' : row.LastPunch.replace(':00 ', ' ')}
+                                                                        </span>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <p className="text-[14px] font-black text-[#101828]">{row.TotalWorkedHours}h</p>
+                                                            <p className={`text-[14px] font-black ${totalHours === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' ? 'text-rose-500' : 'text-[#101828]'}`}>
+                                                                {row.TotalWorkedHours}h
+                                                                {totalHours === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' && (
+                                                                    <span className="block text-[9px] font-bold text-rose-400 uppercase tracking-tighter">Missing Sync</span>
+                                                                )}
+                                                            </p>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex flex-col items-center">
@@ -261,8 +288,18 @@ export default function ReportPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <div className={`inline-flex items-center px-2 py-1 rounded-md font-black text-[11px] ${!isDeficit ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                                                                {variance > 0 ? '+' : ''}{variance.toFixed(2)}h
+                                                            <div 
+                                                                className={`inline-flex flex-col items-center px-3 py-1.5 rounded-xl border ${!isDeficit ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm shadow-emerald-500/5' : 'bg-rose-50 border-rose-100 text-rose-700 shadow-sm shadow-rose-500/5'}`}
+                                                                title="Balance is calculated as Weekly Actual - Weekly Target (8.5h/day)"
+                                                            >
+                                                                <div className="flex items-center gap-1 font-black text-[11px]">
+                                                                    {variance > 0 ? '+' : ''}{variance.toFixed(2)}h
+                                                                </div>
+                                                                {isDeficit && (
+                                                                    <p className="text-[8px] font-bold mt-0.5 uppercase tracking-tighter opacity-70">
+                                                                        {row.Status === 'ABSENT' || variance < -16 ? 'Absent / Missing Punches' : 'Short Hours'}
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">

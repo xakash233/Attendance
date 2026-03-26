@@ -130,10 +130,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 setUnreadCount(prev => Math.max(0, prev - 1));
             }
             
-            // Smart Redirection
-            if (notif.type === 'LEAVE_REQUEST' || notif.type === 'LEAVE_RESPONSE') {
+            // Smart Redirection Logic
+            const type = notif.type || '';
+            if (type.startsWith('LEAVE_')) {
                 router.push('/dashboard/leaves');
+            } else if (type.startsWith('BIOMETRIC_')) {
+                router.push('/dashboard/biometric');
             }
+            
             setIsNotificationOpen(false);
         } catch (err) {
             console.error('Failed to mark as read:', err);
@@ -281,7 +285,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
                                             <h3 className="font-semibold text-[13px] text-[#101828]">Notifications</h3>
                                         </div>
-                                        <button onClick={markAllAsRead} className="text-[12px] font-medium text-[#667085] hover:text-[#101828] transition-colors">Mark all as read</button>
+                                         {unreadCount > 0 && (
+                                            <button onClick={markAllAsRead} className="text-[12px] font-medium text-[#667085] hover:text-[#101828] transition-colors">Mark all as read</button>
+                                        )}
                                     </div>
                                     <div className="max-h-[400px] overflow-y-auto no-scrollbar">
                                         {notifications.length === 0 ? (
@@ -291,19 +297,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <div 
+                                                <button 
                                                     key={notif.id} 
                                                     onClick={() => markAsRead(notif)}
-                                                    className={`p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : ''}`}
+                                                    className={`w-full text-left p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-all cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : 'bg-white'}`}
                                                 >
                                                     {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#101828]" />}
-                                                    <h4 className="text-[14px] font-medium text-[#101828] leading-tight">{notif.title}</h4>
+                                                    <h4 className="text-[14px] font-medium text-[#101828] leading-tight pr-4">{notif.title}</h4>
                                                     <p className="text-[13px] text-[#667085] mt-1 line-clamp-2">{notif.message}</p>
-                                                    <div className="flex items-center gap-1.5 mt-2">
-                                                        <Clock size={12} className="text-[#98A2B3]" />
-                                                        <p className="text-[11px] text-[#98A2B3] font-medium">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
+                                                    <div className="flex items-center justify-between mt-3">
+                                                        <div className="flex items-center gap-1.5 ">
+                                                            <Clock size={12} className="text-[#98A2B3]" />
+                                                            <p className="text-[11px] text-[#98A2B3] font-medium">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
+                                                        </div>
+                                                        <span className="text-[11px] font-bold text-[#101828] uppercase tracking-wider">View Details &rarr;</span>
                                                     </div>
-                                                </div>
+                                                </button>
                                             ))
                                         )}
                                     </div>

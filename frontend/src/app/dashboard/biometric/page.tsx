@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     Cpu, History, RefreshCcw, Wifi, Server, Activity,
-    X, Upload, FileJson, CheckCircle2, AlertCircle, Loader2, ArrowLeft, Home
+    X, CheckCircle2, AlertCircle, Loader2, ArrowLeft, Home
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,9 +19,7 @@ export default function BiometricPage() {
     const [logs, setLogs] = useState([]);
     const [records, setRecords] = useState([]);
     const [settings, setSettings] = useState<any>(null);
-    const [syncing, setSyncing] = useState(false);
     const [deviceSyncing, setDeviceSyncing] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchLogs = async () => {
         try {
@@ -63,45 +61,6 @@ export default function BiometricPage() {
         };
     }, []);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            try {
-                const content = event.target?.result as string;
-                let records = [];
-
-                if (file.name.endsWith('.json')) {
-                    records = JSON.parse(content);
-                } else if (file.name.endsWith('.csv')) {
-                    // Simple CSV parsing (EmployeeCode, Timestamp)
-                    const lines = content.split('\n');
-                    records = lines.slice(1).map(line => {
-                        const [employeeCode, timestamp] = line.split(',');
-                        return { employeeCode: employeeCode?.trim(), timestamp: timestamp?.trim() };
-                    }).filter(r => r.employeeCode && r.timestamp);
-                }
-
-                if (records.length === 0) {
-                    toast.error('Invalid file structure');
-                    return;
-                }
-
-                setSyncing(true);
-                await api.post('/biometric/sync', { records, deviceIP: 'OFFLINE_UPLOAD' });
-                toast.success(`Synced ${records.length} records`);
-                fetchLogs();
-            } catch (err) {
-                toast.error('File format error');
-            } finally {
-                setSyncing(false);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-            }
-        };
-        reader.readAsText(file);
-    };
 
     const handleDeviceSync = async () => {
         try {
@@ -131,42 +90,38 @@ export default function BiometricPage() {
                     Overview
                 </Link>
                 <span>/</span>
-                <span className="text-[#101828] font-semibold">Settings</span>
+                <Link href="/dashboard/settings" className="hover:text-[#101828] transition-colors">
+                    Settings
+                </Link>
                 <span>/</span>
                 <span className="text-[#101828] font-semibold">Biometric Logs</span>
             </div>
+
             {/* SaaS Header */}
             <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div>
-                    <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Biometric Logs</h1>
-                    <p className="text-[13px] font-medium text-[#667085] mt-1">
-                        View and manage device synchronization records.
-                    </p>
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => router.push('/dashboard/settings')}
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#E6E8EC] text-[#667085] hover:text-[#101828] hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+                    >
+                        <ArrowLeft size={18} />
+                    </button>
+                    <div>
+                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Biometric Logs</h1>
+                        <p className="text-[13px] font-medium text-[#667085] mt-1">
+                            View and manage device synchronization records.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3 w-full lg:w-auto">
                     <button
                         onClick={handleDeviceSync}
                         disabled={deviceSyncing}
-                        className="btn-secondary w-full lg:w-auto py-2.5 px-6"
-                    >
-                        {deviceSyncing ? <Loader2 size={16} className="animate-spin text-[#344054] mr-2" /> : <RefreshCcw size={16} className="mr-2" />}
-                        {deviceSyncing ? 'Connecting...' : 'Sync from Device'}
-                    </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        accept=".json,.csv"
-                        className="hidden"
-                    />
-                    <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={syncing}
                         className="btn-primary w-full lg:w-auto py-2.5 px-6"
                     >
-                        {syncing ? <Loader2 size={16} className="animate-spin text-white mr-2" /> : <Upload size={16} className="mr-2" />}
-                        {syncing ? 'Syncing...' : 'Upload Data'}
+                        {deviceSyncing ? <Loader2 size={16} className="animate-spin text-white mr-2" /> : <RefreshCcw size={16} className="mr-2" />}
+                        {deviceSyncing ? 'Connecting...' : 'Sync from Device'}
                     </button>
                 </div>
             </header>

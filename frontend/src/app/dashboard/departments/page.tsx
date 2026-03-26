@@ -20,14 +20,12 @@ export default function DepartmentsPage() {
     const [editingDept, setEditingDept] = useState<any>(null);
     const [editName, setEditName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
-        const handleClickOutside = () => setOpenMenuId(null);
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
     }, []);
 
     const fetchDepts = useCallback(async () => {
@@ -44,8 +42,6 @@ export default function DepartmentsPage() {
     useEffect(() => {
         fetchDepts();
     }, [fetchDepts]);
-
-    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -147,44 +143,65 @@ export default function DepartmentsPage() {
                                 <div className="w-12 h-12 bg-[#F8F9FB] border border-[#E6E8EC] text-[#344054] rounded-xl flex items-center justify-center transition-all group-hover:bg-[#101828] group-hover:text-white">
                                     {getDeptIcon(dept.name)}
                                 </div>
-                                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'HR') && (
+                                 {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.role === 'HR') && (
                                     <div className="relative">
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOpenMenuId(openMenuId === dept.id ? null : dept.id);
                                             }}
-                                            className="w-8 h-8 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-lg hover:bg-slate-50 transition-all"
+                                            className="w-10 h-10 flex items-center justify-center text-[#667085] hover:text-[#101828] rounded-xl hover:bg-slate-100 transition-all active:scale-95"
                                         >
                                             <MoreHorizontal size={20} />
                                         </button>
 
                                         {openMenuId === dept.id && (
-                                            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]" onClick={(e) => e.stopPropagation()}>
-                                                <button
+                                            <>
+                                                {/* Transparent backdrop for closing */}
+                                                <div 
+                                                    className="fixed inset-0 z-[90] cursor-default" 
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setOpenMenuId(null);
-                                                        setEditingDept(dept);
-                                                        setEditName(dept.name);
                                                     }}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#344054] hover:bg-slate-50 text-left transition-colors border-b border-[#E6E8EC]"
-                                                >
-                                                    <Edit2 size={14} />
-                                                    Edit Dept
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setOpenMenuId(null);
-                                                        handleDelete(dept.id, currentUser?.role === 'HR');
-                                                    }}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 text-left transition-colors"
-                                                >
-                                                    <Trash2 size={14} />
-                                                    {currentUser?.role === 'HR' ? 'Request Deletion' : 'Delete Dept'}
-                                                </button>
-                                            </div>
+                                                />
+                                                <div className="absolute right-0 mt-2 w-48 bg-white border border-[#E6E8EC] rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuId(null);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-medium text-[#344054] hover:bg-slate-50 text-left transition-colors border-b border-[#F8F9FB]"
+                                                    >
+                                                        <FolderPlus size={16} />
+                                                        Add Dept
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuId(null);
+                                                            setEditingDept(dept);
+                                                            setEditName(dept.name);
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-medium text-[#344054] hover:bg-slate-50 text-left transition-colors border-b border-[#F8F9FB]"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                        Edit Dept
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setOpenMenuId(null);
+                                                            handleDelete(dept.id, currentUser?.role === 'HR');
+                                                        }}
+                                                        className="w-full flex items-center gap-2 px-4 py-3 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 text-left transition-colors"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        {currentUser?.role === 'HR' ? 'Request Deletion' : 'Delete Dept'}
+                                                    </button>
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -243,7 +260,7 @@ export default function DepartmentsPage() {
                                 <label className="text-[13px] font-medium text-[#344054]">Department Name</label>
                                 <input
                                     type="text"
-                                    placeholder="Ex: Engineering"
+                                    placeholder="Enter department name"
                                     className="input-field"
                                     value={newDept}
                                     onChange={(e) => setNewDept(e.target.value)}
@@ -288,7 +305,7 @@ export default function DepartmentsPage() {
                                 <label className="text-[13px] font-medium text-[#344054]">Department Name</label>
                                 <input
                                     type="text"
-                                    placeholder="Ex: Engineering"
+                                    placeholder="Enter department name"
                                     className="input-field"
                                     value={editName}
                                     onChange={(e) => setEditName(e.target.value)}

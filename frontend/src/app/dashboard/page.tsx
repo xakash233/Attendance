@@ -261,7 +261,7 @@ export default function DashboardPage() {
             >
                 <div className="flex items-center gap-5">
                     <div>
-                        <h1 className="text-[24px] font-bold text-[#101828] tracking-tight leading-none mb-1">
+                        <h1 className="text-[16px] font-bold text-[#101828] tracking-tight leading-none mb-1">
                             Welcome, <span className="text-slate-800">{user?.name}</span>
                         </h1>
                         <p className="text-[13px] font-medium text-[#667085]">
@@ -511,9 +511,10 @@ export default function DashboardPage() {
                                     </div>
                                     <button
                                         onClick={() => setShowCompliance(false)}
-                                        className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-all font-bold hover:rotate-90 duration-300"
+                                        className="w-11 h-11 rounded-full bg-slate-800 text-white flex items-center justify-center hover:bg-slate-700 transition-all font-bold hover:rotate-90 duration-300 shadow-xl border border-white/20"
+                                        aria-label="Close Report"
                                     >
-                                        <X size={20} />
+                                        <X size={24} strokeWidth={3} />
                                     </button>
                                 </div>
 
@@ -595,18 +596,29 @@ export default function DashboardPage() {
                                                                 <p className="text-[12px] font-medium text-slate-600">{row.Date}</p>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <div className="flex flex-col gap-1 auto-cols-auto text-[11px] font-medium items-center">
-                                                                    <span className={row.FirstPunch === 'N/A' ? 'text-slate-400 italic' : 'text-slate-700'}>
-                                                                        IN: {row.FirstPunch === 'N/A' ? 'Missing' : row.FirstPunch}
-                                                                    </span>
-                                                                    <span className={row.LastPunch === 'N/A' ? 'text-slate-400 italic' : 'text-slate-700'}>
-                                                                        OUT: {row.LastPunch === 'N/A' ? 'Missing' : row.LastPunch}
-                                                                    </span>
+                                                                <div className="flex flex-col gap-1 auto-cols-auto text-[11px] font-bold items-center min-w-[120px]">
+                                                                    {(row.FirstPunch === 'N/A' && row.LastPunch === 'N/A') ? (
+                                                                        <span className="text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">No punch records</span>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.FirstPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-emerald-700 bg-emerald-50 border border-emerald-100'}`}>
+                                                                                IN: {row.FirstPunch === 'N/A' ? '--:--' : row.FirstPunch.replace(':00 ', ' ')}
+                                                                            </span>
+                                                                            <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.LastPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-rose-700 bg-rose-50 border border-rose-100'}`}>
+                                                                                OUT: {row.LastPunch === 'N/A' ? '--:--' : row.LastPunch.replace(':00 ', ' ')}
+                                                                            </span>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <p className="text-[13px] font-semibold text-slate-800">{row.TotalWorkedHours} h</p>
-                                                                <p className="text-[11px] text-slate-500">Break: {row.BreakTime || '0.0'}h</p>
+                                                                <p className={`text-[14px] font-black ${parseFloat(row.TotalWorkedHours) === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
+                                                                    {row.TotalWorkedHours} h
+                                                                    {parseFloat(row.TotalWorkedHours) === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' && (
+                                                                        <span className="block text-[9px] font-bold text-rose-400 uppercase tracking-tighter mt-0.5">Missing Sync</span>
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-[11px] font-medium text-slate-500 mt-1">Break: {row.BreakTime || '1.0'}h</p>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
                                                                 <p className="text-[12px] font-medium text-slate-600">{row.PreviousDayHours}h</p>
@@ -618,11 +630,22 @@ export default function DashboardPage() {
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <div className={`inline-flex flex-col items-center px-3 py-1.5 rounded-md border ${parseFloat(row.WeeklyVariance) >= 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>
-                                                                    <p className="text-[12px] font-bold">{row.WeeklyVariance > 0 ? '+' : ''}{row.WeeklyVariance}h</p>
+                                                                <div 
+                                                                    className={`inline-flex flex-col items-center px-4 py-2 rounded-xl border ${parseFloat(row.WeeklyVariance) >= 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm shadow-emerald-500/5' : 'bg-rose-50 border-rose-100 text-rose-700 shadow-sm shadow-rose-500/5'}`}
+                                                                    title="Balance is calculated as Weekly Actual - Weekly Target (8.5h/day)"
+                                                                >
+                                                                    <div className="flex items-center gap-1.5 font-black text-[14px]">
+                                                                        {parseFloat(row.WeeklyVariance) > 0 ? <TrendingUp size={14} /> : (parseFloat(row.WeeklyVariance) < 0 ? <AlertCircle size={14} /> : null)}
+                                                                        {parseFloat(row.WeeklyVariance) > 0 ? '+' : ''}{row.WeeklyVariance}h
+                                                                    </div>
                                                                     {parseFloat(row.WeeklyVariance) < 0 && (
-                                                                        <p className="text-[10px] font-medium mt-0.5 opacity-80">
-                                                                            {row.Status === 'ABSENT' ? 'Reason: Absent' : 'Reason: Missing Punch'}
+                                                                        <p className="text-[10px] font-bold mt-1 uppercase tracking-tight opacity-70">
+                                                                            {row.Status === 'ABSENT' || parseFloat(row.WeeklyVariance) < -16 ? 'Absent / Missing Punches' : 'Short Hours'}
+                                                                        </p>
+                                                                    )}
+                                                                    {parseFloat(row.WeeklyVariance) >= 0 && (
+                                                                        <p className="text-[10px] font-bold mt-1 uppercase tracking-tight opacity-70">
+                                                                            {parseFloat(row.WeeklyVariance) === 0 ? 'Balanced' : 'Surplus Hours'}
                                                                         </p>
                                                                     )}
                                                                 </div>

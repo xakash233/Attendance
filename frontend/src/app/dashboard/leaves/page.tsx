@@ -304,23 +304,33 @@ export default function LeavesPage() {
                 <div className="card overflow-hidden">
                     <div className="p-5 border-b border-[#E6E8EC] flex items-center justify-between bg-white">
                         <div className="relative w-full max-w-sm">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={16} />
+                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${leaves.length === 0 ? 'text-slate-300' : 'text-[#667085]'}`} size={16} />
                             <input
                                 type="text"
-                                placeholder={leaves.length === 0 ? "No data to search" : "Search by name, ID or type..."}
+                                placeholder={leaves.length === 0 ? "No records to search" : "Search by name, ID or leave type..."}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 disabled={leaves.length === 0}
-                                className="input-field pl-9 py-2 text-[13px] disabled:bg-slate-50 disabled:cursor-not-allowed"
+                                className="input-field pl-9 py-2 text-[13px] disabled:bg-slate-50 disabled:cursor-not-allowed disabled:placeholder-slate-300"
                             />
                         </div>
-                        <button 
-                            disabled={leaves.length === 0}
-                            className="btn-secondary py-2 px-4 shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Filter size={16} />
-                            Filters
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button 
+                                disabled={leaves.length === 0}
+                                className="btn-secondary py-2 px-4 shadow-none disabled:opacity-40 disabled:bg-slate-50 disabled:cursor-not-allowed relative group"
+                                title={leaves.length === 0 ? "Filters available when leave records exist" : ""}
+                            >
+                                <Filter size={16} />
+                                Filters
+                            </button>
+                            <button 
+                                onClick={() => setIsApplyModalOpen(true)}
+                                className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
+                            >
+                                <Plus size={18} className="transition-transform group-hover:rotate-90" />
+                                Apply Leave
+                            </button>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto no-scrollbar">
@@ -338,22 +348,24 @@ export default function LeavesPage() {
                                 {(() => {
                                     if (leaves.length === 0) return (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-20 text-center">
-                                                <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
-                                                    <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                                                        <Calendar size={32} />
+                                            <td colSpan={5} className="px-6 py-32 text-center">
+                                                <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
+                                                    <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
+                                                        <Calendar size={40} strokeWidth={1.5} />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-[16px] font-semibold text-[#101828]">No leave requests yet</p>
-                                                        <p className="text-[13px] text-[#667085] mt-1">When you submit leave applications, they will appear here for tracking and approval.</p>
+                                                    <div className="space-y-2">
+                                                        <p className="text-[18px] font-bold text-[#101828]">No leave requests found</p>
+                                                        <p className="text-[14px] text-[#667085] leading-relaxed">
+                                                            You haven&apos;t applied for any leave yet. Start by submitting a new application for approval.
+                                                        </p>
                                                     </div>
                                                     {user?.role === 'EMPLOYEE' && (
                                                         <button 
                                                             onClick={() => setIsApplyModalOpen(true)}
-                                                            className="btn-primary mt-2"
+                                                            className="btn-primary py-3 px-10 shadow-lg shadow-black/5 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
                                                         >
                                                             <Plus size={18} />
-                                                            Apply for Leave
+                                                            Apply Leave
                                                         </button>
                                                     )}
                                                 </div>
@@ -369,10 +381,23 @@ export default function LeavesPage() {
                                     
                                     if (filtered.length === 0) return (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center">
-                                                <div className="flex flex-col items-center gap-3">
-                                                    <Search size={32} className="text-[#D0D5DD] opacity-20" />
-                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching query</p>
+                                            <td colSpan={5} className="px-6 py-24 text-center">
+                                                <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+                                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                                        <Search size={24} />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[15px] font-bold text-[#101828]">No matching requests found</p>
+                                                        <p className="text-[13px] text-[#667085]">
+                                                            We couldn&apos;t find any results for &quot;{searchQuery}&quot;. Try adjusting your filters or search terms.
+                                                        </p>
+                                                    </div>
+                                                    <button 
+                                                        onClick={() => setSearchQuery('')}
+                                                        className="mt-2 text-[13px] font-bold text-[#101828] underline underline-offset-4 hover:text-[#667085] transition-colors"
+                                                    >
+                                                        Clear Search Filter
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -532,7 +557,7 @@ export default function LeavesPage() {
                                     <textarea
                                         rows={3}
                                         className="input-field py-3 resize-none"
-                                        placeholder="Provide a reason for your leave..."
+                                        placeholder="Enter reason for leave"
                                         onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                         required
                                     ></textarea>
