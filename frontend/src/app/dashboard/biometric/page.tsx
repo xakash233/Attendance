@@ -6,13 +6,16 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     Cpu, History, RefreshCcw, Wifi, Server, Activity,
-    X, Upload, FileJson, CheckCircle2, AlertCircle, Loader2
+    X, Upload, FileJson, CheckCircle2, AlertCircle, Loader2, ArrowLeft, Home
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import socket from '@/lib/socket';
 
 export default function BiometricPage() {
     const { user } = useAuth();
+    const router = useRouter();
     const [logs, setLogs] = useState([]);
     const [records, setRecords] = useState([]);
     const [settings, setSettings] = useState<any>(null);
@@ -121,6 +124,17 @@ export default function BiometricPage() {
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
+            {/* Breadcrumb Navigation */}
+            <div className="flex items-center gap-2 text-[12px] font-medium text-[#667085] ml-1">
+                <Link href="/dashboard" className="hover:text-[#101828] transition-colors flex items-center gap-1">
+                    <Home size={14} />
+                    Overview
+                </Link>
+                <span>/</span>
+                <span className="text-[#101828] font-semibold">Settings</span>
+                <span>/</span>
+                <span className="text-[#101828] font-semibold">Biometric Logs</span>
+            </div>
             {/* SaaS Header */}
             <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>

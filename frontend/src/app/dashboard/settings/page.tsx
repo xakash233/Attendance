@@ -5,7 +5,7 @@ import {
     Settings as SettingsIcon, Shield, Bell, Database, Lock, Clock, Package, Zap,
     History as HistoryIcon, Activity as ActivityIcon, Globe, Wifi, Mail,
     ChevronRight, ArrowRight, ShieldCheck, Cpu, BellRing, Key, Fingerprint, Eye, EyeOff,
-    X, Loader2, Search, User as UserIcon
+    X, Loader2, Search, User as UserIcon, Briefcase
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -19,11 +19,25 @@ export default function SettingsPage() {
     const { user } = useAuth();
     const router = useRouter();
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isSystemModalOpen, setIsSystemModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [settings, setSettings] = useState<any>(null);
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        if (user?.role === 'SUPER_ADMIN') {
+            fetchSettings();
+        }
+    }, [user]);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await api.get('/system/settings');
+            setSettings(res.data.data);
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
 
 
@@ -94,6 +108,32 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 )}
+
+                {/* System Rules Card (Super Admin Only) */}
+                {user?.role === 'SUPER_ADMIN' && (
+                    <div className="card overflow-hidden h-full">
+                        <div className="p-6 border-b border-[#E6E8EC]">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
+                                    <SettingsIcon size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-[16px] font-semibold text-[#101828]">System Rules</h3>
+                                    <p className="text-[13px] text-[#667085]">Global policies and allocations.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-2">
+                            <SettingItem 
+                                title="Leave Allocation" 
+                                desc={`Current: ${settings?.totalLeaveAllocation || 18} Days`} 
+                                value="Edit" 
+                                icon={Briefcase} 
+                                onClick={() => setIsSystemModalOpen(true)}
+                            />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modals */}
@@ -101,6 +141,17 @@ export default function SettingsPage() {
                 {isPasswordModalOpen && mounted && (
                     <Portal>
                         <ChangePasswordModal onClose={() => setIsPasswordModalOpen(false)} />
+                    </Portal>
+                )}
+                {isSystemModalOpen && mounted && (
+                    <Portal>
+                        <SystemRulesModal 
+                            initialSettings={settings} 
+                            onClose={() => {
+                                setIsSystemModalOpen(false);
+                                fetchSettings();
+                            }} 
+                        />
                     </Portal>
                 )}
             </AnimatePresence>
@@ -234,6 +285,64 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
 
 
 
+const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, onClose: () => void }) => {
+    const [allowance, setAllowance] = useState(initialSettings?.totalLeaveAllocation || 18);
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.put('/system/settings', {
+                totalLeaveAllocation: parseInt(allowance.toString())
+            });
+            toast.success('Global Leave Allocation updated');
+            onClose();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Update failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="bg-white max-w-md w-full rounded-2xl shadow-xl overflow-hidden border border-[#E6E8EC]"
+            >
+                <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
+                    <div>
+                        <h2 className="text-[18px] font-semibold text-[#101828]">System Administration</h2>
+                        <p className="text-[12px] text-[#667085] mt-0.5">Manage global policy variables.</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg text-[#667085] transition-all"><X size={20} /></button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[13px] font-medium text-[#344054]">Yearly Leave Allocation (Days)</label>
+                        <input 
+                            type="number" 
+                            className="input-field" 
+                            value={allowance}
+                            onChange={e => setAllowance(parseInt(e.target.value))}
+                            required 
+                        />
+                        <p className="text-[11px] text-[#667085]">This value defines the base "Allocated Leaves" shown to all employees globally. Currently set to {allowance} days.</p>
+                    </div>
+                    <div className="pt-4 flex gap-3">
+                        <button type="button" onClick={onClose} className="btn-secondary w-full">Cancel</button>
+                        <button type="submit" disabled={loading} className="btn-primary w-full">
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : 'Apply Rule'}
+                        </button>
+                    </div>
+                </form>
+            </motion.div>
+        </div>
+    );
+};
 const SettingItem = ({ title, desc, value, icon: Icon, onClick }: any) => (
     <div 
         onClick={onClick}

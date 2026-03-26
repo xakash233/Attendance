@@ -117,6 +117,8 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
         }
     }
 
+    const isOngoing = cleanLogs.length % 2 !== 0;
+
     // 5. Final Calculations
     const totalDecimalHours = (totalWorkMinutes / 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY - totalWorkMinutes);
@@ -129,6 +131,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
         totalWorkMinutes,
         totalWorkHours: totalDecimalHours.toFixed(2), 
         status,
+        isOngoing,
         deficit: (deficitMinutes / 60).toFixed(2),
         firstPunch: formatTime(firstPunch),
         lastPunch: formatTime(lastPunch)

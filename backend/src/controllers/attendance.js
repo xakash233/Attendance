@@ -261,17 +261,30 @@ export const getSummary = async (req, res, next) => {
         let presentDays = 0;
         let absentDays = 0;
         let halfDays = 0;
+        const now = new Date();
 
-        // Calculate based on records
-        attendances.forEach(att => {
-            if (att.status === 'PRESENT' || att.status === 'LATE' || att.status === 'OVERTIME') {
-                presentDays++;
-            } else if (att.status === 'HALF_DAY') {
-                halfDays++;
-            } else if (att.status === 'ABSENT') {
-                absentDays++;
+        // Robust calculation: iterate through days from start to (end or today)
+        let iterateDate = new Date(startDate);
+        const limitDate = now < endDate ? now : endDate;
+
+        while (iterateDate <= limitDate) {
+            const dateStr = iterateDate.toISOString().split('T')[0];
+            const isWeekend = iterateDate.getDay() === 0 || iterateDate.getDay() === 6;
+            const isHoliday = holidays.some(h => h.date.toISOString().split('T')[0] === dateStr);
+
+            if (!isWeekend && !isHoliday) {
+                const att = attendances.find(a => a.date.toISOString().split('T')[0] === dateStr);
+                if (att) {
+                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY'].includes(att.status)) presentDays++;
+                    else if (att.status === 'HALF_DAY') halfDays++;
+                    else if (att.status === 'ABSENT') absentDays++;
+                } else {
+                    // No record found for a working day in the past/today
+                    absentDays++;
+                }
             }
-        });
+            iterateDate.setDate(iterateDate.getDate() + 1);
+        }
 
         // Get Leaves exactly matching these days or overlapping, counting days that fall in this month
         const leaves = await prisma.leaveRequest.findMany({
@@ -641,23 +654,26 @@ export const getDashboardReport = async (req, res, next) => {
             }
         }
 
-        // 2. Weekly Overview (Continuous Last 5 days)
+        // 2. Weekly Overview (Strict previous 7 days)
         const weeklyHistory = [];
-        for (let i = 5; i >= 1; i--) {
-            const d = new Date(todayStart);
-            d.setDate(d.getDate() - i);
-            const dStr = d.toISOString().split('T')[0];
-            
+        const sevenDaysAgo = new Date(todayStart);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        // Aggregate hours from 7 days ago strictly to yesterday
+        for (let d = new Date(sevenDaysAgo); d < todayStart; d.setDate(d.getDate() + 1)) {
             const att = await prisma.attendance.findUnique({
-                where: { userId_date: { userId, date: d } }
+                where: { userId_date: { userId, date: new Date(d) } }
             });
-            
             weeklyHistory.push({
-                date: d,
+                date: new Date(d),
                 hours: att ? (att.workingHours || 0) : 0,
-                status: att ? att.status : 'ABSENT'
+                status: att ? att.status : 'ABSENT',
+                checkIn: att ? att.checkIn : null,
+                checkOut: att ? att.checkOut : null
             });
         }
+        // In case there's no history yet but we need to show the week, 
+        // the loop handles it by returning all available days since Mon.
 
         // 3. Tasks
         const tasks = await prisma.dailyTask.findMany({
@@ -725,7 +741,9 @@ export const getComplianceReport = async (req, res, next) => {
 
         // Fetch all relevant users
         let userFilter = {};
-        if (userId) {
+        if (req.user.role === 'EMPLOYEE') {
+            userFilter.id = req.user.id;
+        } else if (userId) {
             userFilter.id = userId;
         } else if (req.user.role === 'HR') {
             userFilter.departmentId = req.user.departmentId;
@@ -898,7 +916,9 @@ export const exportComplianceReport = async (req, res, next) => {
 
         // Fetch all relevant users
         let userFilter = {};
-        if (userId) {
+        if (req.user.role === 'EMPLOYEE') {
+            userFilter.id = req.user.id;
+        } else if (userId) {
             userFilter.id = userId;
         } else if (req.user.role === 'HR') {
             userFilter.departmentId = req.user.departmentId;

@@ -21,6 +21,7 @@ export default function LeavesPage() {
     const { user, logout } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [systemSettings, setSystemSettings] = useState<any>(null);
     const [formData, setFormData] = useState({
         leaveTypeId: '',
         startDate: '',
@@ -92,7 +93,16 @@ export default function LeavesPage() {
                 }
             };
 
-            await Promise.all([fetchHistory(), fetchTypes(), fetchBalances()]);
+            const fetchSettings = async () => {
+                try {
+                    const res = await api.get('/system/settings');
+                    setSystemSettings(res.data.data);
+                } catch (err) {
+                    console.error("Settings fetch error:", err);
+                }
+            };
+
+            await Promise.all([fetchHistory(), fetchTypes(), fetchBalances(), fetchSettings()]);
         } catch (error) {
             console.error("General fetch error:", error);
         } finally {
@@ -203,41 +213,37 @@ export default function LeavesPage() {
                     )}
                 </div>
 
-                {/* Metrics Overview - Premium SaaS Layout */}
                 {user?.role !== 'SUPER_ADMIN' && (
+                    <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {(() => {
-                            const currentMonth = new Date().getMonth();
-                            const currentYear = new Date().getFullYear();
-                            const monthLeaves = leaves.filter((l: any) => {
-                                const d = new Date(l.startDate);
-                                return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-                            });
+                            const used = leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).reduce((sum: number, l: any) => sum + l.totalDays, 0);
+                            const pending = leaves.filter((l: any) => l.status.includes('PENDING') && l.userId === user?.id).length;
+                            const allocated = systemSettings?.totalLeaveAllocation || 18;
+                            const remaining = allocated - used;
 
                             return [
                                 { 
-                                    label: 'Available Leaves', 
-                                    value: user?.role === 'EMPLOYEE' 
-                                        ? `${balances.reduce((acc, curr) => acc + (curr.balance || 0), 0)} Days` 
-                                        : 'GLOBAL', 
+                                    label: 'Total Allocated', 
+                                    value: `${allocated} Days`, 
                                     icon: Briefcase, 
                                     color: 'blue' 
                                 },
                                 { 
-                                    label: 'Monthly Total', 
-                                    value: monthLeaves.length, 
+                                    label: 'Leaves Used', 
+                                    value: `${used.toFixed(1)} Days`, 
                                     icon: Calendar, 
-                                    color: 'slate' 
+                                    color: 'rose' 
                                 },
                                 { 
-                                    label: 'Monthly Approved', 
-                                    value: monthLeaves.filter((l: any) => l.status === 'FINAL_APPROVED').length, 
+                                    label: 'Leaves Remaining', 
+                                    value: `${remaining.toFixed(1)} Days`, 
                                     icon: CheckCircle2, 
                                     color: 'emerald' 
                                 },
                                 { 
-                                    label: 'Monthly Pending', 
-                                    value: monthLeaves.filter((l: any) => l.status.includes('PENDING')).length, 
+                                    label: 'Pending Requests', 
+                                    value: pending, 
                                     icon: Clock, 
                                     color: 'amber' 
                                 }
@@ -258,6 +264,40 @@ export default function LeavesPage() {
                             ));
                         })()}
                     </div>
+                    {(() => {
+                        let SL = 0, CL = 0, PL = 0, HD = 0;
+                        leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).forEach((l: any) => {
+                            if (l.durationType === 'HALF_DAY' || l.totalDays % 1 !== 0) HD += l.totalDays;
+                            else if (l.leaveType?.name.includes('Sick')) SL += l.totalDays;
+                            else if (l.leaveType?.name.includes('Casual')) CL += l.totalDays;
+                            else if (l.leaveType?.name.includes('Paid')) PL += l.totalDays;
+                        });
+
+                        return (
+                            <div className="card bg-white p-5 border-[#E6E8EC]">
+                                <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown (Allocated Utilization)</p>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="px-4 py-3 border border-indigo-100 bg-indigo-50/30 rounded-xl flex items-center justify-between">
+                                        <p className="text-[12px] font-bold text-indigo-500 uppercase tracking-wide">Sick Leave</p>
+                                        <p className="text-[18px] font-black text-indigo-700 tabular-nums">{SL.toFixed(1)}<span className="text-[10px] font-semibold text-indigo-400 ml-1">SL</span></p>
+                                    </div>
+                                    <div className="px-4 py-3 border border-amber-100 bg-amber-50/30 rounded-xl flex items-center justify-between">
+                                        <p className="text-[12px] font-bold text-amber-500 uppercase tracking-wide">Casual Leave</p>
+                                        <p className="text-[18px] font-black text-amber-700 tabular-nums">{CL.toFixed(1)}<span className="text-[10px] font-semibold text-amber-400 ml-1">CL</span></p>
+                                    </div>
+                                    <div className="px-4 py-3 border border-rose-100 bg-rose-50/30 rounded-xl flex items-center justify-between">
+                                        <p className="text-[12px] font-bold text-rose-500 uppercase tracking-wide">Paid Leave</p>
+                                        <p className="text-[18px] font-black text-rose-700 tabular-nums">{PL.toFixed(1)}<span className="text-[10px] font-semibold text-rose-400 ml-1">PL</span></p>
+                                    </div>
+                                    <div className="px-4 py-3 border border-blue-100 bg-blue-50/30 rounded-xl flex items-center justify-between">
+                                        <p className="text-[12px] font-bold text-blue-500 uppercase tracking-wide">Half Day</p>
+                                        <p className="text-[18px] font-black text-blue-700 tabular-nums">{HD.toFixed(1)}<span className="text-[10px] font-semibold text-blue-400 ml-1">HD</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    </>
                 )}
 
                 {/* Table Registry */}
@@ -267,13 +307,17 @@ export default function LeavesPage() {
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#667085]" size={16} />
                             <input
                                 type="text"
-                                placeholder="Search by name, ID or type..."
+                                placeholder={leaves.length === 0 ? "No data to search" : "Search by name, ID or type..."}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="input-field pl-9 py-2 text-[13px]"
+                                disabled={leaves.length === 0}
+                                className="input-field pl-9 py-2 text-[13px] disabled:bg-slate-50 disabled:cursor-not-allowed"
                             />
                         </div>
-                        <button className="btn-secondary py-2 px-4 shadow-none">
+                        <button 
+                            disabled={leaves.length === 0}
+                            className="btn-secondary py-2 px-4 shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                             <Filter size={16} />
                             Filters
                         </button>
@@ -292,6 +336,31 @@ export default function LeavesPage() {
                             </thead>
                             <tbody className="divide-y divide-[#E6E8EC]">
                                 {(() => {
+                                    if (leaves.length === 0) return (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-20 text-center">
+                                                <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
+                                                    <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                                        <Calendar size={32} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[16px] font-semibold text-[#101828]">No leave requests yet</p>
+                                                        <p className="text-[13px] text-[#667085] mt-1">When you submit leave applications, they will appear here for tracking and approval.</p>
+                                                    </div>
+                                                    {user?.role === 'EMPLOYEE' && (
+                                                        <button 
+                                                            onClick={() => setIsApplyModalOpen(true)}
+                                                            className="btn-primary mt-2"
+                                                        >
+                                                            <Plus size={18} />
+                                                            Apply for Leave
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+
                                     const filtered = leaves.filter((l: any) => 
                                         l.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                         l.user.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -303,7 +372,7 @@ export default function LeavesPage() {
                                             <td colSpan={5} className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center gap-3">
                                                     <Search size={32} className="text-[#D0D5DD] opacity-20" />
-                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching</p>
+                                                    <p className="text-[14px] font-medium text-[#667085]">No requests matching query</p>
                                                 </div>
                                             </td>
                                         </tr>

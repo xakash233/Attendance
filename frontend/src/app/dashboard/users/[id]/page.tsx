@@ -19,6 +19,8 @@ export default function EmployeeProfileView() {
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [leaves, setLeaves] = useState<any[]>([]);
+    const [systemSettings, setSystemSettings] = useState<any>(null);
     const [editStep, setEditStep] = useState(1);
     const [otpInput, setOtpInput] = useState('');
     const [editData, setEditData] = useState({
@@ -58,6 +60,20 @@ export default function EmployeeProfileView() {
                         name: found.name,
                         employeeCode: found.employeeCode
                     });
+                }
+                
+                try {
+                    const leavesRes = await api.get('/leave/history');
+                    setLeaves(leavesRes.data.filter((l: any) => l.userId === id && l.status === 'FINAL_APPROVED'));
+                } catch (e) {
+                    // Ignore leaves fail
+                }
+
+                try {
+                    const settingsRes = await api.get('/system/settings');
+                    setSystemSettings(settingsRes.data.data);
+                } catch (e) {
+                    // Ignore settings fail
                 }
             } catch (err) {
                 console.error(err);
@@ -197,21 +213,90 @@ export default function EmployeeProfileView() {
 
                 {/* Main Content */}
                 <div className="lg:col-span-8 space-y-6">
-                    <div className="card p-6 border-[#E6E8EC] bg-white">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="w-10 h-10 bg-[#F8F9FB] border border-[#E6E8EC] rounded-lg flex items-center justify-center text-[#344054]">
-                                <Briefcase size={18} />
+                    {employee.role !== 'SUPER_ADMIN' && (
+                        <div className="card p-6 border-[#E6E8EC] bg-white">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-[#F0FDF4] border border-[#DCFCE7] text-[#16A34A] rounded-lg flex items-center justify-center">
+                                    <CheckCircle size={18} />
+                                </div>
+                                <div>
+                                    <h4 className="text-[16px] font-semibold text-[#101828] leading-none">Leave Balances</h4>
+                                    <p className="text-[13px] font-medium text-[#667085] mt-1">Official allocation and real-time consumption.</p>
+                                </div>
                             </div>
-                            <div>
-                                <h4 className="text-[16px] font-semibold text-[#101828] leading-none">Attendance Details</h4>
-                                <p className="text-[13px] font-medium text-[#667085] mt-1">Monthly presence and absence logs.</p>
-                            </div>
-                        </div>
 
-                        <div className="border border-[#E6E8EC] rounded-xl overflow-hidden p-4 bg-[#F8F9FB]">
-                            <AttendanceCalendar userId={employee.id} />
+                            {(() => {
+                                let SL = 0, CL = 0, PL = 0, HD = 0;
+                                leaves.forEach(l => {
+                                    if (l.durationType === 'HALF_DAY' || l.totalDays % 1 !== 0) HD += l.totalDays;
+                                    else if (l.leaveType?.name.includes('Sick')) SL += l.totalDays;
+                                    else if (l.leaveType?.name.includes('Casual')) CL += l.totalDays;
+                                    else if (l.leaveType?.name.includes('Paid')) PL += l.totalDays;
+                                });
+                                const used = SL + CL + PL + HD;
+                                const allocated = systemSettings?.totalLeaveAllocation || 18;
+                                const remaining = allocated - used;
+
+                                return (
+                                    <div className="border border-[#E6E8EC] rounded-xl overflow-hidden shadow-sm">
+                                        <div className="grid grid-cols-3 divide-x divide-[#E6E8EC] border-b border-[#E6E8EC]">
+                                            <div className="p-4 bg-[#F8F9FB] text-center">
+                                                <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Total Allocated</p>
+                                                <p className="text-[20px] font-bold text-[#101828]">{allocated.toFixed(1)}</p>
+                                            </div>
+                                            <div className="p-4 bg-rose-50/50 text-center">
+                                                <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest mb-1">Leaves Used</p>
+                                                <p className="text-[20px] font-bold text-rose-600">{used.toFixed(1)}</p>
+                                            </div>
+                                            <div className="p-4 bg-emerald-50/50 text-center">
+                                                <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-1">Leaves Remaining</p>
+                                                <p className="text-[20px] font-bold text-emerald-700">{remaining.toFixed(1)}</p>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-4">
+                                            <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown</p>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                <div className="p-3 border border-indigo-100 bg-indigo-50/50 rounded-lg text-center">
+                                                    <p className="text-[11px] font-bold text-indigo-500 uppercase">Sick (SL)</p>
+                                                    <p className="text-[15px] font-semibold text-indigo-700 mt-0.5">{SL.toFixed(1)}</p>
+                                                </div>
+                                                <div className="p-3 border border-amber-100 bg-amber-50/50 rounded-lg text-center">
+                                                    <p className="text-[11px] font-bold text-amber-500 uppercase">Casual (CL)</p>
+                                                    <p className="text-[15px] font-semibold text-amber-700 mt-0.5">{CL.toFixed(1)}</p>
+                                                </div>
+                                                <div className="p-3 border border-rose-100 bg-rose-50/50 rounded-lg text-center">
+                                                    <p className="text-[11px] font-bold text-rose-500 uppercase">Paid (PL)</p>
+                                                    <p className="text-[15px] font-semibold text-rose-700 mt-0.5">{PL.toFixed(1)}</p>
+                                                </div>
+                                                <div className="p-3 border border-blue-100 bg-blue-50/50 rounded-lg text-center">
+                                                    <p className="text-[11px] font-bold text-blue-500 uppercase">Half D. (HD)</p>
+                                                    <p className="text-[15px] font-semibold text-blue-700 mt-0.5">{HD.toFixed(1)}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
-                    </div>
+                    )}
+
+                    {employee.role !== 'SUPER_ADMIN' && (
+                        <div className="card p-6 border-[#E6E8EC] bg-white">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="w-10 h-10 bg-[#F8F9FB] border border-[#E6E8EC] rounded-lg flex items-center justify-center text-[#344054]">
+                                    <Briefcase size={18} />
+                                </div>
+                                <div>
+                                    <h4 className="text-[16px] font-semibold text-[#101828] leading-none">Attendance Details</h4>
+                                    <p className="text-[13px] font-medium text-[#667085] mt-1">Monthly presence and absence logs.</p>
+                                </div>
+                            </div>
+
+                            <div className="border border-[#E6E8EC] rounded-xl overflow-hidden p-4 bg-[#F8F9FB]">
+                                <AttendanceCalendar userId={employee.id} />
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="card p-6 border-[#E6E8EC] bg-white flex items-center justify-between">

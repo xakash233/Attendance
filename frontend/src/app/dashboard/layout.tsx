@@ -20,7 +20,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [notifications, setNotifications] = useState<any[]>([]);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [headerStats, setHeaderStats] = useState({ total: 0, present: 0, absent: 0 });
 
@@ -50,7 +49,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     useEffect(() => {
         setDynamicTitle(null);
         setIsMobileMenuOpen(false);
-        setIsProfileMenuOpen(false);
     }, [pathname]);
 
     useEffect(() => {
@@ -59,16 +57,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             if (isNotificationOpen && !target.closest('#notifications-dropdown')) {
                 setIsNotificationOpen(false);
             }
-            if (isProfileMenuOpen && !target.closest('#profile-dropdown')) {
-                setIsProfileMenuOpen(false);
-            }
         };
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isNotificationOpen, isProfileMenuOpen]);
+    }, [isNotificationOpen]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -127,11 +122,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     }, [user, loading, router, fetchNotifications]);
 
-    const markAsRead = async (id: string) => {
+    const markAsRead = async (notif: any) => {
         try {
-            await api.put(`/notifications/${id}/read`);
-            setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
-            setUnreadCount(prev => Math.max(0, prev - 1));
+            if (!notif.isRead) {
+                await api.put(`/notifications/${notif.id}/read`);
+                setNotifications(notifications.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+            
+            // Smart Redirection
+            if (notif.type === 'LEAVE_REQUEST' || notif.type === 'LEAVE_RESPONSE') {
+                router.push('/dashboard/leaves');
+            }
+            setIsNotificationOpen(false);
         } catch (err) {
             console.error('Failed to mark as read:', err);
         }
@@ -262,7 +265,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsNotificationOpen(!isNotificationOpen);
-                                    setIsProfileMenuOpen(false);
                                 }}
                                 className={`w-9 h-9 flex items-center justify-center rounded-full transition-all relative hover:bg-slate-50`}
                             >
@@ -289,7 +291,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <div key={notif.id} className={`p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : ''}`}>
+                                                <div 
+                                                    key={notif.id} 
+                                                    onClick={() => markAsRead(notif)}
+                                                    className={`p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-colors cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : ''}`}
+                                                >
                                                     {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#101828]" />}
                                                     <h4 className="text-[14px] font-medium text-[#101828] leading-tight">{notif.title}</h4>
                                                     <p className="text-[13px] text-[#667085] mt-1 line-clamp-2">{notif.message}</p>
@@ -305,59 +311,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             )}
                         </div>
 
-                        {/* Personnel Anchor */}
-                        <div className="relative" id="profile-dropdown">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setIsProfileMenuOpen(!isProfileMenuOpen);
-                                    setIsNotificationOpen(false);
-                                }}
-                                className="flex items-center gap-3 py-1 pr-1 pl-3 rounded-full hover:bg-slate-50 transition-all group border border-transparent hover:border-[#E6E8EC]"
-                            >
-                                <div className="hidden lg:block text-right">
-                                    <p className="text-[13px] font-semibold text-[#101828] leading-tight">{user?.name || 'Loading...'}</p>
-                                    <p className="text-[11px] text-[#667085] leading-tight mt-0.5 uppercase tracking-widest">{user?.role?.replace('_', ' ') || 'EMPLOYEE'}</p>
-                                </div>
-                                <div className="relative w-8 h-8 rounded-full overflow-hidden bg-[#101828] text-white flex items-center justify-center text-[12px] font-semibold shrink-0">
-                                    {user?.profileImage ? (
-                                        <Image
-                                            src={user?.profileImage}
-                                            fill
-                                            className="object-cover"
-                                            alt="Avatar"
-                                        />
-                                    ) : (
-                                        <User size={16} />
-                                    )}
-                                </div>
-                                <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
-                            </button>
 
-                            {isProfileMenuOpen && (
-                                <div className="absolute right-0 mt-4 w-[calc(100vw-48px)] sm:w-60 bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[200]">
-                                    <div className="px-5 py-4 border-b border-[#E6E8EC] bg-[#F8F9FB]">
-                                        <p className="text-[14px] font-semibold text-[#101828]">{user.name}</p>
-                                        <p className="text-[12px] text-[#667085] mt-0.5 truncate">{user.email}</p>
-                                    </div>
-                                    <div className="p-2 space-y-1">
-                                        <Link href="/dashboard/profile" className="flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-[#344054] hover:text-[#101828] hover:bg-slate-50 rounded-lg transition-all">
-                                            <div className="w-6 h-6 rounded flex items-center justify-center text-[#667085]">
-                                                <User size={16} />
-                                            </div>
-                                            Profile Settings
-                                        </Link>
-                                        <div className="h-px bg-[#E6E8EC] mx-2 my-2"></div>
-                                        <button onClick={logout} className="flex items-center gap-3 px-3 py-2 text-[13px] font-medium text-[#D92D20] hover:bg-red-50 hover:text-[#B42318] rounded-lg transition-all w-full text-left">
-                                            <div className="w-6 h-6 rounded flex items-center justify-center">
-                                                <LogOut size={16} />
-                                            </div>
-                                            Log Out
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </header>
 

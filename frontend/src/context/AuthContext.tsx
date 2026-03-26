@@ -14,6 +14,7 @@ type User = {
     bio?: string;
     profileImage?: string;
     employeeCode?: string;
+    shift?: string;
 };
 
 type AuthContextType = {

@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     UserPlus, Search, Filter, Mail, Shield,
     Briefcase, Command, X, ArrowRight, Loader2, User as UserIcon,
-    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2, MoreVertical
+    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2, MoreVertical, Eye, EyeOff, Sparkles
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -42,6 +42,9 @@ export default function UsersPage() {
         departmentId: '',
         employeeCode: ''
     });
+    const [formErrors, setFormErrors] = useState<any>({});
+    const [showPassword, setShowPassword] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [departments, setDepartments] = useState([]);
     const { user: currentUser, logout } = useAuth();
 
@@ -63,6 +66,44 @@ export default function UsersPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // Search Debounce Logic
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setSearchTerm(debouncedSearch);
+        }, 300);
+        return () => clearTimeout(handler);
+    }, [debouncedSearch]);
+
+    const validateField = (name: string, value: string) => {
+        let error = '';
+        if (name === 'name') {
+            if (!value) error = 'Full Name is required';
+            else if (!/^[A-Za-z ]+$/.test(value)) error = 'Only letters and spaces allowed';
+        }
+        if (name === 'employeeCode') {
+            if (!value) error = 'Employee Code is required';
+            else if (!/^[A-Za-z0-9-]+$/.test(value)) error = 'Only alphanumeric and hyphens allowed';
+        }
+        if (name === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            error = 'Invalid email format';
+        }
+        if (name === 'password' && !isEditing && value.length < 6) {
+            error = 'Password must be at least 6 characters';
+        }
+        setFormErrors(prev => ({ ...prev, [name]: error }));
+        return !error;
+    };
+
+    const handleGeneratePassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let retVal = "";
+        for (let i = 0; i < 12; ++i) {
+            retVal += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        setFormData(prev => ({ ...prev, password: retVal }));
+        validateField('password', retVal);
+    };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -209,25 +250,38 @@ export default function UsersPage() {
             <div className="space-y-6 animate-fade-in pb-10">
                 {/* SaaS Header */}
                 <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <div>
-                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Users</h1>
+                    <div className="flex-1">
+                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Personnel Registry</h1>
                         <p className="text-[13px] font-medium text-[#667085] mt-1">
-                            Manage your team members and their access.
+                            Direct and verify team access across the organizational matrix.
                         </p>
                     </div>
 
-                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
-                        <button
-                            onClick={() => {
-                                resetModal();
-                                setIsModalOpen(true);
-                            }}
-                            className="btn-primary py-2.5 px-6"
-                        >
-                            <UserPlus size={18} className="mr-2" />
-                            Add User
-                        </button>
-                    )}
+                    <div className="flex items-center gap-3 w-full lg:w-auto">
+                        <div className="relative flex-1 lg:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                            <input 
+                                type="text"
+                                placeholder="Search Name, Email, ID..."
+                                className="input-field py-2.5 pl-10 text-[13px] border-slate-200 focus:border-black transition-all"
+                                value={debouncedSearch}
+                                onChange={(e) => setDebouncedSearch(e.target.value)}
+                            />
+                        </div>
+
+                        {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
+                            <button
+                                onClick={() => {
+                                    resetModal();
+                                    setIsModalOpen(true);
+                                }}
+                                className="btn-primary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95"
+                            >
+                                <UserPlus size={18} className="mr-2" />
+                                Add User
+                            </button>
+                        )}
+                    </div>
                 </header>
 
                 {/* Filters */}
@@ -459,24 +513,57 @@ export default function UsersPage() {
                             <div className="overflow-y-auto no-scrollbar p-6">
                                 <form onSubmit={handleFormSubmit} className="space-y-6" autoComplete="off">
                                     <div className="space-y-1.5">
-                                        <label className="text-[13px] font-medium text-[#344054]">Full Name</label>
-                                        <input type="text" className="input-field py-2.5" placeholder="e.g. John Doe" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+                                        <label className="text-[13px] font-medium text-[#344054]">Full Name <span className="text-red-500">*</span></label>
+                                        <input 
+                                            type="text" 
+                                            className={`input-field py-2.5 ${formErrors.name ? 'border-red-500 bg-red-50/10' : ''}`} 
+                                            placeholder="e.g. John Doe" 
+                                            value={formData.name} 
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, name: e.target.value });
+                                                validateField('name', e.target.value);
+                                            }} 
+                                            required 
+                                        />
+                                        {formErrors.name && <p className="text-[11px] font-medium text-red-600 mt-1">{formErrors.name}</p>}
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
-                                            <label className="text-[13px] font-medium text-[#344054]">Email Address</label>
-                                            <input type="email" className="input-field py-2.5" placeholder="john@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })} required />
+                                            <label className="text-[13px] font-medium text-[#344054]">Email Address <span className="text-red-500">*</span></label>
+                                            <input 
+                                                type="email" 
+                                                className={`input-field py-2.5 ${formErrors.email ? 'border-red-500' : ''}`} 
+                                                placeholder="e.g. john@company.com" 
+                                                value={formData.email} 
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, email: e.target.value.toLowerCase() });
+                                                    validateField('email', e.target.value);
+                                                }} 
+                                                required 
+                                            />
+                                            {formErrors.email && <p className="text-[11px] font-medium text-red-600 mt-1">{formErrors.email}</p>}
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[13px] font-medium text-[#344054]">Employee Code</label>
-                                            <input type="text" className="input-field py-2.5" placeholder="EMP-001" value={formData.employeeCode} onChange={(e) => setFormData({ ...formData, employeeCode: e.target.value.toUpperCase() })} required />
+                                            <label className="text-[13px] font-medium text-[#344054]">Employee Code <span className="text-red-500">*</span></label>
+                                            <input 
+                                                type="text" 
+                                                className={`input-field py-2.5 ${formErrors.employeeCode ? 'border-red-500' : ''}`} 
+                                                placeholder="e.g. EMP-001" 
+                                                value={formData.employeeCode} 
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, employeeCode: e.target.value.toUpperCase() });
+                                                    validateField('employeeCode', e.target.value);
+                                                }} 
+                                                required 
+                                            />
+                                            {formErrors.employeeCode && <p className="text-[11px] font-medium text-red-600 mt-1">{formErrors.employeeCode}</p>}
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                         <div className="space-y-1.5">
-                                            <label className="text-[13px] font-medium text-[#344054]">Role</label>
+                                            <label className="text-[13px] font-medium text-[#344054]">Access Role <span className="text-red-500">*</span></label>
                                             <div className="relative">
                                                 <select
                                                     className="input-field py-2.5 appearance-none"
@@ -485,10 +572,10 @@ export default function UsersPage() {
                                                     required
                                                     disabled={isEditing && currentUser?.role === 'HR'}
                                                 >
-                                                    <option value="EMPLOYEE">Employee</option>
-                                                    {currentUser?.role !== 'HR' && <option value="HR">HR</option>}
-                                                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && <option value="ADMIN">Admin</option>}
-                                                    {currentUser?.role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">Super Admin</option>}
+                                                    <option value="EMPLOYEE">Employee Access</option>
+                                                    {currentUser?.role !== 'HR' && <option value="HR">HR Manager</option>}
+                                                    {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') && <option value="ADMIN">Administrator</option>}
+                                                    {currentUser?.role === 'SUPER_ADMIN' && <option value="SUPER_ADMIN">System Root (Super Admin)</option>}
                                                 </select>
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
                                                     <ChevronDown size={16} />
@@ -496,10 +583,15 @@ export default function UsersPage() {
                                             </div>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <label className="text-[13px] font-medium text-[#344054]">Department</label>
+                                            <label className="text-[13px] font-medium text-[#344054]">Work Department <span className="text-red-500">*</span></label>
                                             <div className="relative">
-                                                <select className="input-field py-2.5 appearance-none" onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })} value={formData.departmentId} required={!isEditing}>
-                                                    <option value="">Select department</option>
+                                                <select 
+                                                    className="input-field py-2.5 appearance-none" 
+                                                    onChange={(e) => setFormData({ ...formData, departmentId: e.target.value })} 
+                                                    value={formData.departmentId} 
+                                                    required={!isEditing}
+                                                >
+                                                    <option value="">e.g. Operations</option>
                                                     {departments.map((d: any) => (
                                                         <option key={d.id} value={d.id}>{d.name}</option>
                                                     ))}
@@ -513,15 +605,40 @@ export default function UsersPage() {
 
                                     {!isEditing && (
                                         <div className="space-y-1.5">
-                                            <label className="text-[13px] font-medium text-[#344054]">Temporary Password</label>
-                                            <div className="relative">
-                                                <input type="password" autoComplete="new-password" className="input-field py-2.5 pr-10" placeholder="••••••••" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} required />
-                                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[#667085]">
-                                                    <Key size={16} />
-                                                </div>
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-[13px] font-medium text-[#344054]">Initial Password <span className="text-red-500">*</span></label>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={handleGeneratePassword}
+                                                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 uppercase tracking-wider"
+                                                >
+                                                    <Sparkles size={12} /> Generate Secure
+                                                </button>
                                             </div>
+                                            <div className="relative">
+                                                <input 
+                                                    type={showPassword ? "text" : "password"} 
+                                                    autoComplete="new-password" 
+                                                    className={`input-field py-2.5 pr-20 ${formErrors.password ? 'border-red-500' : ''}`} 
+                                                    placeholder="min. 6 characters" 
+                                                    value={formData.password} 
+                                                    onChange={(e) => {
+                                                        setFormData({ ...formData, password: e.target.value });
+                                                        validateField('password', e.target.value);
+                                                    }} 
+                                                    required 
+                                                />
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#101828] transition-colors"
+                                                >
+                                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                                </button>
+                                            </div>
+                                            {formErrors.password && <p className="text-[11px] font-medium text-red-600 mt-1">{formErrors.password}</p>}
                                         </div>
-                                    )}
+                                    )}              )}
 
                                     <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
                                         <button type="button" onClick={resetModal} className="btn-secondary">

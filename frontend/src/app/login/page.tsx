@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
-import { Shield, ArrowRight, Loader2, Key, Mail, ArrowLeft, Fingerprint, ShieldAlert, Cpu } from 'lucide-react';
+import { Shield, ArrowRight, Loader2, Key, Mail, ArrowLeft, Fingerprint, ShieldAlert, Cpu, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 
@@ -19,6 +19,7 @@ export default function LoginPage() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [loginErrorState, setLoginErrorState] = useState<'NONE' | 'EMAIL' | 'PASSWORD'>('NONE');
     const { login } = useAuth();
+    const [showPassword, setShowPassword] = useState(false);
     const textRef = React.useRef<HTMLSpanElement>(null);
 
     const handleMouseMove = (e: React.MouseEvent) => {
@@ -223,11 +224,10 @@ export default function LoginPage() {
                         <div className="space-y-1.5 lg:space-y-2.5 group">
                             <div className="flex justify-between items-center px-1">
                                 <label className="text-[9px] lg:text-[11px] font-bold text-black/40 uppercase tracking-widest">Password</label>
-                                <button type="button" onClick={() => setView('FORGOT')} className="text-[9px] lg:text-[11px] font-bold text-black/30 hover:text-black transition-colors uppercase tracking-widest">Forgot?</button>
                             </div>
                             <div className="relative">
                                 <input
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     className={`w-full h-12 lg:h-16 rounded-xl lg:rounded-2xl px-12 lg:px-14 text-[13px] lg:text-[15px] font-semibold text-black tracking-widest focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm 
                                         ${loginErrorState === 'PASSWORD'
                                             ? 'bg-red-50/50 border-2 border-red-500 text-red-900 focus:bg-red-50/80 focus:ring-4 focus:ring-red-500/20'
@@ -243,6 +243,22 @@ export default function LoginPage() {
                                     autoComplete="current-password"
                                 />
                                 <Key size={16} className={`absolute left-4 lg:left-5 top-1/2 -translate-y-1/2 transition-colors duration-300 ${loginErrorState === 'PASSWORD' ? 'text-red-500' : 'text-neutral-400 group-focus-within:text-black'}`} />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 lg:right-5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            <div className="flex justify-end px-1 mt-1">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setView('FORGOT')} 
+                                    className="text-[10px] lg:text-[11px] font-black text-black/20 hover:text-black transition-all uppercase tracking-widest hover:underline decoration-black/10 underline-offset-4"
+                                >
+                                    Forgot password ?
+                                </button>
                             </div>
                         </div>
                     </div>

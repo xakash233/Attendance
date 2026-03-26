@@ -160,7 +160,7 @@ export default function DepartmentsPage() {
                                         </button>
 
                                         {openMenuId === dept.id && (
-                                            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]">
+                                            <div className="absolute right-0 mt-1 w-48 bg-white border border-[#E6E8EC] rounded-lg shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[100]" onClick={(e) => e.stopPropagation()}>
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();

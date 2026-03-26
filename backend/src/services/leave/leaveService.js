@@ -66,12 +66,20 @@ class LeaveService {
 
             // 2. Validate Balance BEFORE creating (Skip for WFH)
             if (durationType !== 'WORK_FROM_HOME') {
-                const balanceRecord = await tx.leaveBalance.findUnique({
+                let balanceRecord = await tx.leaveBalance.findUnique({
                     where: { userId_leaveTypeId: { userId, leaveTypeId } }
                 });
 
-                if (!balanceRecord || balanceRecord.balance < totalDays) {
-                    throw new Error(`Insufficient leave balance. You have ${balanceRecord ? balanceRecord.balance : 0} days available.`);
+                if (!balanceRecord) {
+                    const lt = await tx.leaveType.findUnique({ where: { id: leaveTypeId } });
+                    if (!lt) throw new Error('Leave type not found');
+                    balanceRecord = await tx.leaveBalance.create({
+                        data: { userId, leaveTypeId, balance: lt.daysAllowed }
+                    });
+                }
+
+                if (balanceRecord.balance < totalDays) {
+                    throw new Error(`Insufficient leave balance. You have ${balanceRecord.balance} days available.`);
                 }
             } else {
                 // WFH Limits Check

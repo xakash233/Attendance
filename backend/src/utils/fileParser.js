@@ -1,7 +1,8 @@
 import csv from 'csv-parser';
 import { XMLParser } from 'fast-xml-parser';
 import { Readable } from 'stream';
-import { parseISO, isValid } from 'date-fns';
+import { parseISO, isValid, format } from 'date-fns';
+import ExcelJS from 'exceljs';
 
 // Helper to normalize dates to UTC
 export const normalizeTimestamp = (timestamp) => {
@@ -108,10 +109,64 @@ const parseXmlBuffer = (buffer) => {
     }
 };
 
+const parseExcelBuffer = async (buffer) => {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.getWorksheet(1);
+    const results = [];
+
+    // Header validation
+    const headerRow = worksheet.getRow(1);
+    const headers = headerRow.values.map(v => String(v).toLowerCase());
+    
+    // We look for flexible mapping
+    const colMap = {
+        emp: headers.findIndex(h => h.includes('empid') || h.includes('employee') || h.includes('code')),
+        date: headers.findIndex(h => h.includes('date') || h.includes('log') || h.includes('time')),
+        in: headers.findIndex(h => h.includes('in')),
+        out: headers.findIndex(h => h.includes('out'))
+    };
+
+    if (colMap.emp === -1 || colMap.date === -1) {
+        throw new Error('Invalid Excel structure. Required columns: EmpID (or EmployeeCode) and Date/Timestamp.');
+    }
+
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header
+
+        const empCode = row.getCell(colMap.emp).value;
+        const dateVal = row.getCell(colMap.date).value;
+        const inVal = colMap.in !== -1 ? row.getCell(colMap.in).value : null;
+        const outVal = colMap.out !== -1 ? row.getCell(colMap.out).value : null;
+
+        if (empCode && dateVal) {
+            try {
+                // If the file has separate IN/OUT columns (standard manually prepared excel)
+                if (inVal || outVal) {
+                    const baseDate = dateVal instanceof Date ? format(dateVal, 'yyyy-MM-dd') : String(dateVal).split(' ')[0];
+                    if (inVal) results.push({ employeeCode: String(empCode).trim(), timestamp: normalizeTimestamp(`${baseDate} ${inVal}`) });
+                    if (outVal) results.push({ employeeCode: String(empCode).trim(), timestamp: normalizeTimestamp(`${baseDate} ${outVal}`) });
+                } else {
+                    // Standard log format
+                    results.push({
+                        employeeCode: String(empCode).trim(),
+                        timestamp: normalizeTimestamp(dateVal)
+                    });
+                }
+            } catch (e) {
+                console.warn(`Skipping malformed Excel row ${rowNumber}: ${e.message}`);
+            }
+        }
+    });
+
+    return results;
+};
+
 export const parseBiometricFile = async (fileBuffer, mimeType, filename) => {
     const isCsv = mimeType === 'text/csv' || filename.endsWith('.csv');
     const isJson = mimeType === 'application/json' || filename.endsWith('.json');
     const isXml = mimeType === 'text/xml' || mimeType === 'application/xml' || filename.endsWith('.xml');
+    const isExcel = filename.endsWith('.xlsx') || filename.endsWith('.xls') || mimeType?.includes('spreadsheet') || mimeType?.includes('excel');
 
     if (isCsv) {
         return await parseCsvBuffer(fileBuffer);
@@ -119,7 +174,9 @@ export const parseBiometricFile = async (fileBuffer, mimeType, filename) => {
         return parseJsonBuffer(fileBuffer);
     } else if (isXml) {
         return parseXmlBuffer(fileBuffer);
+    } else if (isExcel) {
+        return await parseExcelBuffer(fileBuffer);
     } else {
-        throw new Error('Unsupported file format. Use CSV, JSON, or XML.');
+        throw new Error('Unsupported file format. Use CSV, JSON, XML, or XLSX.');
     }
 };

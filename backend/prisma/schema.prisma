@@ -191,6 +191,7 @@ model SystemSettings {
   gracePeriod         Int      @default(15)
   wfhMonthlyLimit     Int      @default(4)
   wfhConsecutiveLimit Int      @default(2)
+  totalLeaveAllocation Int      @default(18)
   updatedAt           DateTime @updatedAt
 }
 

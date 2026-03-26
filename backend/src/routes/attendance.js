@@ -21,6 +21,6 @@ router.get('/user-summary/:id', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN')
 router.get('/live', protect, getLiveAttendance);
 router.get('/dashboard-report', protect, getDashboardReport);
 router.get('/compliance-report', protect, getComplianceReport);
-router.get('/export-compliance', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), exportComplianceReport);
+router.get('/export-compliance', protect, exportComplianceReport);
 
 export default router;
