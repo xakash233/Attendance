@@ -330,7 +330,7 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
                             onChange={e => setAllowance(parseInt(e.target.value))}
                             required 
                         />
-                        <p className="text-[11px] text-[#667085]">This value defines the base "Allocated Leaves" shown to all employees globally. Currently set to {allowance} days.</p>
+                        <p className="text-[11px] text-[#667085]">This value defines the base &quot;Allocated Leaves&quot; shown to all employees globally. Currently set to {allowance} days.</p>
                     </div>
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={onClose} className="btn-secondary w-full">Cancel</button>

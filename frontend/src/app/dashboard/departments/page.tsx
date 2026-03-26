@@ -39,7 +39,7 @@ export default function DepartmentsPage() {
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, []);
 
     useEffect(() => {
         fetchDepts();

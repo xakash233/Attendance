@@ -135,7 +135,7 @@ export default function DashboardPage() {
         }
     };
 
-    const fetchCompliance = async () => {
+    const fetchCompliance = useCallback(async () => {
         setComplianceLoading(true);
         try {
             const params: any = {};
@@ -150,13 +150,13 @@ export default function DashboardPage() {
         } finally {
             setComplianceLoading(false);
         }
-    };
+    }, [complianceMonth]);
 
     useEffect(() => {
         if (showCompliance) {
             fetchCompliance();
         }
-    }, [complianceMonth, showCompliance]); // Added showCompliance to dependencies
+    }, [showCompliance, fetchCompliance]);
 
     const handleExportExcel = async () => {
         setExportLoading(true);

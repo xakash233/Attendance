@@ -61,7 +61,7 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [logout]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -91,7 +91,7 @@ export default function UsersPage() {
         if (name === 'password' && !isEditing && value.length < 6) {
             error = 'Password must be at least 6 characters';
         }
-        setFormErrors(prev => ({ ...prev, [name]: error }));
+        setFormErrors((prev: any) => ({ ...prev, [name]: error }));
         return !error;
     };
 
@@ -638,7 +638,7 @@ export default function UsersPage() {
                                             </div>
                                             {formErrors.password && <p className="text-[11px] font-medium text-red-600 mt-1">{formErrors.password}</p>}
                                         </div>
-                                    )}              )}
+                                    )}
 
                                     <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
                                         <button type="button" onClick={resetModal} className="btn-secondary">

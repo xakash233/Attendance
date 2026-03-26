@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 socket.off('notification', onNotification);
             };
         }
-    }, [user, loading, router, fetchNotifications]);
+    }, [user, loading, router, fetchNotifications, fetchHeaderStats]);
 
     const markAsRead = async (notif: any) => {
         try {

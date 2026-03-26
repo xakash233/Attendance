@@ -15,7 +15,7 @@ export default function NotFound() {
             </div>
 
             <h2 className="text-2xl font-black text-[#101828] mb-4">The requested node is not part of the current registry.</h2>
-            <p className="text-slate-500 max-w-sm mb-12 font-medium">It seems you've attempted to access a legacy terminal or an invalid protocol address.</p>
+            <p className="text-slate-500 max-w-sm mb-12 font-medium">It seems you&apos;ve attempted to access a legacy terminal or an invalid protocol address.</p>
 
             <div className="flex flex-col sm:flex-row gap-4">
                 <Link 
