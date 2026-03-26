@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [headerStats, setHeaderStats] = useState({ total: 0, present: 0, absent: 0 });
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     const fetchHeaderStats = useCallback(async () => {
         try {
@@ -56,6 +57,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             const target = event.target as HTMLElement;
             if (isNotificationOpen && !target.closest('#notifications-dropdown')) {
                 setIsNotificationOpen(false);
+            }
+            if (isProfileOpen && !target.closest('#profile-dropdown')) {
+                setIsProfileOpen(false);
             }
         };
 
@@ -141,6 +145,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             setIsNotificationOpen(false);
         } catch (err) {
             console.error('Failed to mark as read:', err);
+        }
+    };
+
+    const deleteNotification = async (notifId: string) => {
+        try {
+            await api.delete(`/notifications/${notifId}`);
+            setNotifications(notifications.filter(n => n.id !== notifId));
+            setUnreadCount(prev => {
+                const isUnread = notifications.find(n => n.id === notifId && !n.isRead);
+                return isUnread ? Math.max(0, prev - 1) : prev;
+            });
+        } catch (err) {
+            console.error('Failed to delete notification:', err);
         }
     };
 
@@ -297,22 +314,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             </div>
                                         ) : (
                                             notifications.map((notif) => (
-                                                <button 
+                                                <div 
                                                     key={notif.id} 
-                                                    onClick={() => markAsRead(notif)}
-                                                    className={`w-full text-left p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-all cursor-pointer relative ${!notif.isRead ? 'bg-[#F8F9FB]' : 'bg-white'}`}
+                                                    className={`w-full flex items-center p-4 border-b border-[#E6E8EC] last:border-0 hover:bg-slate-50 transition-all relative ${!notif.isRead ? 'bg-[#F8F9FB]' : 'bg-white'}`}
                                                 >
                                                     {!notif.isRead && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#101828]" />}
-                                                    <h4 className="text-[14px] font-medium text-[#101828] leading-tight pr-4">{notif.title}</h4>
-                                                    <p className="text-[13px] text-[#667085] mt-1 line-clamp-2">{notif.message}</p>
-                                                    <div className="flex items-center justify-between mt-3">
-                                                        <div className="flex items-center gap-1.5 ">
-                                                            <Clock size={12} className="text-[#98A2B3]" />
-                                                            <p className="text-[11px] text-[#98A2B3] font-medium">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
+                                                    <div 
+                                                        onClick={() => markAsRead(notif)}
+                                                        className="flex-1 cursor-pointer pr-8"
+                                                    >
+                                                        <h4 className="text-[14px] font-medium text-[#101828] leading-tight">{notif.title}</h4>
+                                                        <p className="text-[13px] text-[#667085] mt-1 line-clamp-2">{notif.message}</p>
+                                                        <div className="flex items-center justify-between mt-3">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Clock size={12} className="text-[#98A2B3]" />
+                                                                <p className="text-[11px] text-[#98A2B3] font-medium">{formatDistanceToNow(new Date(notif.createdAt), { addSuffix: true })}</p>
+                                                            </div>
+                                                            <span className="text-[11px] font-bold text-[#101828] uppercase tracking-wider">View Details &rarr;</span>
                                                         </div>
-                                                        <span className="text-[11px] font-bold text-[#101828] uppercase tracking-wider">View Details &rarr;</span>
                                                     </div>
-                                                </button>
+                                                    
+                                                    {notif.isRead && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                deleteNotification(notif.id);
+                                                            }}
+                                                            className="absolute top-4 right-4 p-1 rounded-md hover:bg-slate-200 text-[#98A2B3] hover:text-red-500 transition-all"
+                                                            title="Clear notification"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             ))
                                         )}
                                     </div>
@@ -320,7 +354,54 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             )}
                         </div>
 
+                        {/* Profile Dropdown */}
+                        <div className="relative" id="profile-dropdown">
+                            <button
+                                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                                className="flex items-center gap-3 p-1.5 pl-3 rounded-full border border-[#E6E8EC]/50 hover:bg-slate-50 transition-all"
+                            >
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-[13px] font-bold text-[#101828] leading-none">{user?.name}</p>
+                                    <p className="font-medium text-[#667085] mt-1 uppercase tracking-wider text-[9px] leading-none">{user?.role?.replace('_', ' ')}</p>
+                                </div>
+                                <div className="w-9 h-9 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px]">
+                                    {user?.name?.[0]?.toUpperCase()}
+                                </div>
+                                <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
+                            </button>
 
+                            {isProfileOpen && (
+                                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[200]">
+                                    <div className="p-4 border-b border-[#E6E8EC] bg-[#F8F9FB]">
+                                        <p className="text-[14px] font-bold text-[#101828]">{user?.name}</p>
+                                        <p className="text-[11px] text-[#667085] truncate font-medium mt-0.5">{user?.email}</p>
+                                    </div>
+                                    <div className="p-1.5">
+                                        <button
+                                            onClick={() => {
+                                                router.push(`/dashboard/users/${user?.id}`);
+                                                setIsProfileOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-[#344054] hover:bg-slate-50 transition-all"
+                                        >
+                                            <User size={16} />
+                                            Edit Profile
+                                        </button>
+                                        <div className="h-[1px] bg-[#E6E8EC] my-1 mx-2" />
+                                        <button
+                                            onClick={() => {
+                                                logout();
+                                                setIsProfileOpen(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-[#D92D20] hover:bg-red-50 transition-all"
+                                        >
+                                            <LogOut size={16} />
+                                            Log Out
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </header>
 

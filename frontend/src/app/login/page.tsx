@@ -40,7 +40,7 @@ export default function LoginPage() {
         setLoading(true);
         try {
             const loginRes = await api.post('/auth/login', { email: email.trim(), password });
-            
+
             if (loginRes.data.needsPasswordChange) {
                 setTempAuth(loginRes.data);
                 setView('UPDATE_PASSWORD');
@@ -72,7 +72,7 @@ export default function LoginPage() {
                     toast.error("Registry identity invalid", { icon: '⚠️' });
                 } else if (errorMsg.includes('Incorrect Password provided')) {
                     setLoginErrorState('PASSWORD');
-                    toast.error("Cipher mismatch. Please re-verify.", { icon: '⚠️' });
+                    toast.error("Password mismatch. Please re-verify.", { icon: '⚠️' });
                 } else {
                     setLoginErrorState('NONE');
                     toast.error(errorMsg, { icon: '⚠️' });
@@ -86,19 +86,19 @@ export default function LoginPage() {
     const handleFirstPasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newPassword !== confirmPassword) {
-            return toast.error("Security ciphers do not match.");
+            return toast.error("Security Passwords do not match.");
         }
         setLoading(true);
         try {
             // Update password using the temporary token
-            await api.put('/auth/change-password', 
+            await api.put('/auth/change-password',
                 { oldPassword: password, newPassword: newPassword },
                 { headers: { Authorization: `Bearer ${tempAuth.accessToken}` } }
             );
 
-            toast.success("Security cipher updated successfully.");
+            toast.success("Security Password updated successfully.");
             setIsSuccess(true);
-            
+
             setTimeout(() => {
                 login(tempAuth.accessToken, {
                     id: tempAuth.id,
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 });
             }, 2000);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to update cipher.");
+            toast.error(error.response?.data?.message || "Failed to update Password.");
         } finally {
             setLoading(false);
         }
@@ -160,7 +160,7 @@ export default function LoginPage() {
                     </header>
                     <div className="space-y-4">
                         <div className="space-y-1.5 lg:space-y-2.5">
-                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">New Security Cipher</label>
+                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">New Security Password</label>
                             <input
                                 type="password"
                                 className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
@@ -171,7 +171,7 @@ export default function LoginPage() {
                             />
                         </div>
                         <div className="space-y-1.5 lg:space-y-2.5">
-                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Confirm Cipher</label>
+                            <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Confirm Password</label>
                             <input
                                 type="password"
                                 className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
@@ -252,9 +252,9 @@ export default function LoginPage() {
                                 </button>
                             </div>
                             <div className="flex justify-end px-1 mt-1">
-                                <button 
-                                    type="button" 
-                                    onClick={() => setView('FORGOT')} 
+                                <button
+                                    type="button"
+                                    onClick={() => setView('FORGOT')}
                                     className="text-[10px] lg:text-[11px] font-black text-black/20 hover:text-black transition-all uppercase tracking-widest hover:underline decoration-black/10 underline-offset-4"
                                 >
                                     Forgot password ?
@@ -287,7 +287,7 @@ export default function LoginPage() {
                 <form onSubmit={handleForgot} className="space-y-10 animate-slide-up w-full">
                     <header className={`space-y-4 mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
                         <h2 className="text-4xl lg:text-5xl font-black text-black tracking-tighter leading-none">Recover Your Account</h2>
-                        <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter your Registered Email. The system will dispatch a temporary authorization cipher.</p>
+                        <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter your Registered Email. The system will dispatch a temporary authorization Password.</p>
                     </header>
                     <div className="space-y-2.5 group">
                         <label className="text-[10px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Registered Email</label>
@@ -331,7 +331,7 @@ export default function LoginPage() {
                         />
                     </div>
                     <button type="submit" disabled={loading || otp.length < 6} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-2xl font-black uppercase tracking-[0.15em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
-                        <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Generate Cipher'}</span>
+                        <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Generate Password'}</span>
                     </button>
                     <button type="button" onClick={() => setView('LOGIN')} className="w-full h-14 text-[11px] lg:text-[12px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
                         <ArrowLeft size={16} /> Return
@@ -411,34 +411,34 @@ export default function LoginPage() {
             {isSuccess && (
                 <div className="fixed inset-0 z-[500] bg-white flex flex-col items-center justify-center p-6 animate-fade-in">
                     <div className="relative flex flex-col items-center gap-12">
-                        <motion.div 
+                        <motion.div
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ duration: 0.5 }}
                         >
-                            <Image 
-                                src="/logo/tectra_upscaled.png" 
-                                alt="Tectra Logo" 
-                                width={240} 
-                                height={60} 
-                                className="w-auto h-12 object-contain" 
-                                priority 
+                            <Image
+                                src="/logo/tectra_upscaled.png"
+                                alt="Tectra Logo"
+                                width={240}
+                                height={60}
+                                className="w-auto h-12 object-contain"
+                                priority
                             />
                         </motion.div>
-                        
+
                         {/* Three Dots Loading Animation */}
                         <div className="flex gap-2">
-                            <motion.div 
+                            <motion.div
                                 className="w-2.5 h-2.5 bg-[#101828] rounded-full"
                                 animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
                                 transition={{ repeat: Infinity, duration: 1, delay: 0 }}
                             />
-                            <motion.div 
+                            <motion.div
                                 className="w-2.5 h-2.5 bg-[#101828] rounded-full"
                                 animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
                                 transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
                             />
-                            <motion.div 
+                            <motion.div
                                 className="w-2.5 h-2.5 bg-[#101828] rounded-full"
                                 animate={{ opacity: [0.3, 1, 0.3], scale: [1, 1.2, 1] }}
                                 transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}

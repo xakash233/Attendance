@@ -127,12 +127,8 @@ export const checkOut = async (req, res, next) => {
             workingHours = 8;
         }
 
-        let finalStatus = attendance.status;
-        if (workingHours > 8.5) { // 8 hours shift + 0.5h buffer for overtime
-            finalStatus = 'OVERTIME';
-        } else if (workingHours < 4) {
-            finalStatus = 'HALF_DAY';
-        }
+        let finalStatus = workingHours >= 8.0 ? 'FULL_DAY' : 'SHORT_DAY';
+        if (workingHours <= 0.1) finalStatus = 'ABSENT';
 
         const updated = await prisma.attendance.update({
             where: { id: attendance.id },
@@ -654,16 +650,38 @@ export const getDashboardReport = async (req, res, next) => {
             }
         }
 
-        // 2. Weekly Overview (Strict previous 7 days)
+        // 2. Weekly Overview (Mon-Sat Logic)
         const weeklyHistory = [];
-        const sevenDaysAgo = new Date(todayStart);
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const today = new Date(todayStart);
+        const dayOfWeekNow = today.getDay(); // 0 is Sunday
+        
+        // Find Monday of the current week (UTC-based to avoid timezone shifts)
+        const mondayOfThisWeek = new Date(todayStart);
+        const dayOfWeekIndex = mondayOfThisWeek.getUTCDay(); // 0 is Sunday
+        const diffToMon = dayOfWeekIndex === 0 ? 6 : dayOfWeekIndex - 1; 
+        mondayOfThisWeek.setUTCDate(mondayOfThisWeek.getUTCDate() - diffToMon);
+        mondayOfThisWeek.setUTCHours(0, 0, 0, 0);
 
-        // Aggregate hours from 7 days ago strictly to yesterday
-        for (let d = new Date(sevenDaysAgo); d < todayStart; d.setDate(d.getDate() + 1)) {
+        // Aggregate hours from Monday to Saturday
+        let totalWeeklyWorked = 0;
+        let weeklyTargetHours = 0;
+
+        for (let i = 0; i < 6; i++) { // Mon to Sat
+            const d = new Date(mondayOfThisWeek);
+            d.setUTCDate(mondayOfThisWeek.getUTCDate() + i);
+            
+            if (d > todayStart) break; 
+
             const att = await prisma.attendance.findUnique({
-                where: { userId_date: { userId, date: new Date(d) } }
+                where: { userId_date: { userId, date: d } }
             });
+            const worked = att ? (att.workingHours || 0) : 0;
+            totalWeeklyWorked += worked;
+            
+            // Only add to target if it's not a future day and not today (if we want current deficit)
+            // But usually we just show cumulative vs 48
+            weeklyTargetHours += 8;
+
             weeklyHistory.push({
                 date: new Date(d),
                 hours: att ? (att.workingHours || 0) : 0,
@@ -691,11 +709,18 @@ export const getDashboardReport = async (req, res, next) => {
 
         res.json({
             user: { name: req.user.name, id: req.user.id },
+            weeklySummary: {
+                totalWorked: totalWeeklyWorked,
+                target: 48,
+                deficit: Math.max(0, weeklyTargetHours - totalWeeklyWorked),
+                remaining: Math.max(0, 48 - totalWeeklyWorked)
+            },
             today: {
                 currentStatus,
                 workHours: workMs / 3600000,
                 breakHours: breakMs / 3600000,
                 breaksCount,
+                firstIn: rawPunches.length > 0 ? rawPunches[0].time : null,
                 lastIn,
                 lastOut,
                 activity: dailyActivity,
@@ -722,22 +747,22 @@ export const getComplianceReport = async (req, res, next) => {
         let start, end;
 
         if (startDate && endDate) {
-            start = new Date(startDate); start.setHours(0,0,0,0);
-            end = new Date(endDate); end.setHours(23,59,59,999);
+            start = new Date(startDate); start.setUTCHours(0,0,0,0);
+            end = new Date(endDate); end.setUTCHours(23,59,59,999);
         } else if (month) {
             const [y, m] = month.split('-');
-            start = new Date(parseInt(y), parseInt(m) - 1, 1);
-            end = new Date(parseInt(y), parseInt(m), 0);
+            start = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, 1));
+            end = new Date(Date.UTC(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
         } else {
-            // ROBUST DEFAULT: Last 30 Days from today (IST aware)
+            // ROBUST DEFAULT: Last 30 Days from today (IST aware, UTC stored)
             const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             end = new Date(`${dateStrNow}T23:59:59.999Z`);
             start = new Date(`${dateStrNow}T00:00:00.000Z`);
-            start.setDate(end.getDate() - 29); // Total 30 days including today
+            start.setUTCDate(end.getUTCDate() - 29); // Total 30 days including today
         }
         
-        const reportTitle = month ? start.toLocaleString('default', { month: 'long', year: 'numeric' }) : 
-                          (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : "Last 30 Days");
+        const reportTitle = month ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' }) : 
+                          (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : "Last 30 Days (IST Reference)");
 
         // Fetch all relevant users
         let userFilter = {};
@@ -808,71 +833,93 @@ export const getComplianceReport = async (req, res, next) => {
                 const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
                 const att = allAttendance.find(a => a.userId === user.id && a.date.toISOString().split('T')[0] === dateStr);
                 const leave = allLeaves.find(l => {
-                    const ls = new Date(l.startDate); ls.setHours(0,0,0,0);
-                    const le = new Date(l.endDate); le.setHours(0,0,0,0);
-                    const d = new Date(iter); d.setHours(0,0,0,0);
+                    const ls = new Date(l.startDate); ls.setUTCHours(0,0,0,0);
+                    const le = new Date(l.endDate); le.setUTCHours(0,0,0,0);
+                    const d = new Date(iter); d.setUTCHours(0,0,0,0);
                     return l.userId === user.id && d >= ls && d <= le;
                 });
 
                 let status = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
                 let hours = att ? (att.workingHours || 0) : 0;
-                let remarks = att && att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : 'N/A';
+                let remarks = 'N/A';
                 
                 if (att) {
                     status = att.status.replace(/_/g, ' ');
+                    if (att.deficit > 0) remarks = `Short Hours (${att.deficit.toFixed(2)}h)`;
                 }
 
                 if (leave) {
                     const lType = leave.leaveType?.name || 'LEAVE';
                     if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
                         status = `HALF DAY ${lType.toUpperCase()}`;
-                        hours = Math.max(hours, 4); // Credit 4 hours for half day leave
+                        hours = Math.max(hours, 4.0); // Credit 4 hours for half day
+                        remarks = 'HALF DAY LEAVE';
                     } else {
                         status = lType.toUpperCase();
-                        hours = Math.max(hours, 8.5); // Credit full shift for leave
+                        hours = Math.max(hours, 8.0); // Credit 8 hours for full day leave
+                        remarks = 'APPROVED LEAVE';
                     }
-                    remarks = 'LEAVE APPLIED';
                 }
 
                 if (holiday) {
                     remarks = holiday.name;
-                    hours = Math.max(hours, 8.5); // Credit holiday hours
+                    hours = Math.max(hours, 8.0); // Credit 8 hours for holiday
                 }
                 
                 if (isWeekend) {
-                    hours = Math.max(hours, 0); // No automatic credit for weekend unless worked (att)
+                    hours = Math.max(hours, (att ? att.workingHours : 0)); 
                 } else if (!leave && !holiday) {
                     // Regular working day: add to target
-                    weeklyTarget += 8.5;
+                    weeklyTarget += 8.0;
                 }
 
                 const actualWorkedToday = att ? (att.workingHours || 0) : 0;
                 weeklyActualSum += actualWorkedToday;
                 weeklyHoursToDate += hours;
                 
-                let dayIcon = actualWorkedToday > 0 ? actualWorkedToday.toFixed(1) : (leave ? 'L' : (holiday ? 'H' : '0'));
+                let dayIcon = actualWorkedToday > 0 ? actualWorkedToday.toFixed(1) : (leave ? 'L' : (holiday ? 'H' : (isWeekend ? 'W' : '0')));
                 weeklySeries.push(dayIcon);
-                const weekHistorySoFar = weeklySeries.slice(0, -1).join(' + ') || 'Start';
+                
+                const weeklyVariance = weeklyActualSum - weeklyTarget;
+                const isSaturday = dayOfWeek === 6;
+                let weeklySummaryStatus = "";
+                
+                if (isSaturday) {
+                    weeklySummaryStatus = (weeklyActualSum >= 48) ? "Weekly requirement met" : "Weekly hours incomplete";
+                }
+
+                // Custom Status for deficit/compensation
+                if (actualWorkedToday > 0 && !leave && !holiday) {
+                    if (actualWorkedToday < 8.0) {
+                        remarks = `Short Day (Deficit: ${(8.0 - actualWorkedToday).toFixed(2)}h)`;
+                    } else if (actualWorkedToday > 8.0) {
+                        remarks = actualWorkedToday >= 8 ? "Full Day (Surplus Covered)" : "Full Day";
+                    } else {
+                        status = "FULL DAY";
+                    }
+                }
 
                 formattedOutput.push({
+                    id: user.id,
                     EmployeeID: user.employeeCode,
                     Name: user.name,
                     Date: dateStr,
                     ShiftType: user.shift || 'B',
-                    FirstPunch: att && att.checkIn ? att.checkIn.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : 'N/A')),
-                    LastPunch: att && att.checkOut ? att.checkOut.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : 'N/A')),
-                    TotalWorkedHours: hours.toFixed(2),
+                    FirstPunch: (att && att.checkIn) ? att.checkIn.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '---')),
+                    LastPunch: (att && att.checkOut) ? att.checkOut.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '---')),
+                    TotalWorkedHours: actualWorkedToday.toFixed(2),
                     PreviousDayHours: previousDayHours.toFixed(2),
                     WeeklyCumulative: weeklyHoursToDate.toFixed(2),
                     WeeklyActual: weeklyActualSum.toFixed(2),
-                    WeeklyVariance: (weeklyActualSum - weeklyTarget).toFixed(2),
-                    WeekHistory: weekHistorySoFar,
+                    WeeklyVariance: weeklyVariance.toFixed(2),
+                    WeeklySummary: weeklySummaryStatus,
+                    WeekHistory: weeklySeries.join(' + '),
                     Status: status,
-                    LeaveDeducted: att ? att.leaveDeducted : (leave ? 1 : 0),
+                    LeaveDeducted: att ? (att.leaveDeducted || 0) : (leave ? 1 : 0),
                     Remarks: remarks
                 });
 
-                previousDayHours = hours;
+                previousDayHours = actualWorkedToday;
                 iter.setDate(iter.getDate() + 1);
             }
         }
@@ -912,7 +959,14 @@ export const exportComplianceReport = async (req, res, next) => {
             start.setDate(end.getDate() - 29);
         }
 
-        const reportFilename = month ? `Registry_Report_${month}` : "Registry_Report_Last30Days";
+        let reportFilename = month ? `Attendance_Report_${month}` : "Attendance_Report_Last30Days";
+        if (userId) {
+            const selectedUser = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+            if (selectedUser) {
+                const safeName = selectedUser.name.replace(/[^a-z0-9]/gi, '_');
+                reportFilename = `${safeName}_Attendance_Report_${month || 'Last30Days'}`;
+            }
+        }
 
         // Fetch all relevant users
         let userFilter = {};
@@ -959,18 +1013,32 @@ export const exportComplianceReport = async (req, res, next) => {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Attendance Report');
 
+        if (userId) {
+            const selectedUser = await prisma.user.findUnique({ 
+                where: { id: userId }, 
+                include: { department: true } 
+            });
+            if (selectedUser) {
+                worksheet.addRow(['Employee Name:', selectedUser.name]);
+                worksheet.addRow(['Employee ID:', selectedUser.employeeCode]);
+                worksheet.addRow(['Department:', selectedUser.department?.name || 'N/A']);
+                worksheet.addRow(['Report Period:', month ? month : 'Last 30 Days']);
+                worksheet.addRow([]); // Empty spacing row
+            }
+        }
+
         worksheet.columns = [
-            { header: 'ID', key: 'id', width: 10 },
-            { header: 'Name', key: 'name', width: 25 },
-            { header: 'Dept', key: 'dept', width: 15 },
+            { header: 'Staff ID', key: 'id', width: 12 },
+            { header: 'Staff Name', key: 'name', width: 25 },
+            { header: 'Department', key: 'dept', width: 15 },
             { header: 'Date', key: 'date', width: 15 },
-            { header: 'First Punch', key: 'in', width: 15 },
-            { header: 'Last Punch', key: 'out', width: 15 },
-            { header: 'Daily Work', key: 'daily', width: 12 },
-            { header: 'Weekly Actual', key: 'weekly', width: 12 },
-            { header: 'Net Balance', key: 'balance', width: 12 },
-            { header: 'Status', key: 'status', width: 20 },
-            { header: 'Remarks', key: 'remarks', width: 25 }
+            { header: 'Check In', key: 'in', width: 15 },
+            { header: 'Check Out', key: 'out', width: 15 },
+            { header: 'Work Hours', key: 'daily', width: 12 },
+            { header: 'Total Weekly', key: 'weekly', width: 12 },
+            { header: 'Short/Extra', key: 'balance', width: 12 },
+            { header: 'Attendance Status', key: 'status', width: 20 },
+            { header: 'Notes/Remarks', key: 'remarks', width: 25 }
         ];
 
         for (const user of users) {
@@ -1000,10 +1068,10 @@ export const exportComplianceReport = async (req, res, next) => {
                 const actualWorkedToday = att ? (att.workingHours || 0) : 0;
                 
                 if (dayOfWeek !== 0 && !leave && !holiday) {
-                    weeklyTarget += 8.5;
+                    weeklyTarget += 8.0;
                 }
 
-                let remarks = att && att.deficit > 0 ? `Deficit: ${att.deficit.toFixed(2)}h` : '';
+                let remarks = att && actualWorkedToday < 8.0 && actualWorkedToday > 0 ? `Deficit: ${(8.0 - actualWorkedToday).toFixed(2)}h` : '';
                 if (att) status = att.status.replace(/_/g, ' ');
 
                 if (leave) {
@@ -1035,8 +1103,11 @@ export const exportComplianceReport = async (req, res, next) => {
             }
         }
 
-        worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
+        const headerRowIndex = userId ? 6 : 1;
+        worksheet.getRow(headerRowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        worksheet.getRow(headerRowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
+        worksheet.getRow(headerRowIndex).height = 25;
+        worksheet.getRow(headerRowIndex).alignment = { vertical: 'middle', horizontal: 'center' };
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${reportFilename}.xlsx`);
@@ -1046,5 +1117,216 @@ export const exportComplianceReport = async (req, res, next) => {
 
     } catch (error) {
         next(error);
+    }
+};
+
+export const getWeeklySummary = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { month } = req.query; // format: '2026-03'
+        
+        // Sync to Asia/Kolkata
+        const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const targetMonth = month || dateStrNow.substring(0, 7);
+        const [y, m] = targetMonth.split('-').map(Number);
+        
+        // Month Boundaries
+        const start = new Date(Date.UTC(y, m - 1, 1));
+        const end = new Date(Date.UTC(y, m, 0, 23, 59, 59));
+        
+        const [attendances, holidays, leaves] = await Promise.all([
+            prisma.attendance.findMany({
+                where: { userId, date: { gte: start, lte: end } },
+                orderBy: { date: 'asc' }
+            }),
+            prisma.holiday.findMany({
+                where: { date: { gte: start, lte: end } }
+            }),
+            prisma.leaveRequest.findMany({
+                where: {
+                    userId,
+                    status: { in: ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'] },
+                    OR: [
+                        { startDate: { gte: start, lte: end } },
+                        { endDate: { gte: start, lte: end } },
+                        { startDate: { lte: start }, endDate: { gte: end } }
+                    ]
+                }
+            })
+        ]);
+
+        const weeklyGroups = [
+            { id: 1, name: 'Week 1', start: 1, end: 7, hours: 0, target: 0, holidays: [], leaveOffsets: [] },
+            { id: 2, name: 'Week 2', start: 8, end: 14, hours: 0, target: 0, holidays: [], leaveOffsets: [] },
+            { id: 3, name: 'Week 3', start: 15, end: 21, hours: 0, target: 0, holidays: [], leaveOffsets: [] },
+            { id: 4, name: 'Week 4', start: 22, end: end.getUTCDate(), hours: 0, target: 0, holidays: [], leaveOffsets: [] }
+        ];
+
+        // Process day by day to calculate exact targets
+        let iter = new Date(start);
+        while (iter <= end) {
+            const dateStr = iter.toISOString().split('T')[0];
+            const dayOfWeek = iter.getUTCDay();
+            const dateNum = iter.getUTCDate();
+            
+            const group = weeklyGroups.find(g => dateNum >= g.start && dateNum <= g.end);
+            
+            if (group) {
+                // Sunday is 0: target = 0
+                if (dayOfWeek !== 0) {
+                    // Check if Holiday
+                    const isHoliday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
+                    
+                    // Check if on leave
+                    const isLeave = leaves.find(l => {
+                        const s = new Date(l.startDate).toISOString().split('T')[0];
+                        const e = new Date(l.endDate).toISOString().split('T')[0];
+                        return dateStr >= s && dateStr <= e;
+                    });
+
+                    if (isHoliday) {
+                        group.holidays.push(`${isHoliday.name} (${dateNum})`);
+                        // target remains 0
+                    } else if (isLeave) {
+                        if (isLeave.durationType === 'HALF_DAY') {
+                            group.target += 4;
+                            group.leaveOffsets.push(`Half Day Leave (${dateNum})`);
+                        } else {
+                            group.leaveOffsets.push(`Leave (${dateNum})`);
+                        }
+                    } else {
+                        group.target += 8;
+                    }
+                }
+            }
+            iter.setUTCDate(iter.getUTCDate() + 1);
+        }
+
+        attendances.forEach(att => {
+            const d = att.date.getUTCDate();
+            const group = weeklyGroups.find(g => d >= g.start && d <= g.end);
+            if (group) {
+                // If it's a holiday/leave, working on that day is technically extra, or maybe it counts towards the week? 
+                // We just sum raw hours as system handles `workingHours = 8` for leaves. 
+                // Wait - if the system already credits 8 workingHours for an approved leave/holiday in `attendanceCalculator`/`getDashboardReport`,
+                // then if we drop the target to 0 AND keep the 8 hours from attendance, they will get a surplus incorrectly!
+                // To fix: strictly only add actual manual punches OR we don't count the "auto-credited" leave hours here, 
+                // but since `workingHours` field is updated... 
+                // Actually, if a user has leave, attendance is marked `leaveDeducted`. BUT we don't want to double count.
+                // It's safest to just sum the `workingHours` if it's actual work.
+                // However, the existing system in getDashboardReport `report.today.workHours` shows it. 
+                // If attendance has `status: 'HOLIDAY'` or `LEAVE`, workingHours is usually 0 unless they actually worked.
+                // Let's ensure we only sum positive workingHours. For normal days it works fine.
+                // Let's verify how leave working hours are stored. 
+                // Previously, I added a logic in attendance endpoint to auto-credit... No, I credited it ONLY in `getDashboardReport` memory.
+                // The actual DB `workingHours` remains whatever they physically worked (or 0).
+                group.hours += (att.workingHours || 0);
+            }
+        });
+
+        res.json({
+            month: targetMonth,
+            summary: weeklyGroups.map(g => ({
+                ...g,
+                hours: parseFloat(g.hours.toFixed(2)),
+                remaining: Math.max(0, g.target - g.hours)
+            })),
+            totalInMonth: parseFloat(weeklyGroups.reduce((acc, current) => acc + current.hours, 0).toFixed(2))
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get Admin Analytics
+// @route   GET /api/attendance/admin-analytics
+// @access  Private (SUPER_ADMIN, HR)
+export const getAdminAnalytics = async (req, res, next) => {
+    try {
+        const today = new Date();
+        const startOfToday = new Date(today);
+        startOfToday.setUTCHours(0,0,0,0);
+        const endOfToday = new Date(today);
+        endOfToday.setUTCHours(23,59,59,999);
+        
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - 6);
+        startOfWeek.setUTCHours(0,0,0,0);
+
+        // 1. Fetch EVERYTHING in 3 bulk queries to reduce remote DB latency
+        const [activeUsers, allAttendance, activeLeaves] = await Promise.all([
+            prisma.user.findMany({ where: { status: 'ACTIVE', role: 'EMPLOYEE' }, select: { id: true, name: true } }),
+            prisma.attendance.findMany({ 
+                where: { date: { gte: startOfWeek, lte: endOfToday } },
+                include: { user: { select: { name: true } } }
+            }),
+            prisma.leaveRequest.findMany({
+                where: { startDate: { lte: endOfToday }, endDate: { gte: startOfWeek }, status: 'APPROVED' }
+            })
+        ]);
+
+        console.log(`[ANALYTICS] Fetched ${activeUsers.length} users, ${allAttendance.length} attendance records, ${activeLeaves.length} leaves`);
+
+        const dayMap = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        
+        // 2. Compute Weekly Trends in-memory
+        const weeklyTrends = [];
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            const ds = new Date(date); ds.setUTCHours(0,0,0,0);
+            const de = new Date(date); de.setUTCHours(23,59,59,999);
+            
+            const dayAtt = allAttendance.filter(a => {
+                const ad = new Date(a.date);
+                return ad >= ds && ad <= de;
+            });
+            const present = dayAtt.filter(a => ['PRESENT', 'FULL DAY', 'PRESENT_WFH', 'HALF_DAY', 'LATE'].includes(a.status)).length;
+            const absent = dayAtt.filter(a => a.status === 'ABSENT').length;
+            
+            weeklyTrends.push({ day: dayMap[ds.getDay()], present, absent });
+        }
+
+        // 3. Today Statistics and Alerts
+        const attToday = allAttendance.filter(a => {
+            const ad = new Date(a.date);
+            return ad >= startOfToday && ad <= endOfToday;
+        });
+        const leavesToday = activeLeaves.filter(l => l.startDate <= endOfToday && l.endDate >= startOfToday);
+        
+        const presentCount = attToday.filter(a => ['PRESENT', 'FULL DAY', 'PRESENT_WFH'].includes(a.status)).length;
+        const lateArrivals = attToday.filter(a => a.status === 'LATE');
+        const lowHours = attToday.filter(a => a.workingHours > 0 && a.workingHours < 4 && !['ABSENT', 'HOLIDAY'].includes(a.status));
+        
+        const presentIds = attToday.map(a => a.userId);
+        const leaveIds = leavesToday.map(l => l.userId);
+        const absentWithoutLeave = activeUsers.filter(u => !presentIds.includes(u.id) && !leaveIds.includes(u.id));
+
+        const total = activeUsers.length || 1;
+        const distribution = {
+            present: presentCount,
+            presentPct: Math.round((presentCount / total) * 100),
+            late: lateArrivals.length,
+            latePct: Math.round((lateArrivals.length / total) * 100),
+            onLeave: leavesToday.length,
+            leavePct: Math.round((leavesToday.length / total) * 100),
+            absent: Math.max(0, total - presentCount - lateArrivals.length - leavesToday.length),
+            absentPct: Math.round((Math.max(0, total - presentCount - lateArrivals.length - leavesToday.length) / total) * 100)
+        };
+
+        res.json({
+            weeklyTrends,
+            distribution,
+            alerts: {
+                lateArrivals: lateArrivals.slice(0, 5).map(a => ({ name: a?.user?.name, time: a.checkIn })),
+                lowHours: lowHours.slice(0, 5).map(a => ({ name: a?.user?.name, hours: a.workingHours })),
+                absentWithoutLeave: absentWithoutLeave.slice(0, 5).map(u => ({ name: u.name })),
+                counts: { late: lateArrivals.length, low: lowHours.length, absent: absentWithoutLeave.length }
+            }
+        });
+    } catch (error) {
+        console.error('ANALYTICS_CRASH:', error);
+        res.status(500).json({ error: error.message });
     }
 };

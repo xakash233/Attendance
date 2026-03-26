@@ -41,7 +41,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
 
     // const LUNCH_START = 780; // 13:00
     // const LUNCH_END = 840;   // 14:00
-    const FULL_DAY_THRESHOLD = 450; // 7.5 hours
+    const FULL_DAY_THRESHOLD = 480; // 8.0 hours
     const STANDARD_WORK_DAY = 480;  // 8 hours
 
     if (!Array.isArray(attendanceLogs) || attendanceLogs.length === 0) {
@@ -123,7 +123,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const totalDecimalHours = (totalWorkMinutes / 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY - totalWorkMinutes);
     
-    let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL_DAY" : "HALF_DAY";
+    let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL_DAY" : "SHORT_DAY";
     if (totalWorkMinutes <= 1) status = "ABSENT"; 
 
     return {

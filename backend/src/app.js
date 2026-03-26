@@ -23,6 +23,8 @@ import auditRoutes from './routes/audit.js';
 import healthRoutes from './routes/health.js';
 import notificationRoutes from './routes/notification.js';
 import wfhRoutes from './routes/wfh.js';
+import holidayRoutes from './routes/holiday.js';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +38,7 @@ app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || origin.startsWith('http://localhost') || origin.endsWith('.vercel.app') || origin === process.env.FRONTEND_URL) {
+        if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.endsWith('.vercel.app') || origin === process.env.FRONTEND_URL) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -73,6 +75,7 @@ app.use('/api/system', systemRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wfh', wfhRoutes);
+app.use('/api/holidays', holidayRoutes);
 app.use('/health', healthRoutes);
 
 // Root route

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
     Users, LayoutDashboard, Briefcase, User,
-    Settings, LogOut, Globe, Clock, Fingerprint, MapPin, ChevronLeft, ArrowRight, Calendar
+    Settings, LogOut, Globe, Clock, Fingerprint, MapPin, ChevronLeft, ArrowRight, Calendar, TrendingUp
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -16,11 +16,13 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
     const links = [
         { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Working Hours', href: '/dashboard/working-hours', icon: TrendingUp, roles: ['HR', 'EMPLOYEE'] },
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Leave Requests', href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
+        { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
     ];
 
@@ -62,19 +64,6 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
                         </Link>
                     );
                 })}
-
-                <div className="my-6 mx-3 h-[1px] bg-[#E6E8EC]"></div>
-
-                <button
-                    onClick={() => {
-                        onClose && onClose();
-                        logout();
-                    }}
-                    className={`flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-200 font-bold text-[14px] cursor-pointer text-[#D92D20] hover:bg-red-50 hover:text-[#B42318]`}
-                >
-                    <LogOut size={20} className="shrink-0" />
-                    <span>Log Out</span>
-                </button>
             </nav>
 
             {/* Branding Footer */}

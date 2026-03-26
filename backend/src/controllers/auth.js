@@ -113,7 +113,7 @@ export const forgotPassword = async (req, res, next) => {
         if (!email) return res.status(400).json({ message: 'Email identifier is required' });
 
         const user = await prisma.user.findUnique({ where: { email } });
-        
+
         // Security Protocol: Always return 200 to prevent user enumeration 
         // and avoid confusing 404 errors for legacy registered personnel.
         if (!user) return res.json({ message: 'Recovery protocol initiated. If your identity matches the registry, check your secure inbox.' });
@@ -141,7 +141,7 @@ export const forgotPassword = async (req, res, next) => {
                 <p style="font-size: 11px; color: #999;">Expires in 10 minutes. If you did not initiate this, secure your node immediately.</p>
             </div>`
         });
-        
+
         res.json({ message: 'Recovery code dispatched to Registered Email' });
     } catch (error) {
         console.error('Forgot password error:', error);
@@ -183,11 +183,11 @@ export const resetPassword = async (req, res, next) => {
 
         await sendEmail({
             email,
-            subject: 'New System Cipher Dispatched',
-            message: `Your new system cipher is: ${generatedPassword}. Please log in and change it immediately.`,
+            subject: 'New System Password Dispatched',
+            message: `Your new system Password is: ${generatedPassword}. Please log in and change it immediately.`,
             html: `<div style="font-family: Arial, sans-serif; padding: 40px; border-radius: 20px; border: 1px solid #eee; max-width: 500px; margin: auto; background: white;">
                 <h2 style="font-weight: 900; text-transform: uppercase; letter-spacing: -0.05em; color: #101828;">Access Restored</h2>
-                <p style="color: #667085;">Your authorization node has been reset with a new complex cipher.</p>
+                <p style="color: #667085;">Your authorization node has been reset with a new complex Password.</p>
                 <div style="background: #101828; color: #fff; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 24px; font-weight: 900; letter-spacing: 0.1em; word-break: break-all;">
                     ${generatedPassword}
                 </div>
@@ -195,10 +195,10 @@ export const resetPassword = async (req, res, next) => {
             </div>`
         });
 
-        res.json({ message: 'New complex cipher generated and dispatched to your email.' });
+        res.json({ message: 'New complex Password generated and dispatched to your email.' });
     } catch (error) {
         console.error('Reset password error:', error);
-        res.status(500).json({ message: 'Failed to dispatch new cipher. Please contact hub admin.' });
+        res.status(500).json({ message: 'Failed to dispatch new Password. Please contact hub admin.' });
     }
 };
 
@@ -219,9 +219,9 @@ export const changePassword = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await prisma.user.update({
             where: { id: req.user.id },
-            data: { 
+            data: {
                 password: hashedPassword,
-                needsPasswordChange: false 
+                needsPasswordChange: false
             }
         });
 

@@ -11,14 +11,13 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
-
 import { createPortal } from 'react-dom';
 
 export default function LeavesPage() {
     const [leaves, setLeaves] = useState([]);
     const [leaveTypes, setLeaveTypes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [systemSettings, setSystemSettings] = useState<any>(null);
@@ -133,7 +132,7 @@ export default function LeavesPage() {
         let comments = '';
         if (decision.startsWith('REJECTED')) {
             comments = window.prompt('Please provide a reason for rejection (Policy: Max 2 days critical):') || '';
-            if (!comments) return; // Cancel if no reason provided
+            if (!comments) return;
         }
         try {
             await api.put(`/leaves/${id}/hr-decision`, { decision, comments });
@@ -193,7 +192,6 @@ export default function LeavesPage() {
     return (
         <>
             <div className="space-y-6 animate-fade-in pb-10">
-                {/* SaaS Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Leaves</h1>
@@ -223,30 +221,10 @@ export default function LeavesPage() {
                             const remaining = allocated - used;
 
                             return [
-                                { 
-                                    label: 'Total Allocated', 
-                                    value: `${allocated} Days`, 
-                                    icon: Briefcase, 
-                                    color: 'blue' 
-                                },
-                                { 
-                                    label: 'Leaves Used', 
-                                    value: `${used.toFixed(1)} Days`, 
-                                    icon: Calendar, 
-                                    color: 'rose' 
-                                },
-                                { 
-                                    label: 'Leaves Remaining', 
-                                    value: `${remaining.toFixed(1)} Days`, 
-                                    icon: CheckCircle2, 
-                                    color: 'emerald' 
-                                },
-                                { 
-                                    label: 'Pending Requests', 
-                                    value: pending, 
-                                    icon: Clock, 
-                                    color: 'amber' 
-                                }
+                                { label: 'Total Allocated', value: `${allocated} Days`, icon: Briefcase, color: 'blue' },
+                                { label: 'Leaves Used', value: `${used.toFixed(1)} Days`, icon: Calendar, color: 'rose' },
+                                { label: 'Leaves Remaining', value: `${remaining.toFixed(1)} Days`, icon: CheckCircle2, color: 'emerald' },
+                                { label: 'Pending Requests', value: pending, icon: Clock, color: 'amber' }
                             ].map((stat, i) => (
                                 <div key={i} className="card p-5 flex items-center gap-4">
                                     <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
@@ -275,7 +253,7 @@ export default function LeavesPage() {
 
                         return (
                             <div className="card bg-white p-5 border-[#E6E8EC]">
-                                <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown (Allocated Utilization)</p>
+                                <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown</p>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="px-4 py-3 border border-indigo-100 bg-indigo-50/30 rounded-xl flex items-center justify-between">
                                         <p className="text-[12px] font-bold text-indigo-500 uppercase tracking-wide">Sick Leave</p>
@@ -323,13 +301,15 @@ export default function LeavesPage() {
                                 <Filter size={16} />
                                 Filters
                             </button>
-                            <button 
-                                onClick={() => setIsApplyModalOpen(true)}
-                                className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
-                            >
-                                <Plus size={18} className="transition-transform group-hover:rotate-90" />
-                                Apply Leave
-                            </button>
+                            {user?.role === 'EMPLOYEE' && (
+                                <button 
+                                    onClick={() => setIsApplyModalOpen(true)}
+                                    className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
+                                >
+                                    <Plus size={18} className="transition-transform group-hover:rotate-90" />
+                                    Apply Leave
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -362,7 +342,7 @@ export default function LeavesPage() {
                                                     {user?.role === 'EMPLOYEE' && (
                                                         <button 
                                                             onClick={() => setIsApplyModalOpen(true)}
-                                                            className="btn-primary py-3 px-10 shadow-lg shadow-black/5 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
+                                                            className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
                                                         >
                                                             <Plus size={18} />
                                                             Apply Leave
@@ -439,7 +419,15 @@ export default function LeavesPage() {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex flex-col items-center">
                                                     <span className="text-[14px] font-medium text-[#101828]">
-                                                        {new Date(leave.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} - {new Date(leave.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                        {(() => {
+                                                            const start = new Date(leave.startDate);
+                                                            const end = new Date(leave.endDate);
+                                                            const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+                                                            if (leave.totalDays <= 1) {
+                                                                return start.toLocaleDateString('en-GB', options);
+                                                            }
+                                                            return `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
+                                                        })()}
                                                     </span>
                                                     <div className="mt-1 px-2 py-0.5 bg-[#F8F9FB] border border-[#E6E8EC] rounded text-[11px] font-medium text-[#667085]">
                                                         {leave.totalDays} Days

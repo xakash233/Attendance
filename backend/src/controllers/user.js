@@ -18,6 +18,34 @@ export const getUsers = async (req, res, next) => {
     }
 };
 
+// @desc    Get user by ID
+// @route   GET /api/users/:id
+// @access  Private (Admins or self)
+export const getUser = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        if (!['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user.role) && req.user.id !== id) {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id },
+            omit: { password: true },
+            include: {
+                department: true,
+                leaveBalances: { include: { leaveType: true } }
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Step 1: Initialize User Creation & Send OTP
 // @route   POST /api/users/init-creation
 // @access  Private (SUPER_ADMIN, ADMIN)

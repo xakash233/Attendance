@@ -18,6 +18,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 
+const formatDuration = (decimalHours: any) => {
+    const val = parseFloat(decimalHours);
+    if (isNaN(val) || val === 0) return '00:00';
+    const totalMinutes = Math.round(val * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+};
+
+const formatStatus = (row: any) => {
+    const worked = parseFloat(row.TotalWorkedHours || "0");
+    const diff = worked - 8;
+    if (row.Status === 'WEEKEND') return 'Weekend';
+    if (row.Status === 'HOLIDAY') return `Holiday (${row.Remarks})`;
+    if (row.Status.includes('LEAVE')) return 'Leave';
+    if (worked === 0) return 'Absent';
+
+    if (diff > 0) return diff > 0.5 ? 'Compensated' : `Present (+${Math.round(diff * 60)}m)`;
+    if (diff < 0) return `Short (-${Math.round(Math.abs(diff) * 60)}m)`;
+    return 'Present';
+};
+
 export default function ReportPage() {
     const { user, loading: authLoading } = useAuth();
     const [reportData, setReportData] = useState<any[]>([]);
@@ -25,14 +47,29 @@ export default function ReportPage() {
     const [loading, setLoading] = useState(true);
     const [exportLoading, setExportLoading] = useState(false);
     const [complianceMonth, setComplianceMonth] = useState<string>('');
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+    const [employees, setEmployees] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            if (['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '')) {
+                try {
+                    const res = await api.get('/users');
+                    setEmployees(res.data);
+                } catch (err) {
+                    console.error('Failed to fetch users', err);
+                }
+            }
+        };
+        if (user) fetchUsers();
+    }, [user]);
 
     const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
             const params: any = {};
             if (complianceMonth) params.month = complianceMonth;
-            if (selectedEmployeeId) params.userId = selectedEmployeeId;
+            if (selectedEmployeeId && selectedEmployeeId !== 'all') params.userId = selectedEmployeeId;
             
             const res = await api.get('/attendance/compliance-report', { params });
             setReportData(res.data.report);
@@ -64,7 +101,15 @@ export default function ReportPage() {
             const url = window.URL.createObjectURL(new Blob([res.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `Attendance_Report_${complianceMonth || 'Last30Days'}.xlsx`);
+            let filename = `Attendance_Report_${complianceMonth || 'Last30Days'}`;
+            if (selectedEmployeeId) {
+                const empName = reportData.find(r => r.EmployeeID === selectedEmployeeId || r.id === selectedEmployeeId)?.Name;
+                if (empName) {
+                    const safeName = empName.replace(/[^a-z0-9]/gi, '_');
+                    filename = `${safeName}_Attendance_Report_${complianceMonth || 'Last30Days'}`;
+                }
+            }
+            link.setAttribute('download', `${filename}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -75,7 +120,7 @@ export default function ReportPage() {
         } finally {
             setExportLoading(false);
         }
-    }, [complianceMonth, selectedEmployeeId]);
+    }, [complianceMonth, selectedEmployeeId, reportData]);
 
     if (authLoading || (loading && reportData.length === 0)) {
         return (
@@ -86,260 +131,201 @@ export default function ReportPage() {
         );
     }
 
-    const uniqueEmployees = Array.from(new Set(reportData.map(r => r.EmployeeID)))
-        .map(empId => ({
-            id: empId,
-            name: reportData.find(r => r.EmployeeID === empId)?.Name
-        }));
+    // Group by employee for summaries
+    const groupSummaries = () => {
+        const summaries: any = {};
+        reportData.forEach(r => {
+            if (!summaries[r.id]) {
+                summaries[r.id] = { id: r.id, name: r.Name, worked: 0, target: 0, records: [] };
+            }
+            const worked = parseFloat(r.TotalWorkedHours || "0");
+            summaries[r.id].worked += worked;
+            
+            // Increment target if it's not a weekend/holiday
+            if (r.Status !== 'WEEKEND' && r.Status !== 'HOLIDAY' && !r.Status.includes('LEAVE')) {
+                summaries[r.id].target += 8;
+            } else if (r.Status === 'HOLIDAY' || r.Status.includes('LEAVE')) {
+                // For holidays and leaves, we count them as "covered" 8 hours in both worked and target
+                // so the difference remains 0 for those days.
+                // The backend already credits 8h to TotalWorkedHours for these.
+                summaries[r.id].target += 8;
+            }
+
+            summaries[r.id].records.push(r);
+        });
+        return Object.values(summaries);
+    };
+
+    const summaries = groupSummaries();
 
     return (
-        <div className="min-h-screen pb-12">
-            <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
-            >
-                <div>
-                    <h1 className="text-[28px] font-black text-[#101828] tracking-tight leading-loose">
-                        30-Day Compliance Report
-                    </h1>
-                    <p className="text-[14px] font-medium text-[#667085]">
-                        Detailed attendance logs, weekly cumulative metrics, and surplus/deficit analysis.
-                    </p>
+        <div className="max-w-full space-y-8 animate-fade-in pb-20 px-2 lg:px-4">
+            {/* Minimal Filter Bar */}
+            <div className="bg-white p-4 rounded-2xl border border-[#E6E8EC] flex flex-wrap items-center gap-6 sticky top-0 z-[100] shadow-sm">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-xl flex items-center justify-center border border-[#E6E8EC]">
+                        <Search size={18} />
+                    </div>
+                    <div className="min-w-[200px]">
+                        <label className="text-[10px] font-black pointer-events-none text-slate-400 uppercase tracking-widest block mb-0.5">Candidate</label>
+                        <select 
+                            value={selectedEmployeeId || 'all'}
+                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                            className="w-full bg-transparent text-[14px] font-bold text-[#101828] outline-none cursor-pointer"
+                        >
+                            <option value="all">All Members</option>
+                            {employees.map(emp => (
+                                <option key={emp.id} value={emp.id}>{emp.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 border-l border-[#E6E8EC]/50 pl-6">
+                    <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-xl flex items-center justify-center border border-[#E6E8EC]">
+                        <Calendar size={18} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black pointer-events-none text-slate-400 uppercase tracking-widest block mb-0.5">Timeframe</label>
+                        <input 
+                            type="month" 
+                            value={complianceMonth}
+                            onChange={(e) => setComplianceMonth(e.target.value)}
+                            className="bg-transparent text-[14px] font-bold text-[#101828] outline-none"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex-1 flex justify-end gap-3">
                     <button 
                         onClick={handleExportExcel}
                         disabled={exportLoading || reportData.length === 0}
-                        className="flex items-center gap-2 px-6 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-bold uppercase tracking-wider hover:bg-slate-800 transition-all disabled:opacity-50 shadow-lg shadow-[#101828]/20 active:scale-95"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-[#101828] text-white rounded-xl text-[12px] font-bold transition-all disabled:opacity-50 active:scale-95"
                     >
                         {exportLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                        Download Excel
+                        Excel
                     </button>
-                    <Link 
-                        href="/dashboard"
-                        className="flex items-center gap-2 px-6 py-3 bg-white text-[#101828] border border-[#E6E8EC] rounded-xl text-[13px] font-bold uppercase tracking-wider hover:bg-slate-50 transition-all active:scale-95"
+                    <button 
+                        onClick={() => fetchReport()}
+                        className="p-2.5 bg-slate-100 text-[#101828] rounded-xl hover:bg-slate-200 transition-all"
                     >
-                        <ArrowLeft size={16} />
-                        Back 
-                    </Link>
-                </div>
-            </motion.div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Filter Sidebar */}
-                <div className="lg:col-span-3 space-y-6">
-                    <div className="bg-white p-6 rounded-[24px] border border-[#E6E8EC] shadow-sm">
-                        <h3 className="text-[11px] font-black text-[#101828] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                            <Filter size={14} />
-                            Report Filters
-                        </h3>
-                        
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Time Period</label>
-                                <input 
-                                    type="month" 
-                                    value={complianceMonth}
-                                    onChange={(e) => setComplianceMonth(e.target.value)}
-                                    className="w-full bg-slate-50 border border-[#E6E8EC] rounded-xl px-4 py-3 text-[13px] font-bold text-[#101828] focus:ring-2 focus:ring-[#101828] outline-none transition-all"
-                                />
-                                <button 
-                                    onClick={() => setComplianceMonth('')}
-                                    className={`w-full mt-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${!complianceMonth ? 'bg-[#101828] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                                >
-                                    Last 30 Days
-                                </button>
-                            </div>
-
-                            {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Filter by Employee</label>
-                                    <div className="space-y-2 mt-2">
-                                        <button 
-                                            onClick={() => setSelectedEmployeeId(null)}
-                                            className={`w-full px-4 py-3 rounded-xl flex items-center justify-between transition-all border ${!selectedEmployeeId ? 'bg-[#101828] text-white border-transparent' : 'bg-white text-slate-600 border-[#E6E8EC] hover:bg-slate-50'}`}
-                                        >
-                                            <span className="text-[12px] font-black uppercase">All Members</span>
-                                            {!selectedEmployeeId && <ChevronRight size={14} />}
-                                        </button>
-                                        
-                                        <div className="max-h-[300px] overflow-y-auto no-scrollbar space-y-1.5">
-                                            {uniqueEmployees.map(emp => (
-                                                <button 
-                                                    key={emp.id}
-                                                    onClick={() => setSelectedEmployeeId(emp.id)}
-                                                    className={`w-full px-4 py-3 rounded-xl flex items-center justify-between transition-all border ${selectedEmployeeId === emp.id ? 'bg-[#101828] text-white border-transparent shadow-md' : 'bg-white text-slate-600 border-transparent hover:border-[#E6E8EC] hover:bg-slate-50'}`}
-                                                >
-                                                    <span className="text-[13px] font-medium truncate pr-2">{emp.name}</span>
-                                                    {selectedEmployeeId === emp.id && <ChevronRight size={14} />}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Stats Summary Card */}
-                    {meta && (
-                        <div className="bg-[#101828] p-6 rounded-[24px] text-white shadow-xl shadow-[#101828]/10">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Report Summary</p>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-end border-b border-white/10 pb-3">
-                                    <span className="text-[12px] font-medium text-white/70 tracking-tight">Period</span>
-                                    <span className="text-[14px] font-black">{meta.month}</span>
-                                </div>
-                                <div className="flex justify-between items-end">
-                                    <span className="text-[12px] font-medium text-white/70 tracking-tight">Records</span>
-                                    <span className="text-[18px] font-black">{meta.totalRecords}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Report Table */}
-                <div className="lg:col-span-9">
-                    <div className="bg-white border border-[#E6E8EC] rounded-[24px] shadow-sm overflow-hidden min-h-[600px] flex flex-col">
-                        <div className="overflow-x-auto no-scrollbar flex-1">
-                            <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 bg-white border-b border-[#E6E8EC] z-10 shadow-sm">
-                                    <tr>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Identity</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Chronology</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Web/Bio Punches</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Total Duty</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Weekly Sum</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Variance</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center whitespace-nowrap">Status</th>
-                                        <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right whitespace-nowrap">Remarks</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50">
-                                    {reportData.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="px-6 py-32 text-center">
-                                                <div className="flex flex-col items-center gap-5 max-w-sm mx-auto">
-                                                    <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
-                                                        <Activity size={32} />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[16px] font-bold text-[#101828]">No compliance data found</p>
-                                                        <p className="text-[13px] text-[#667085] leading-relaxed">
-                                                            Try adjusting the month or selecting a different employee to view historical records.
-                                                        </p>
-                                                    </div>
-                                                    <button 
-                                                        onClick={() => { setComplianceMonth(''); setSelectedEmployeeId(null); fetchReport(); }}
-                                                        className="btn-secondary py-2 px-6 text-[11px] font-black uppercase tracking-widest border-2"
-                                                    >
-                                                        Reset Filters
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        reportData
-                                            .map((row, idx) => {
-                                                const variance = parseFloat(row.WeeklyVariance || "0");
-                                                const isDeficit = variance < 0;
-                                                const totalHours = parseFloat(row.TotalWorkedHours || "0");
-                                                
-                                                return (
-                                                    <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                                                        <td className="px-6 py-4">
-                                                            <p className="font-bold text-[#101828] text-[13px]">{row.Name}</p>
-                                                            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-tighter">{row.EmployeeID}</p>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <p className="text-[12px] font-black text-[#101828] tracking-tighter">{row.Date}</p>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex flex-col gap-1 auto-cols-auto text-[11px] font-bold items-center min-w-[130px]">
-                                                                {(row.FirstPunch === 'N/A' && row.LastPunch === 'N/A') ? (
-                                                                    <span className="text-slate-400 italic bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 w-full text-center">No punch records</span>
-                                                                ) : (
-                                                                    <>
-                                                                        <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.FirstPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-emerald-700 bg-emerald-50 border border-emerald-100'}`}>
-                                                                            IN: {row.FirstPunch === 'N/A' ? '--:--' : row.FirstPunch.replace(':00 ', ' ')}
-                                                                        </span>
-                                                                        <span className={`px-2.5 py-1 rounded-md w-full text-center ${row.LastPunch === 'N/A' ? 'text-slate-300 bg-slate-50 border border-slate-100' : 'text-rose-700 bg-rose-50 border border-rose-100'}`}>
-                                                                            OUT: {row.LastPunch === 'N/A' ? '--:--' : row.LastPunch.replace(':00 ', ' ')}
-                                                                        </span>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <p className={`text-[14px] font-black ${totalHours === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' ? 'text-rose-500' : 'text-[#101828]'}`}>
-                                                                {row.TotalWorkedHours}h
-                                                                {totalHours === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' && (
-                                                                    <span className="block text-[9px] font-bold text-rose-400 uppercase tracking-tighter">Missing Sync</span>
-                                                                )}
-                                                            </p>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div className="flex flex-col items-center">
-                                                                <p className="text-[10px] font-bold text-slate-400 mb-0.5 tracking-tighter uppercase">{row.WeekHistory}</p>
-                                                                <p className="text-[12px] font-black text-indigo-700">{row.WeeklyActual}h</p>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <div 
-                                                                className={`inline-flex flex-col items-center px-3 py-1.5 rounded-xl border ${!isDeficit ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm shadow-emerald-500/5' : 'bg-rose-50 border-rose-100 text-rose-700 shadow-sm shadow-rose-500/5'}`}
-                                                                title="Balance is calculated as Weekly Actual - Weekly Target (8.5h/day)"
-                                                            >
-                                                                <div className="flex items-center gap-1 font-black text-[11px]">
-                                                                    {variance > 0 ? '+' : ''}{variance.toFixed(2)}h
-                                                                </div>
-                                                                {isDeficit && (
-                                                                    <p className="text-[8px] font-bold mt-0.5 uppercase tracking-tighter opacity-70">
-                                                                        {row.Status === 'ABSENT' || variance < -16 ? 'Absent / Missing Punches' : 'Short Hours'}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${
-                                                                row.Status === 'FULL DAY' || row.Status === 'PRESENT' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 
-                                                                row.Status === 'ABSENT' ? 'bg-rose-50 text-rose-700 border-rose-100' : 
-                                                                'bg-slate-100 text-slate-600 border-slate-200'
-                                                            }`}>
-                                                                {row.Status}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-right">
-                                                            <p className={`text-[11px] font-bold ${row.Remarks?.includes('LEAVE') ? 'text-indigo-600' : 'text-slate-400 underline decoration-dotted'}`}>
-                                                                {row.Remarks || 'N/A'}
-                                                            </p>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div className="p-6 bg-slate-50/50 border-t border-[#E6E8EC] flex justify-between items-center mt-auto">
-                            <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest">
-                                Report generated for: <span className="text-[#101828]">{user?.name}</span>
-                            </p>
-                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">
-                                Tectra Identity Core v1.0
-                            </p>
-                        </div>
-                    </div>
+                        <Activity size={18} />
+                    </button>
                 </div>
             </div>
 
-            <style jsx>{`
-                .no-scrollbar::-webkit-scrollbar { display: none; }
-                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            `}</style>
+            <main className="space-y-12">
+                {/* Detailed Logs Section */}
+                <section>
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-xl">📊</span>
+                        <h2 className="text-[18px] font-bold text-[#101828]">Weekly Attendance Report (Mon–Sat, 8 Hrs/Day)</h2>
+                    </div>
+                    
+                    <div className="bg-white border border-[#E6E8EC] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[1000px]">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-[#E6E8EC]">
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Employee Name</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Day</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">IN Time</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">OUT Time</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Total Hours</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Required Hours</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E6E8EC]">
+                                {reportData.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No records found for the selected period</td>
+                                    </tr>
+                                ) : (
+                                    reportData.map((row, idx) => {
+                                        const date = new Date(row.Date);
+                                        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+                                        const worked = parseFloat(row.TotalWorkedHours || "0");
+                                        const statusText = formatStatus(row);
+                                        
+                                        return (
+                                            <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                                                <td className="px-6 py-4 text-[14px] font-semibold text-[#101828]">{row.Name}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#667085]">{dayName}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.FirstPunch || '-'}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.LastPunch || '-'}</td>
+                                                <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#667085]">08:00</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                                                        statusText.includes('Short') ? 'bg-rose-50 text-rose-600' :
+                                                        statusText.includes('Present') ? 'bg-emerald-50 text-emerald-600' :
+                                                        statusText === 'Leave' ? 'bg-indigo-50 text-indigo-600' :
+                                                        'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        {statusText}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                {/* Weekly Summary Section */}
+                <section>
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="text-xl">📈</span>
+                        <h2 className="text-[18px] font-bold text-[#101828]">Weekly Summary</h2>
+                    </div>
+                    
+                    <div className="bg-white border border-[#E6E8EC] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[800px]">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-[#E6E8EC]">
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Employee Name</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Total Worked Hours</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Required Hours (8h/Day)</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Difference</th>
+                                    <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Final Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-[#E6E8EC]">
+                                {summaries.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">No summaries available</td>
+                                    </tr>
+                                ) : (
+                                    summaries.map((s: any, idx: number) => {
+                                        const diff = s.worked - s.target;
+                                        const absDiff = Math.abs(diff);
+                                        const diffText = diff >= 0 ? `+${formatDuration(diff)}` : `-${formatDuration(absDiff)}`;
+                                        const finalStatus = diff >= 0 ? 'Completed' : 'Not Completed';
+                                        
+                                        return (
+                                            <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
+                                                <td className="px-6 py-4 text-[14px] font-semibold text-[#101828]">{s.name}</td>
+                                                <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(s.worked)}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#667085]">{s.target}:00</td>
+                                                <td className={`px-6 py-4 text-[14px] font-black ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{diffText}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                                                        diff >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                                                    }`}>
+                                                        {finalStatus}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
         </div>
     );
 }

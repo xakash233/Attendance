@@ -66,18 +66,18 @@ export default function SettingsPage() {
                         </div>
                     </div>
                     <div className="p-2">
-                        <SettingItem 
-                            title="Personal Information" 
-                            desc="View your public profile" 
-                            value="View" 
-                            icon={Package} 
+                        <SettingItem
+                            title="Personal Information"
+                            desc="View your public profile"
+                            value="View"
+                            icon={Package}
                             onClick={() => router.push(`/dashboard/users/${user?.id}`)}
                         />
-                        <SettingItem 
-                            title="Password" 
-                            desc="Update your cipher key" 
-                            value="Change" 
-                            icon={Key} 
+                        <SettingItem
+                            title="Password"
+                            desc="Update your Password key"
+                            value="Change"
+                            icon={Key}
                             onClick={() => setIsPasswordModalOpen(true)}
                         />
                     </div>
@@ -98,11 +98,11 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <div className="p-2">
-                            <SettingItem 
-                                title="Device Sync" 
-                                desc="Connect and sync devices" 
-                                value="Configure" 
-                                icon={Globe} 
+                            <SettingItem
+                                title="Device Sync"
+                                desc="Connect and sync devices"
+                                value="Configure"
+                                icon={Globe}
                                 onClick={() => router.push('/dashboard/biometric')}
                             />
                         </div>
@@ -124,11 +124,11 @@ export default function SettingsPage() {
                             </div>
                         </div>
                         <div className="p-2">
-                            <SettingItem 
-                                title="Leave Allocation" 
-                                desc={`Current: ${settings?.totalLeaveAllocation || 18} Days`} 
-                                value="Edit" 
-                                icon={Briefcase} 
+                            <SettingItem
+                                title="Leave Allocation"
+                                desc={`Current: ${settings?.totalLeaveAllocation || 18} Days`}
+                                value="Edit"
+                                icon={Briefcase}
                                 onClick={() => setIsSystemModalOpen(true)}
                             />
                         </div>
@@ -145,12 +145,12 @@ export default function SettingsPage() {
                 )}
                 {isSystemModalOpen && mounted && (
                     <Portal>
-                        <SystemRulesModal 
-                            initialSettings={settings} 
+                        <SystemRulesModal
+                            initialSettings={settings}
                             onClose={() => {
                                 setIsSystemModalOpen(false);
                                 fetchSettings();
-                            }} 
+                            }}
                         />
                     </Portal>
                 )}
@@ -181,7 +181,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                 oldPassword: formData.oldPassword,
                 newPassword: formData.newPassword
             });
-            toast.success('System cipher updated successfully');
+            toast.success('System Password updated successfully');
             onClose();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Update failed');
@@ -192,7 +192,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -209,21 +209,21 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                     {/* Bypass aggressive browser autofill */}
                     <input type="text" name="email" style={{ display: 'none' }} />
                     <input type="password" name="password" style={{ display: 'none' }} />
-                    
+
                     <div className="space-y-1.5">
                         <label className="text-[13px] font-medium text-[#344054]">Current Password</label>
                         <div className="relative">
-                            <input 
+                            <input
                                 name="upd-current-pwd"
-                                type={showOld ? "text" : "password"} 
-                                className="input-field py-2.5 pr-10" 
-                                required 
+                                type={showOld ? "text" : "password"}
+                                className="input-field py-2.5 pr-10"
+                                required
                                 autoComplete="one-time-code"
                                 placeholder="Enter Current Password"
-                                onChange={e => setFormData({...formData, oldPassword: e.target.value})}
+                                onChange={e => setFormData({ ...formData, oldPassword: e.target.value })}
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => setShowOld(!showOld)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#101828]"
                             >
@@ -234,16 +234,16 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                     <div className="space-y-1.5">
                         <label className="text-[13px] font-medium text-[#344054]">New Password</label>
                         <div className="relative">
-                            <input 
-                                type={showNew ? "text" : "password"} 
-                                className="input-field py-2.5 pr-10" 
-                                required 
+                            <input
+                                type={showNew ? "text" : "password"}
+                                className="input-field py-2.5 pr-10"
+                                required
                                 autoComplete="new-password"
                                 placeholder="Enter New Password"
-                                onChange={e => setFormData({...formData, newPassword: e.target.value})}
+                                onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => setShowNew(!showNew)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#101828]"
                             >
@@ -254,16 +254,16 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                     <div className="space-y-1.5">
                         <label className="text-[13px] font-medium text-[#344054]">Confirm Password</label>
                         <div className="relative">
-                            <input 
-                                type={showConfirm ? "text" : "password"} 
-                                className="input-field py-2.5 pr-10" 
-                                required 
+                            <input
+                                type={showConfirm ? "text" : "password"}
+                                className="input-field py-2.5 pr-10"
+                                required
                                 autoComplete="new-password"
                                 placeholder="Re-Enter New Password"
-                                onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                                onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
                             />
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => setShowConfirm(!showConfirm)}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-[#667085] hover:text-[#101828]"
                             >
@@ -274,7 +274,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={onClose} className="btn-secondary w-full">Cancel</button>
                         <button type="submit" disabled={loading} className="btn-primary w-full">
-                            {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Cipher'}
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : 'Update Password'}
                         </button>
                     </div>
                 </form>
@@ -307,7 +307,7 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-            <motion.div 
+            <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -323,12 +323,12 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="space-y-1.5">
                         <label className="text-[13px] font-medium text-[#344054]">Yearly Leave Allocation (Days)</label>
-                        <input 
-                            type="number" 
-                            className="input-field" 
+                        <input
+                            type="number"
+                            className="input-field"
                             value={allowance}
                             onChange={e => setAllowance(parseInt(e.target.value))}
-                            required 
+                            required
                         />
                         <p className="text-[11px] text-[#667085]">This value defines the base &quot;Allocated Leaves&quot; shown to all employees globally. Currently set to {allowance} days.</p>
                     </div>
@@ -344,7 +344,7 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
     );
 };
 const SettingItem = ({ title, desc, value, icon: Icon, onClick }: any) => (
-    <div 
+    <div
         onClick={onClick}
         className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-xl transition-all group cursor-pointer"
     >

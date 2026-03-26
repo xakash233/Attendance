@@ -10,7 +10,8 @@ import {
     globalSearch,
     deleteUser,
     updateUser,
-    verifyEmailUpdate
+    verifyEmailUpdate,
+    getUser
 } from '../controllers/user.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -24,6 +25,7 @@ router.put('/profile', protect, updateUserProfile);
 router.put('/change-password', protect, changePassword);
 router.get('/analytics', protect, getAnalytics);
 router.get('/search', protect, globalSearch);
+router.get('/:id', protect, getUser);
 router.put('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), updateUser);
 router.post('/:id/verify-email', protect, authorize('SUPER_ADMIN'), verifyEmailUpdate);
 router.delete('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), deleteUser);

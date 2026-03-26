@@ -46,12 +46,12 @@ export default function EmployeeProfileView() {
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
-                const [usersRes, deptsRes] = await Promise.all([
-                    api.get('/users'),
+                const [userRes, deptsRes] = await Promise.all([
+                    api.get(`/users/${id}`),
                     api.get('/departments')
                 ]);
                 setDepartments(deptsRes.data);
-                const found = usersRes.data.find((u: any) => u.id === id);
+                const found = userRes.data;
                 if (found) {
                     setEmployee(found);
                     setEditData({
@@ -97,8 +97,8 @@ export default function EmployeeProfileView() {
             toast.success('Profile updated successfully');
             setIsEditModalOpen(false);
             // Refresh data
-            const updated = await api.get('/users');
-            setEmployee(updated.data.find((u: any) => u.id === id));
+            const updated = await api.get(`/users/${id}`);
+            setEmployee(updated.data);
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Update failed');
         } finally {
@@ -115,8 +115,8 @@ export default function EmployeeProfileView() {
             setIsEditModalOpen(false);
             setEditStep(1);
             setOtpInput('');
-            const updated = await api.get('/users');
-            setEmployee(updated.data.find((u: any) => u.id === id));
+            const updated = await api.get(`/users/${id}`);
+            setEmployee(updated.data);
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Verification failed');
         } finally {
@@ -154,7 +154,7 @@ export default function EmployeeProfileView() {
                 className="flex items-center gap-2 text-[13px] font-medium text-[#667085] hover:text-[#101828] transition-all group w-fit"
             >
                 <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                Back to Users
+                {['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentUser?.role || '') ? 'Back to Users' : 'Go Back'}
             </button>
 
             <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -162,7 +162,7 @@ export default function EmployeeProfileView() {
                     <h2 className="text-[24px] font-semibold text-[#101828] leading-none">User Profile</h2>
                     <p className="text-[13px] font-medium text-[#667085] mt-1">View personal details and attendance records.</p>
                 </div>
-                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN') && (
+                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.id === id) && (
                     <button 
                         onClick={() => setIsEditModalOpen(true)}
                         className="btn-secondary py-2.5 px-6"

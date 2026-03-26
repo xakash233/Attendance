@@ -48,3 +48,20 @@ export const markAllRead = async (req, res, next) => {
         next(error);
     }
 };
+
+// @desc    Delete single notification
+// @route   DELETE /api/notifications/:id
+// @access  Private
+export const deleteNotification = async (req, res, next) => {
+    try {
+        await prisma.notification.delete({
+            where: {
+                id: req.params.id,
+                userId: req.user.id
+            }
+        });
+        res.json({ message: 'Notification deleted' });
+    } catch (error) {
+        next(error);
+    }
+};
