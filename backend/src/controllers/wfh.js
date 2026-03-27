@@ -5,26 +5,40 @@ import prisma from '../config/prisma.js';
  */
 export const applyWFH = async (req, res, next) => {
     try {
-        const { employeeId, wfhDates } = req.body;
+        const { employeeId, startDate, endDate, reason } = req.body;
         const currentUserId = req.user.id;
         
-        // If employeeId is provided and different from current user, check permissions
         const targetUserId = (employeeId && req.user.role !== 'EMPLOYEE') ? employeeId : currentUserId;
 
-        if (!Array.isArray(wfhDates) || wfhDates.length === 0) {
-            return res.status(400).json({ message: 'No dates provided' });
+        if (!startDate || !endDate) {
+            return res.status(400).json({ message: 'Start and end dates are required' });
         }
 
-        const data = wfhDates.map(date => {
-            // Ensure we only store the date part
-            const d = new Date(date);
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const data = [];
+
+        let iter = new Date(start);
+        while (iter <= end) {
+            const d = new Date(iter);
             d.setUTCHours(0, 0, 0, 0);
-            return {
-                userId: targetUserId,
-                wfhDate: d,
-                status: 'AUTO_APPROVED'
-            };
-        });
+            
+            // Skip weekends (optional, but usually WFH is for work days)
+            const dayOfWeek = d.getUTCDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                data.push({
+                    userId: targetUserId,
+                    wfhDate: d,
+                    reason: reason || '',
+                    status: 'AUTO_APPROVED'
+                });
+            }
+            iter.setUTCDate(iter.getUTCDate() + 1);
+        }
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'No valid working days in range' });
+        }
 
         const result = await prisma.wfhRequest.createMany({
             data,
@@ -32,7 +46,7 @@ export const applyWFH = async (req, res, next) => {
         });
 
         res.status(201).json({ 
-            message: `${result.count} WFH days selected`,
+            message: `${result.count} WFH days registered`,
             count: result.count
         });
     } catch (error) {

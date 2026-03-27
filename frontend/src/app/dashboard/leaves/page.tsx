@@ -14,11 +14,12 @@ import Image from 'next/image';
 import { createPortal } from 'react-dom';
 
 export default function LeavesPage() {
-    const [leaves, setLeaves] = useState([]);
-    const [leaveTypes, setLeaveTypes] = useState([]);
+    const [leaves, setLeaves] = useState<any[]>([]);
+    const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const { user } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+    const [isWFHRequest, setIsWFHRequest] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [systemSettings, setSystemSettings] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -61,53 +62,48 @@ export default function LeavesPage() {
     const isLOP = totalDays > 2;
 
     const [balances, setBalances] = useState<any[]>([]);
-
     const fetchData = useCallback(async () => {
         try {
-            const fetchHistory = async () => {
+            setLoading(true);
+            const fetchWFH = async () => {
                 try {
-                    const res = await api.get('/leaves/history');
-                    setLeaves(res.data);
-                } catch (err) {
-                    console.error("History fetch error:", err);
-                }
+                    const res = await api.get('/wfh/my-wfh');
+                    // Map WFH into a format similar to leaves for display
+                    return res.data.map((w: any) => ({
+                        id: w.id,
+                        isWFH: true,
+                        userId: w.userId,
+                        user: w.user || { name: user?.name, employeeCode: user?.employeeCode },
+                        leaveType: { name: 'Work From Home' },
+                        durationType: 'FULL_DAY',
+                        startDate: w.wfhDate,
+                        endDate: w.wfhDate,
+                        totalDays: 1,
+                        reason: w.reason || 'WFH',
+                        status: w.status,
+                        createdAt: w.createdAt
+                    }));
+                } catch (err) { return []; }
             };
 
-            const fetchTypes = async () => {
-                try {
-                    const res = await api.get('/leaves/types');
-                    setLeaveTypes(res.data);
-                } catch (err) {
-                    console.error("Types fetch error:", err);
-                    toast.error("Network error while loading data. Please try again.");
-                }
-            };
+            const [history, types, balancesRes, settingsRes, wfhRes] = await Promise.all([
+                api.get('/leaves/history').then(r => r.data).catch(() => []),
+                api.get('/leaves/types').then(r => r.data).catch(() => []),
+                api.get('/users/profile').then(r => r.data.leaveBalances || []).catch(() => []),
+                api.get('/system/settings').then(r => r.data.data).catch(() => []),
+                fetchWFH()
+            ]);
 
-            const fetchBalances = async () => {
-                try {
-                    const res = await api.get('/users/profile');
-                    setBalances(res.data.leaveBalances || []);
-                } catch (err) {
-                    console.error("Profile fetch error:", err);
-                }
-            };
-
-            const fetchSettings = async () => {
-                try {
-                    const res = await api.get('/system/settings');
-                    setSystemSettings(res.data.data);
-                } catch (err) {
-                    console.error("Settings fetch error:", err);
-                }
-            };
-
-            await Promise.all([fetchHistory(), fetchTypes(), fetchBalances(), fetchSettings()]);
+            setLeaves([...history, ...wfhRes].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            setLeaveTypes(types);
+            setBalances(balancesRes);
+            setSystemSettings(settingsRes);
         } catch (error) {
             console.error("General fetch error:", error);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         fetchData();
@@ -117,8 +113,17 @@ export default function LeavesPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            await api.post('/leaves/apply', formData);
-            toast.success('Request submitted');
+            if (isWFHRequest) {
+                await api.post('/wfh/apply', {
+                    startDate: formData.startDate,
+                    endDate: formData.endDate,
+                    reason: formData.reason
+                });
+                toast.success('WFH Request submitted');
+            } else {
+                await api.post('/leaves/apply', formData);
+                toast.success('Leave Request submitted');
+            }
             setIsApplyModalOpen(false);
             fetchData();
         } catch (err: any) {
@@ -201,13 +206,22 @@ export default function LeavesPage() {
                     </div>
 
                     {user?.role === 'EMPLOYEE' && (
-                        <button
-                            onClick={() => setIsApplyModalOpen(true)}
-                            className="btn-primary py-2.5 px-6 shrink-0"
-                        >
-                            <Plus size={18} />
-                            Request Leave
-                        </button>
+                        <div className="flex gap-3 shrink-0">
+                            <button
+                                onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
+                                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[14px] font-bold shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2"
+                            >
+                                <Briefcase size={18} />
+                                Request WFH
+                            </button>
+                            <button
+                                onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
+                                className="btn-primary py-2.5 px-6"
+                            >
+                                <Plus size={18} />
+                                Request Leave
+                            </button>
+                        </div>
                     )}
                 </div>
 
@@ -293,22 +307,23 @@ export default function LeavesPage() {
                             />
                         </div>
                         <div className="flex items-center gap-3">
-                            <button 
-                                disabled={leaves.length === 0}
-                                className="btn-secondary py-2 px-4 shadow-none disabled:opacity-40 disabled:bg-slate-50 disabled:cursor-not-allowed relative group"
-                                title={leaves.length === 0 ? "Filters available when leave records exist" : ""}
-                            >
-                                <Filter size={16} />
-                                Filters
-                            </button>
                             {user?.role === 'EMPLOYEE' && (
-                                <button 
-                                    onClick={() => setIsApplyModalOpen(true)}
-                                    className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
-                                >
-                                    <Plus size={18} className="transition-transform group-hover:rotate-90" />
-                                    Apply Leave
-                                </button>
+                                <>
+                                    <button 
+                                        onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
+                                        className="btn-secondary py-2 px-5 shadow-sm active:scale-95 group font-bold text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+                                    >
+                                        <Briefcase size={18} className="text-indigo-500" />
+                                        Request WFH
+                                    </button>
+                                    <button 
+                                        onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
+                                        className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
+                                    >
+                                        <Plus size={18} className="transition-transform group-hover:rotate-90" />
+                                        Request Leave
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -340,13 +355,22 @@ export default function LeavesPage() {
                                                         </p>
                                                     </div>
                                                     {user?.role === 'EMPLOYEE' && (
-                                                        <button 
-                                                            onClick={() => setIsApplyModalOpen(true)}
-                                                            className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
-                                                        >
-                                                            <Plus size={18} />
-                                                            Apply Leave
-                                                        </button>
+                                                        <div className="flex gap-4">
+                                                            <button 
+                                                                onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
+                                                                className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
+                                                            >
+                                                                <Plus size={18} />
+                                                                Apply Leave
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
+                                                                className="btn-secondary py-3 px-10 shadow-lg flex items-center justify-center gap-2 border-indigo-100 text-indigo-600"
+                                                            >
+                                                                <Briefcase size={18} />
+                                                                Request WFH
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -435,7 +459,7 @@ export default function LeavesPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider border ${getStatusStyle(leave.status)}`}>
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider border ${leave.isWFH ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : getStatusStyle(leave.status)}`}>
                                                     {leave.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
@@ -453,7 +477,7 @@ export default function LeavesPage() {
                                                             <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
                                                         </>
                                                     )}
-                                                    {user?.role === 'EMPLOYEE' &&
+                                                    {user?.role === 'EMPLOYEE' && !leave.isWFH &&
                                                         !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
                                                             <button
                                                                 onClick={() => handleCancel(leave.id)}
@@ -479,8 +503,12 @@ export default function LeavesPage() {
                     <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
-                                <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Request Leave</h2>
-                                <p className="text-[13px] font-medium text-[#667085] mt-1">Submit a new leave application.</p>
+                                <h2 className="text-[18px] font-semibold text-[#101828] leading-none">
+                                    {isWFHRequest ? 'Request WFH' : 'Request Leave'}
+                                </h2>
+                                <p className="text-[13px] font-medium text-[#667085] mt-1">
+                                    {isWFHRequest ? 'Select dates for working from home.' : 'Submit a new leave application.'}
+                                </p>
                             </div>
                             <button
                                 onClick={() => setIsApplyModalOpen(false)}
@@ -493,28 +521,38 @@ export default function LeavesPage() {
                         <div className="overflow-y-auto no-scrollbar p-6">
                             <form onSubmit={handleApply} className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[13px] font-medium text-[#344054]">Leave Type</label>
-                                        <select
-                                            className="input-field py-2.5"
-                                            onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
-                                            required
-                                        >
-                                            <option value="">Select leave type</option>
-                                            {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
-                                        </select>
-                                    </div>
+                                    {!isWFHRequest ? (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[13px] font-medium text-[#344054]">Leave Type</label>
+                                            <select
+                                                className="input-field py-2.5"
+                                                onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
+                                                required={!isWFHRequest}
+                                            >
+                                                <option value="">Select leave type</option>
+                                                {leaveTypes.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                            </select>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-1.5">
+                                            <label className="text-[13px] font-medium text-[#344054]">Request Type</label>
+                                            <div className="input-field py-2.5 bg-slate-50 text-slate-500 font-bold">
+                                                Work From Home
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="space-y-1.5">
                                         <label className="text-[13px] font-medium text-[#344054]">Duration</label>
                                         <select
                                             className="input-field py-2.5"
                                             onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
                                             required
+                                            disabled={isWFHRequest}
+                                            value={isWFHRequest ? 'FULL_DAY' : formData.durationType}
                                         >
                                             <option value="FULL_DAY">Full Day</option>
                                             <option value="FIRST_HALF">First Half</option>
                                             <option value="SECOND_HALF">Second Half</option>
-                                            <option value="WORK_FROM_HOME">Work from Home</option>
                                         </select>
                                     </div>
                                 </div>

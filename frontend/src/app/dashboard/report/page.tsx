@@ -218,7 +218,6 @@ export default function ReportPage() {
                 {/* Detailed Logs Section */}
                 <section>
                     <div className="flex items-center gap-3 mb-4">
-                        <span className="text-xl">📊</span>
                         <h2 className="text-[18px] font-bold text-[#101828]">Weekly Attendance Report (Mon–Sat, 8 Hrs/Day)</h2>
                     </div>
                     
@@ -277,7 +276,6 @@ export default function ReportPage() {
                 {/* Weekly Summary Section */}
                 <section>
                     <div className="flex items-center gap-3 mb-4">
-                        <span className="text-xl">📈</span>
                         <h2 className="text-[18px] font-bold text-[#101828]">Weekly Summary</h2>
                     </div>
                     

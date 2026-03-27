@@ -121,7 +121,7 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
                                 isCurrentMonth && "text-black hover:bg-neutral-50",
                                 isPast && "text-black/5 cursor-not-allowed hover:bg-transparent",
                                 isSelected && "bg-black text-white hover:bg-black font-black shadow-md scale-105 z-10",
-                                isToday && !isSelected && "after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:bg-black after:rounded-full"
+                                isToday && !isSelected && "text-emerald-600 after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:bg-emerald-500 after:rounded-full"
                             )}
                         >
                             {format(day, 'd')}

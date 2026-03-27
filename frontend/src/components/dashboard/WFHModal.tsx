@@ -49,7 +49,7 @@ export default function WFHModal({ isOpen, onClose, onSuccess, existingWfhDates 
             border-radius: 8px;
         }
         .rdp-day_today { 
-            color: #2563eb;
+            color: #059669;
             font-weight: 800;
             text-decoration: underline;
         }

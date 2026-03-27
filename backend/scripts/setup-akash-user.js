@@ -15,7 +15,7 @@ async function main() {
     const employeeCode = '12';
     
     try {
-        const user = await prisma.user.upsert({
+        await prisma.user.upsert({
             where: { employeeCode }, // Using employeeCode as unique identifier to update the existing "Akash"
             update: {
                 email: email, // Update to the personal Gmail

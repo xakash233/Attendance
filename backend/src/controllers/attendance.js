@@ -652,8 +652,6 @@ export const getDashboardReport = async (req, res, next) => {
 
         // 2. Weekly Overview (Mon-Sat Logic)
         const weeklyHistory = [];
-        const today = new Date(todayStart);
-        const dayOfWeekNow = today.getDay(); // 0 is Sunday
         
         // Find Monday of the current week (UTC-based to avoid timezone shifts)
         const mondayOfThisWeek = new Date(todayStart);

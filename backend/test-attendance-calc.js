@@ -1,4 +1,3 @@
-import prisma from './src/config/prisma.js';
 import { getComplianceReport } from './src/controllers/attendance.js';
 
 async function test() {

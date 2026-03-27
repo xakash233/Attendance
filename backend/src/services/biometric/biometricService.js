@@ -329,16 +329,6 @@ class BiometricService {
             return;
         }
 
-        // Shift Configuration
-        const SHIFTS = {
-            'A': { start: '09:00', end: '18:00' },
-            'B': { start: '10:00', end: '19:00' }
-        };
-
-        const shiftType = user.shift || 'B';
-        const shift = SHIFTS[shiftType];
-        const [startH, startM] = shift.start.split(':').map(Number);
-        const [endH, endM] = shift.end.split(':').map(Number);
 
         // Adjust for IST (+5:30)
         // const shiftStart = new Date(date.getTime() + (startH * 60 + startM - 330) * 60000);

@@ -18,7 +18,7 @@ async function main() {
 
   // 2. Create Super Admin
   const hashedPassword = await bcrypt.hash('Tectra@123', 10);
-  const superAdmin = await prisma.user.upsert({
+  await prisma.user.upsert({
     where: { email: 'superadmin@tectratech.com' },
     update: {
       password: hashedPassword,
