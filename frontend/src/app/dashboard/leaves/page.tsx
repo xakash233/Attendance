@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
 export default function LeavesPage() {
@@ -20,6 +21,7 @@ export default function LeavesPage() {
     const { user } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [isWFHRequest, setIsWFHRequest] = useState(false);
+
     const [mounted, setMounted] = useState(false);
     const [systemSettings, setSystemSettings] = useState<any>(null);
     const [formData, setFormData] = useState({
@@ -199,14 +201,19 @@ export default function LeavesPage() {
             <div className="space-y-6 animate-fade-in pb-10">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Leaves</h1>
+                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">
+                            {user?.role === 'EMPLOYEE' ? 'My Leave Requests' :
+                             user?.role === 'HR' ? 'Leave Management' :
+                             user?.role === 'SUPER_ADMIN' ? 'Leave Approvals' : 'Leaves'}
+                        </h1>
                         <p className="text-[13px] font-medium text-[#667085] mt-1">
-                            Manage your time off and leave requests.
+                            {user?.role === 'EMPLOYEE' ? 'Manage your time off and leave requests.' : 'Manage and approve employee leave requests.'}
                         </p>
                     </div>
 
                     {user?.role === 'EMPLOYEE' && (
                         <div className="flex gap-3 shrink-0">
+
                             <button
                                 onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
                                 className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[14px] font-bold shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2"
@@ -307,24 +314,6 @@ export default function LeavesPage() {
                             />
                         </div>
                         <div className="flex items-center gap-3">
-                            {user?.role === 'EMPLOYEE' && (
-                                <>
-                                    <button 
-                                        onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
-                                        className="btn-secondary py-2 px-5 shadow-sm active:scale-95 group font-bold text-indigo-600 border-indigo-100 hover:bg-indigo-50"
-                                    >
-                                        <Briefcase size={18} className="text-indigo-500" />
-                                        Request WFH
-                                    </button>
-                                    <button 
-                                        onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
-                                        className="btn-primary py-2 px-5 shadow-sm active:scale-95 group"
-                                    >
-                                        <Plus size={18} className="transition-transform group-hover:rotate-90" />
-                                        Request Leave
-                                    </button>
-                                </>
-                            )}
                         </div>
                     </div>
 
@@ -357,7 +346,7 @@ export default function LeavesPage() {
                                                     {user?.role === 'EMPLOYEE' && (
                                                         <div className="flex gap-4">
                                                             <button 
-                                                                onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
+                                                                onClick={() => { setIsApplyModalOpen(true); }}
                                                                 className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
                                                             >
                                                                 <Plus size={18} />
@@ -369,8 +358,7 @@ export default function LeavesPage() {
                                                             >
                                                                 <Briefcase size={18} />
                                                                 Request WFH
-                                                            </button>
-                                                        </div>
+                                                            </button>                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -425,7 +413,12 @@ export default function LeavesPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[14px] font-medium text-[#101828]">{leave.user.name}</p>
+                                                        <Link 
+                                                            href={`/dashboard/users/${leave.userId || leave.user.id}`}
+                                                            className="text-[14px] font-medium text-[#101828] hover:text-indigo-600 hover:underline transition-all"
+                                                        >
+                                                            {leave.user.name}
+                                                        </Link>
                                                         <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.employeeCode}</p>
                                                     </div>
                                                 </div>
@@ -543,17 +536,22 @@ export default function LeavesPage() {
                                     )}
                                     <div className="space-y-1.5">
                                         <label className="text-[13px] font-medium text-[#344054]">Duration</label>
-                                        <select
-                                            className="input-field py-2.5"
-                                            onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
-                                            required
-                                            disabled={isWFHRequest}
-                                            value={isWFHRequest ? 'FULL_DAY' : formData.durationType}
-                                        >
-                                            <option value="FULL_DAY">Full Day</option>
-                                            <option value="FIRST_HALF">First Half</option>
-                                            <option value="SECOND_HALF">Second Half</option>
-                                        </select>
+                                        {isWFHRequest ? (
+                                            <div className="input-field py-2.5 bg-slate-50 text-slate-500 font-bold">
+                                                Full Day
+                                            </div>
+                                        ) : (
+                                            <select
+                                                className="input-field py-2.5"
+                                                onChange={(e) => setFormData({ ...formData, durationType: e.target.value })}
+                                                required
+                                                value={formData.durationType}
+                                            >
+                                                <option value="FULL_DAY">Full Day</option>
+                                                <option value="FIRST_HALF">First Half</option>
+                                                <option value="SECOND_HALF">Second Half</option>
+                                            </select>
+                                        )}
                                     </div>
                                 </div>
 

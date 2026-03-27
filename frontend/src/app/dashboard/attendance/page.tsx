@@ -4,9 +4,11 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Activity, User, Calendar, History } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function AttendancePage() {
     const { user, loading } = useAuth();
+    const router = useRouter();
     const [liveData, setLiveData] = useState<any[]>([]);
     const [isFetchingLive, setIsFetchingLive] = useState(true);
     const [expandedRow, setExpandedRow] = useState<string | null>(null);
@@ -127,7 +129,15 @@ export default function AttendancePage() {
                                                         {emp.name.substring(0, 2).toUpperCase()}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[14px] font-bold text-[#101828]">{emp.name}</p>
+                                                        <span 
+                                                            className="text-[14px] font-bold text-[#101828] hover:text-indigo-600 hover:underline cursor-pointer transition-all"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                router.push(`/dashboard/users/${emp.id}`);
+                                                            }}
+                                                        >
+                                                            {emp.name}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             </td>

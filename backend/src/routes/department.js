@@ -4,7 +4,7 @@ import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', protect, authorize('SUPER_ADMIN', 'ADMIN'), getDepartments);
+router.get('/', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'), getDepartments);
 router.post('/', protect, authorize('SUPER_ADMIN', 'ADMIN'), createDepartment);
 router.put('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN'), updateDepartment);
 router.put('/:id/hr', protect, authorize('SUPER_ADMIN', 'ADMIN'), assignHr);

@@ -21,21 +21,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [notifications, setNotifications] = useState<any[]>([]);
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [headerStats, setHeaderStats] = useState({ total: 0, present: 0, absent: 0 });
     const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    const fetchHeaderStats = useCallback(async () => {
-        try {
-            const res = await api.get('/attendance/live');
-            const data = res.data;
-            const total = data.length;
-            const present = data.filter((e: any) => e.currentStatus !== 'ABSENT').length;
-            const absent = data.filter((e: any) => e.currentStatus === 'ABSENT').length;
-            setHeaderStats({ total, present, absent });
-        } catch (err) {
-            console.error(err);
-        }
-    }, []);
 
     // Listen for custom title updates from child components
     useEffect(() => {
@@ -67,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isNotificationOpen]);
+    }, [isNotificationOpen, isProfileOpen]);
 
     const fetchNotifications = useCallback(async () => {
         try {
@@ -107,12 +94,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             socket.on('connect', onConnect);
             socket.on('notification', onNotification);
 
-            // Fetch live stats for admins
-            if (['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role)) {
-                fetchHeaderStats();
-                const interval = setInterval(fetchHeaderStats, 10000);
-                return () => clearInterval(interval);
-            }
 
             // If already connected, join immediately
             if (socket.connected) {
@@ -124,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 socket.off('notification', onNotification);
             };
         }
-    }, [user, loading, router, fetchNotifications, fetchHeaderStats]);
+    }, [user, loading, router, fetchNotifications]);
 
     const markAsRead = async (notif: any) => {
         try {
@@ -186,10 +167,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const segments = pathname.split('/').filter(Boolean);
     const lastSegment = segments[segments.length - 1] || 'Dashboard';
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastSegment);
+    const isMe = lastSegment === 'me';
 
     let displayPage = dynamicTitle || lastSegment.replace(/-/g, ' ');
 
-    if (isUUID && !dynamicTitle) {
+    if ((isUUID || isMe) && !dynamicTitle) {
         if (segments.includes('users')) displayPage = 'Personnel Profile';
         else if (segments.includes('departments')) displayPage = 'Department Unit';
         else displayPage = 'Registry Node';
@@ -265,22 +247,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div className="flex items-center gap-4 lg:gap-8 flex-1 justify-end">
-                        {user && ['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role) && (
-                            <div className="hidden lg:flex items-center gap-10 mr-12 animate-fade-in border-r border-[#E6E8EC]/50 pr-8">
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Total </p>
-                                    <p className="text-[18px] font-bold text-[#101828] leading-none tabular-nums">{headerStats.total}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Present</p>
-                                    <p className="text-[18px] font-bold text-emerald-600 leading-none tabular-nums">{headerStats.present}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] leading-none mb-1.5 pointer-events-none">Absent</p>
-                                    <p className="text-[18px] font-bold text-red-600 leading-none tabular-nums">{headerStats.absent}</p>
-                                </div>
-                            </div>
-                        )}
                         <div className="relative" id="notifications-dropdown">
                             <button
                                 onClick={(e) => {
@@ -379,7 +345,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <div className="p-1.5">
                                         <button
                                             onClick={() => {
-                                                router.push(`/dashboard/users/${user?.id}`);
+                                                router.push(`/dashboard/users/me`);
                                                 setIsProfileOpen(false);
                                             }}
                                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-[#344054] hover:bg-slate-50 transition-all"

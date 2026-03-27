@@ -14,12 +14,19 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const { user, logout } = useAuth();
     const pathname = usePathname();
 
+    const getLeaveLabel = () => {
+        if (user?.role === 'EMPLOYEE') return 'My Leave Requests';
+        if (user?.role === 'HR') return 'Leave Management';
+        if (user?.role === 'SUPER_ADMIN') return 'Leave Approvals';
+        return 'Leave Requests';
+    };
+
     const links = [
         { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Working Hours', href: '/dashboard/working-hours', icon: TrendingUp, roles: ['HR', 'EMPLOYEE'] },
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Leave Requests', href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: getLeaveLabel(), href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },

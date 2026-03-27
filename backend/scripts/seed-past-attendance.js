@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
-import { subDays, isWeekend, setHours, setMinutes, differenceInMinutes, format } from 'date-fns';
+import { subDays, setHours, setMinutes, differenceInMinutes, format } from 'date-fns';
 
 dotenv.config();
 
@@ -25,7 +25,7 @@ async function main() {
     let d = 1;
     while (workingDays.length < 7) {
         const date = subDays(today, d);
-        if (!isWeekend(date)) {
+        if (date.getDay() !== 0) { // Only skip Sundays
             workingDays.push(date);
         }
         d++;

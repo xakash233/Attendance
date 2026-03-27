@@ -213,13 +213,16 @@ export default function HolidaysPage() {
                                 </div>
                                 <div className="divide-y divide-slate-50">
                                     {monthData.days.map((h: any) => {
-                                        const dateLabel = new Date(h.date).toLocaleDateString('en-US', { day: 'numeric', weekday: 'short', timeZone: 'UTC' });
+                                        const holidayDate = new Date(h.date);
+                                        const weekday = holidayDate.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+                                        const day = holidayDate.getUTCDate();
+                                        
                                         return (
                                             <div key={h.id} className="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors group">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-indigo-700">
-                                                        <span className="text-[10px] uppercase font-black tracking-widest">{dateLabel.split(', ')[0]}</span>
-                                                        <span className="text-lg font-black leading-none mt-0.5">{dateLabel.split(' ')[2] || new Date(h.date).getUTCDate()}</span>
+                                                        <span className="text-[10px] uppercase font-black tracking-widest">{weekday}</span>
+                                                        <span className="text-lg font-black leading-none mt-0.5">{day}</span>
                                                     </div>
                                                     <div>
                                                         <h4 className="text-[14px] font-bold text-[#101828] mb-0.5">{h.name}</h4>

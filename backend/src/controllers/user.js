@@ -3,16 +3,180 @@ import prisma from '../config/prisma.js';
 import sendEmail from '../utils/email.js';
 import crypto from 'crypto';
 
+const istDateToUtcMidnight = (yyyyMmDd) => new Date(`${yyyyMmDd}T00:00:00.000Z`);
+
+const normalizeUtcDateStr = (d) => {
+    const x = new Date(d);
+    x.setUTCHours(0, 0, 0, 0);
+    return x.toISOString().split('T')[0];
+};
+
+const isHalfDayLeave = (durationType) =>
+    ['FIRST_HALF', 'SECOND_HALF', 'HALF_DAY'].includes((durationType || '').toString().toUpperCase());
+
+async function computeHoursSummariesForUsers({ userIds, month }) {
+    const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const todayMark = istDateToUtcMidnight(todayIstStr);
+
+    // Current week: Mon..today (Sunday excluded by target logic)
+    const day = todayMark.getUTCDay(); // 0 Sun
+    const diffToMon = day === 0 ? 6 : day - 1;
+    const weekStart = new Date(todayMark);
+    weekStart.setUTCDate(todayMark.getUTCDate() - diffToMon);
+
+    // Month range
+    const yyyyMm = month || todayIstStr.substring(0, 7);
+    const [y, m] = yyyyMm.split('-').map(Number);
+    const monthStart = new Date(Date.UTC(y, m - 1, 1));
+    const monthEnd = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+
+    const [attendanceRows, holidays, leaves] = await Promise.all([
+        prisma.attendance.findMany({
+            where: { userId: { in: userIds }, date: { gte: weekStart < monthStart ? weekStart : monthStart, lte: monthEnd } },
+            select: { userId: true, date: true, workingHours: true }
+        }),
+        prisma.holiday.findMany({
+            where: { date: { gte: monthStart, lte: monthEnd } },
+            select: { date: true }
+        }),
+        prisma.leaveRequest.findMany({
+            where: {
+                userId: { in: userIds },
+                status: { in: ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'] },
+                startDate: { lte: monthEnd },
+                endDate: { gte: monthStart }
+            },
+            select: { userId: true, startDate: true, endDate: true, durationType: true }
+        })
+    ]);
+
+    const holidaySet = new Set(holidays.map(h => normalizeUtcDateStr(h.date)));
+
+    // Build leave map userId -> dateStr -> targetOverride (0 or 4)
+    const leaveTargetByUserDate = new Map();
+    for (const l of leaves) {
+        const s = new Date(l.startDate); s.setUTCHours(0, 0, 0, 0);
+        const e = new Date(l.endDate); e.setUTCHours(0, 0, 0, 0);
+        const userKey = l.userId;
+        let cur = new Date(s);
+        while (cur <= e) {
+            const ds = cur.toISOString().split('T')[0];
+            // Skip Sundays and holidays for target computation
+            const dow = cur.getUTCDay();
+            if (dow !== 0 && !holidaySet.has(ds)) {
+                const key = `${userKey}::${ds}`;
+                leaveTargetByUserDate.set(key, isHalfDayLeave(l.durationType) ? 4 : 0);
+            }
+            cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+    }
+
+    const acc = {};
+    for (const id of userIds) {
+        acc[id] = {
+            weekly: { worked: 0, target: 0 },
+            monthly: { worked: 0, target: 0 },
+            month: yyyyMm
+        };
+    }
+
+    // Sum worked hours from attendance rows
+    for (const r of attendanceRows) {
+        const ds = normalizeUtcDateStr(r.date);
+        const d = new Date(`${ds}T00:00:00.000Z`);
+
+        // weekly worked: weekStart..todayMark
+        if (d >= weekStart && d <= todayMark) {
+            acc[r.userId].weekly.worked += r.workingHours || 0;
+        }
+
+        // monthly worked: monthStart..monthEnd (full month)
+        if (d >= monthStart && d <= monthEnd) {
+            acc[r.userId].monthly.worked += r.workingHours || 0;
+        }
+    }
+
+    // Compute targets day-by-day for each user (month and current week)
+    const addTargetForRange = (rangeStart, rangeEnd, bucketKey, includeEnd = true) => {
+        let cur = new Date(rangeStart);
+        cur.setUTCHours(0, 0, 0, 0);
+        const endD = new Date(rangeEnd);
+        endD.setUTCHours(0, 0, 0, 0);
+
+        while (includeEnd ? cur <= endD : cur < endD) {
+            const ds = cur.toISOString().split('T')[0];
+            const dow = cur.getUTCDay();
+            const isSunday = dow === 0;
+            const isHoliday = holidaySet.has(ds);
+
+            if (!isSunday && !isHoliday) {
+                for (const uid of userIds) {
+                    const leaveKey = `${uid}::${ds}`;
+                    if (leaveTargetByUserDate.has(leaveKey)) {
+                        acc[uid][bucketKey].target += leaveTargetByUserDate.get(leaveKey);
+                    } else {
+                        acc[uid][bucketKey].target += 8;
+                    }
+                }
+            }
+
+            cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+    };
+
+    addTargetForRange(monthStart, monthEnd, 'monthly', true);
+    addTargetForRange(weekStart, todayMark, 'weekly', false);
+
+    // Round
+    for (const uid of userIds) {
+        acc[uid].weekly.worked = parseFloat(acc[uid].weekly.worked.toFixed(2));
+        acc[uid].weekly.target = parseFloat(acc[uid].weekly.target.toFixed(2));
+        acc[uid].weekly.delta = parseFloat((acc[uid].weekly.worked - acc[uid].weekly.target).toFixed(2));
+
+        acc[uid].monthly.worked = parseFloat(acc[uid].monthly.worked.toFixed(2));
+        acc[uid].monthly.target = parseFloat(acc[uid].monthly.target.toFixed(2));
+        acc[uid].monthly.delta = parseFloat((acc[uid].monthly.worked - acc[uid].monthly.target).toFixed(2));
+    }
+
+    return acc;
+}
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private (SUPER_ADMIN, ADMIN)
 export const getUsers = async (req, res, next) => {
     try {
         const users = await prisma.user.findMany({
-            omit: { password: true },
-            include: { department: true }
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                employeeCode: true,
+                role: true,
+                departmentId: true,
+                profileImage: true,
+                createdAt: true,
+                department: true
+            },
+            orderBy: { name: 'asc' }
         });
-        res.json(users);
+        const includeHours = req.query.includeHours === 'true';
+        if (!includeHours) {
+            return res.json(users);
+        }
+
+        const userIds = users.map(u => u.id);
+        const summaries = await computeHoursSummariesForUsers({
+            userIds,
+            month: typeof req.query.month === 'string' ? req.query.month : undefined
+        });
+
+        const enriched = users.map(u => ({
+            ...u,
+            hours: summaries[u.id]
+        }));
+
+        res.json(enriched);
     } catch (error) {
         next(error);
     }
@@ -23,25 +187,53 @@ export const getUsers = async (req, res, next) => {
 // @access  Private (Admins or self)
 export const getUser = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        if (!['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user.role) && req.user.id !== id) {
+        const { id: rawId } = req.params;
+        const id = rawId?.trim();
+        const reqUserId = req.user?.id;
+        const reqUserRole = req.user?.role;
+        
+        console.log(`[USER CTRL] Fetching profile for Param ID: [${id}] | Req User ID: [${reqUserId}] | Role: [${reqUserRole}]`);
+
+        if (!['SUPER_ADMIN', 'ADMIN', 'HR'].includes(req.user.role) && req.user.id !== id && id !== 'me') {
+            console.warn(`[USER CTRL] Access denied for user ${req.user?.id} requesting ${id}`);
             return res.status(403).json({ message: 'Access denied' });
         }
 
-        const user = await prisma.user.findUnique({
-            where: { id },
-            omit: { password: true },
-            include: {
-                department: true,
+        // Special Case: "me" identifier resolves to current requester
+        const targetId = id === 'me' ? reqUserId : id;
+
+        // First attempt: find by ID (standard UUID)
+        let user = await prisma.user.findUnique({
+            where: { id: targetId },
+            select: {
+                id: true, email: true, name: true, employeeCode: true, role: true, 
+                departmentId: true, bio: true, phone: true, profileImage: true, shift: true, 
+                needsPasswordChange: true, createdAt: true, updatedAt: true, department: true, 
                 leaveBalances: { include: { leaveType: true } }
             }
         });
 
+        // Fail-safe: If not found and the ID is numeric or short, try searching by employeeCode
+        if (!user && (id.length < 10 || !id.includes('-'))) {
+            console.log(`[USER CTRL] UUID lookup failed for [${id}], attempting lookup by employeeCode...`);
+            user = await prisma.user.findUnique({
+                where: { employeeCode: id },
+                select: {
+                    id: true, email: true, name: true, employeeCode: true, role: true, 
+                    departmentId: true, bio: true, phone: true, profileImage: true, shift: true, 
+                    needsPasswordChange: true, createdAt: true, updatedAt: true, department: true, 
+                    leaveBalances: { include: { leaveType: true } }
+                }
+            });
+        }
+
         if (!user) {
+            console.error(`[USER CTRL] FATAL: User [${id}] not found in registry (tried ID & EmployeeCode).`);
             return res.status(404).json({ message: 'User not found' });
         }
         res.json(user);
     } catch (error) {
+        console.error('[USER CTRL] getUser error:', error);
         next(error);
     }
 };
@@ -216,16 +408,35 @@ export const verifyUserCreation = async (req, res, next) => {
 // @access  Private
 export const getUserProfile = async (req, res, next) => {
     try {
+        console.log(`[USER CTRL] getUserProfile for ID: ${req.user?.id}`);
         const user = await prisma.user.findUnique({
             where: { id: req.user.id },
-            omit: { password: true },
-            include: {
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                employeeCode: true,
+                role: true,
+                departmentId: true,
+                bio: true,
+                phone: true,
+                profileImage: true,
+                shift: true,
+                needsPasswordChange: true,
+                createdAt: true,
+                updatedAt: true,
                 department: true,
                 leaveBalances: { include: { leaveType: true } }
             }
         });
+        
+        if (!user) {
+            console.error(`[USER CTRL] getUserProfile FAILED: User ${req.user.id} not found in repository.`);
+            return res.status(404).json({ message: 'Self user profile not found' });
+        }
         res.json(user);
     } catch (error) {
+        console.error('[USER CTRL] getUserProfile error:', error);
         next(error);
     }
 };
@@ -244,8 +455,16 @@ export const updateUserProfile = async (req, res, next) => {
                 bio,
                 profileImage
             },
-            omit: { password: true },
-            include: { department: true }
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                bio: true,
+                phone: true,
+                profileImage: true,
+                department: true
+            }
         });
         res.json(user);
     } catch (error) {
@@ -513,16 +732,23 @@ export const updateUser = async (req, res, next) => {
             where: { id },
             data: {
                 name,
-                // We only update the actual email if it didn't change (or if we skipped verification logic here)
-                // For this requirement, we will update other fields now, and email later after OTP
                 role,
                 departmentId,
                 employeeCode,
                 shift,
                 monthlySalary: monthlySalary !== undefined ? parseFloat(monthlySalary) : undefined
             },
-            omit: { password: true },
-            include: { department: true }
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                departmentId: true,
+                employeeCode: true,
+                shift: true,
+                monthlySalary: true,
+                department: true
+            }
         });
 
         res.json({

@@ -14,11 +14,19 @@ export const protect = async (req, res, next) => {
 
             req.user = await prisma.user.findUnique({
                 where: { id: decoded.id },
-                omit: { password: true }
+                select: {
+                    id: true,
+                    email: true,
+                    name: true,
+                    role: true,
+                    departmentId: true,
+                    employeeCode: true
+                }
             });
 
             if (!req.user) {
-                return res.status(401).json({ message: 'User not found' });
+                console.warn(`[AUTH] User not found during middleware validation for ID: ${decoded.id}`);
+                return res.status(401).json({ message: 'Authorization identity no longer exists.' });
             }
 
             next();

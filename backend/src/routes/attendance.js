@@ -20,7 +20,7 @@ router.post('/check-out', protect, checkOut);
 router.get('/history', protect, getHistory);
 router.get('/summary', protect, getSummary);
 router.get('/weekly-summary', protect, getWeeklySummary);
-router.get('/user-summary/:id', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), getSummary);
+router.get('/user-summary/:id', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN', 'EMPLOYEE'), getSummary);
 router.get('/live', protect, getLiveAttendance);
 router.get('/dashboard-report', protect, getDashboardReport);
 router.get('/compliance-report', protect, getComplianceReport);

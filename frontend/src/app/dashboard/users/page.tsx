@@ -51,7 +51,7 @@ export default function UsersPage() {
     const fetchData = useCallback(async () => {
         try {
             const [usersRes, deptsRes] = await Promise.all([
-                api.get('/users'),
+                api.get('/users', { params: { includeHours: true } }),
                 api.get('/departments')
             ]);
             setUsers(usersRes.data);
@@ -361,30 +361,23 @@ export default function UsersPage() {
                 </div>
 
                 {/* Personnel Registry Table */}
-                <div className="card overflow-hidden bg-white border-[#E6E8EC]">
+                <div className="card bg-white border-[#E6E8EC]">
                     <div className="overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">User</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee Code</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Weekly Hours</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Monthly Hours</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Role</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Department</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center w-28">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E6E8EC]">
-                                {users.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={5} className="px-6 py-12 text-center text-[#667085]">
-                                            <div className="flex flex-col items-center gap-3">
-                                                <UserIcon size={32} className="text-[#D0D5DD]" />
-                                                <p className="text-[14px] font-medium text-[#667085]">No users found.</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    users.filter((u: any) => {
+                                {(() => {
+                                    const filteredUsers = users.filter((u: any) => {
                                         const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                             u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                             u.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
@@ -393,7 +386,22 @@ export default function UsersPage() {
                                         const matchesDept = filterDepartment === 'ALL' || u.departmentId === filterDepartment;
 
                                         return matchesSearch && matchesRole && matchesDept;
-                                    }).map((u: any) => (
+                                    });
+
+                                    if (filteredUsers.length === 0) {
+                                        return (
+                                            <tr>
+                                                <td colSpan={7} className="px-6 py-12 text-center text-[#667085]">
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <UserIcon size={32} className="text-[#D0D5DD]" />
+                                                        <p className="text-[14px] font-medium text-[#667085]">No users found.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }
+
+                                    return filteredUsers.map((u: any, index: number) => (
                                         <tr key={u.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
                                                 <Link href={`/dashboard/users/${u.id}`} className="flex items-center gap-3">
@@ -420,6 +428,22 @@ export default function UsersPage() {
                                                 <span className="text-[14px] font-medium text-[#101828]">
                                                     {u.employeeCode}
                                                 </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="text-[13px] font-bold text-[#101828] tabular-nums">
+                                                    {(u.hours?.weekly?.worked ?? 0).toFixed(1)} / {(u.hours?.weekly?.target ?? 0).toFixed(0)}h
+                                                </div>
+                                                <div className={`text-[11px] font-bold tabular-nums ${(u.hours?.weekly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {(u.hours?.weekly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.weekly?.delta ?? 0).toFixed(1)}h
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="text-[13px] font-bold text-[#101828] tabular-nums">
+                                                    {(u.hours?.monthly?.worked ?? 0).toFixed(1)} / {(u.hours?.monthly?.target ?? 0).toFixed(0)}h
+                                                </div>
+                                                <div className={`text-[11px] font-bold tabular-nums ${(u.hours?.monthly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                    {(u.hours?.monthly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.monthly?.delta ?? 0).toFixed(1)}h
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider bg-slate-100 text-[#344054] border border-[#E6E8EC]">
@@ -455,7 +479,9 @@ export default function UsersPage() {
                                                                     className="fixed inset-0 z-[10]" 
                                                                     onClick={() => setOpenMenuId(null)}
                                                                 />
-                                                                <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-xl border border-[#E6E8EC] z-[20] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                                <div className={`absolute right-0 w-32 bg-white rounded-xl shadow-xl border border-[#E6E8EC] z-[20] overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${
+                                                                    index >= filteredUsers.length - 2 && filteredUsers.length > 3 ? 'bottom-full mb-1' : 'top-full mt-1'
+                                                                }`}>
                                                                     <button
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
@@ -483,8 +509,8 @@ export default function UsersPage() {
                                                 )}
                                             </td>
                                         </tr>
-                                    ))
-                                )}
+                                    ));
+                                })()}
                             </tbody>
                         </table>
                     </div>

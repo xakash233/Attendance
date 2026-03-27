@@ -57,22 +57,28 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
 
     const getStatusColor = (log: any) => {
         if (!log) return 'bg-slate-50 text-slate-200 border-slate-100';
-        if (log.isWeekend) return 'bg-slate-100/50 text-slate-300 border-slate-100';
+        // Sunday should not be green, even if worked
+        if (log.isWeekend) return 'bg-slate-50 text-slate-300 border-slate-100';
         if (log.status === 'FUTURE') return 'bg-white text-slate-100 border-slate-100';
-        if (log.status === 'ABSENT') return 'bg-white text-slate-300 border-slate-100 line-through';
+        
+        // Absent or Unexcused Leave
+        if (log.status === 'ABSENT') return 'bg-rose-50 text-rose-400 border-rose-100';
+
+        if (log.status?.includes('LEAVE')) {
+            if (log.status?.includes('PENDING')) return 'bg-amber-400 text-white font-bold border-amber-500 shadow-sm';
+            return 'bg-rose-500 text-white font-bold border-rose-600 shadow-sm';
+        }
 
         switch (log.status) {
             case 'PRESENT':
-            case 'LATE':
             case 'OVERTIME':
-            case 'HALF_DAY':
+            case 'FULL_DAY':
                 return 'bg-emerald-600 text-white font-bold border-emerald-700 shadow-sm';
-            case 'PENDING_LEAVE':
+            case 'LATE':
+            case 'HALF_DAY':
                 return 'bg-amber-500 text-white font-bold border-amber-600 shadow-sm';
-            case 'APPROVED_LEAVE':
-                return 'bg-rose-500 text-white font-bold border-rose-600 shadow-sm';
             case 'REJECTED_LEAVE':
-                return 'bg-slate-300 text-white font-bold border-slate-400';
+                return 'bg-slate-200 text-slate-400 border-slate-300';
             default:
                 return 'bg-slate-50 text-slate-400 border-slate-200';
         }
@@ -90,20 +96,6 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
 
     return (
         <div className="space-y-4 animate-fade-in w-full max-w-4xl mx-auto">
-            {/* Quick Stats - Compact High-Performance */}
-            <div className="grid grid-cols-4 gap-2">
-                {[
-                    { label: 'Present', value: summary.presentDays, color: 'text-black' },
-                    { label: 'Absent', value: summary.absentDays, color: 'text-slate-300' },
-                    { label: 'Half Day', value: summary.halfDays, color: 'text-slate-500' },
-                    { label: 'Leave', value: summary.leaveDays, color: 'text-slate-400' }
-                ].map((stat, i) => (
-                    <div key={i} className="card p-4 flex flex-col items-center justify-center text-center">
-                        <p className="text-[12px] font-medium text-[#667085] leading-none mb-1">{stat.label}</p>
-                        <p className={`text-[18px] font-semibold ${stat.color} leading-none`}>{stat.value}</p>
-                    </div>
-                ))}
-            </div>
 
             {/* Calendar UI - Compact & Technical */}
             <div className="card p-6 border-[#f1f5f9]">
@@ -138,31 +130,46 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                 </div>
 
                 <div className="grid grid-cols-7 gap-1.5">
-                    {calendarGrid.map((cell, idx) => (
-                        <div key={idx} className={`h-12 sm:h-14 rounded-xl flex flex-col items-center justify-center border transition-all duration-500 group relative cursor-crosshair ${cell ? getStatusColor(cell.log) : 'bg-transparent border-transparent'}`}>
-                            {cell && (
-                                <>
-                                    <span className="text-[13px] font-medium leading-none">{cell.day}</span>
-                                    {cell.log && !['WEEKEND', 'FUTURE', 'PRESENT', 'ABSENT'].includes(cell.log.status) && (
-                                        <div className="absolute bottom-1 w-1 h-1 bg-white rounded-full animate-pulse" />
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    ))}
+                    {calendarGrid.map((cell, idx) => {
+                        const dateObj = cell ? new Date(cell.dateStr) : null;
+                        const dateLabel = dateObj ? dateObj.toLocaleDateString('en-GB', { 
+                            weekday: 'long', 
+                            day: '2-digit', 
+                            month: 'long' 
+                        }) : '';
+                        const statusLabel = cell?.log?.status ? ` - ${cell.log.status.replace(/_/g, ' ')}` : '';
+
+                        return (
+                            <div 
+                                key={idx} 
+                                title={cell ? `${dateLabel}${statusLabel}` : ''}
+                                className={`h-12 sm:h-14 rounded-xl flex flex-col items-center justify-center border transition-all duration-300 group relative cursor-pointer ${cell ? getStatusColor(cell.log) : 'bg-transparent border-transparent'}`}
+                            >
+                                {cell && (
+                                    <>
+                                        <span className="text-[13px] font-bold leading-none">{cell.day}</span>
+                                        {cell.log && !['WEEKEND', 'FUTURE', 'PRESENT', 'ABSENT'].includes(cell.log.status) && (
+                                            <div className="absolute bottom-1 w-1 h-1 bg-white/60 rounded-full" />
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
 
-                {/* Legend - Minimalist */}
-                <div className="flex items-center justify-center gap-6 mt-8 pt-6 border-t border-slate-50">
+                {/* Legend - Detailed & User-Centric */}
+                <div className="flex flex-wrap items-center justify-center gap-6 mt-8 pt-6 border-t border-slate-50">
                     {[
-                        { color: 'bg-emerald-500', label: 'Sync' },
-                        { color: 'bg-amber-400', label: 'Wait' },
-                        { color: 'bg-black', label: 'Base' },
-                        { color: 'bg-white border-slate-50', label: 'Null', strike: true }
+                        { color: 'bg-emerald-500', label: 'Present' },
+                        { color: 'bg-amber-400', label: 'Late / Partial' },
+                        { color: 'bg-rose-500', label: 'Leave' },
+                        { color: 'bg-rose-100 border-rose-200', label: 'Absent' },
+                        { color: 'bg-slate-50 border-slate-100', label: 'Off / Holiday' }
                     ].map((item, i) => (
                         <div key={i} className="flex items-center gap-2">
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.color}`}></div>
-                            <span className={`text-[11px] font-medium text-[#667085] ${item.strike ? 'line-through opacity-50' : ''}`}>
+                            <div className={`w-3 h-3 rounded-md ${item.color} border shadow-sm`}></div>
+                            <span className="text-[11px] font-bold text-[#667085] uppercase tracking-wider">
                                 {item.label}
                             </span>
                         </div>

@@ -63,7 +63,7 @@ export default function EmployeeProfileView() {
                 }
                 
                 try {
-                    const leavesRes = await api.get('/leave/history');
+                    const leavesRes = await api.get('/leaves/history');
                     setLeaves(leavesRes.data.filter((l: any) => l.userId === id && l.status === 'FINAL_APPROVED'));
                 } catch (e) {
                     // Ignore leaves fail
@@ -162,7 +162,7 @@ export default function EmployeeProfileView() {
                     <h2 className="text-[24px] font-semibold text-[#101828] leading-none">User Profile</h2>
                     <p className="text-[13px] font-medium text-[#667085] mt-1">View personal details and attendance records.</p>
                 </div>
-                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.id === id) && (
+                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.id === id || id === 'me') && (
                     <button 
                         onClick={() => setIsEditModalOpen(true)}
                         className="btn-secondary py-2.5 px-6"
