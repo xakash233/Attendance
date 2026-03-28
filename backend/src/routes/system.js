@@ -1,11 +1,12 @@
 import express from 'express';
-import { getSettings, updateSettings } from '../controllers/system.js';
+import { getSettings, updateSettings, triggerAutoSync } from '../controllers/system.js';
 import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.get('/settings', protect, getSettings);
 router.put('/settings', protect, authorize('SUPER_ADMIN'), updateSettings);
+router.get('/sync-biometric', triggerAutoSync); // Public but protected by secret check in controller
 router.post('/debug-log', async (req, res) => {
     const fs = await import('fs');
     const path = await import('path');
