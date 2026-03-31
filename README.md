@@ -134,3 +134,6 @@ If you see a "Failed" status in the Biometric Logs:
 ---
 
 *Ref: README_V2_FINAL*
+
+
+"db:migrate-vps": "prisma migrate dev --name setup_on_hostinger && npm run seed",

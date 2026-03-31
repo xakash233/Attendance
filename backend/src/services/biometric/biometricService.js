@@ -176,7 +176,7 @@ class BiometricService {
      * @param {number} port - Device Port
      * @param {string} userId - ID of user triggering the sync
      */
-    async syncFromDevice(ip = '192.168.1.2', port = 4370, userId = null) {
+    async syncFromDevice(ip = '192.168.68.60', port = 4370, userId = null) {
         let zkInstance = null;
         try {
             zkInstance = new ZKLib(ip, port, 10000, 4000);

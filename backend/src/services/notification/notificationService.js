@@ -70,7 +70,10 @@ class NotificationService {
         try {
             const whereClause = { role };
             if (departmentId && role === 'HR') {
-                whereClause.managedDepartment = { id: departmentId };
+                whereClause.OR = [
+                    { managedDepartment: { id: departmentId } },
+                    { departmentId: departmentId }
+                ];
             }
 
             const targets = await prisma.user.findMany({ where: whereClause, select: { id: true, email: true } });

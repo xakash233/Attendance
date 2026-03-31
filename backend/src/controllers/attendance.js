@@ -976,11 +976,11 @@ export const getComplianceReport = async (req, res, next) => {
                     } else {
                         // Approved Leave: Credit hours if they exceed actual work
                         if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
-                            status = `HALF DAY ${lType}`;
+                            status = hours > 0 ? 'PRESENT' : `HALF DAY ${lType}`;
                             hours = Math.max(hours, 4.0);
                             remarks = 'HALF DAY LEAVE';
                         } else {
-                            status = lType;
+                            status = hours > 0 ? 'PRESENT' : lType;
                             hours = Math.max(hours, 8.0);
                             remarks = 'APPROVED LEAVE';
                         }

@@ -1,7 +1,7 @@
 import express from 'express';
 import { syncBiometricUpload, getSyncLogs, getLatestRecords, syncFromDevice } from '../controllers/biometric.js';
 import { protect, authorize } from '../middleware/auth.js';
-import upload from '../middlewares/upload.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 

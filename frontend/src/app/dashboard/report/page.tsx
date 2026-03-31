@@ -30,14 +30,21 @@ const formatDuration = (decimalHours: any) => {
 const formatStatus = (row: any) => {
     const worked = parseFloat(row.TotalWorkedHours || "0");
     const diff = worked - 8;
+    
+    // 1. Weekend / Holiday
     if (row.Status === 'WEEKEND' || row.Status === 'OVERTIME_SUNDAY' || new Date(row.Date).getDay() === 0) return 'Weekend';
     if (row.Status === 'HOLIDAY') return `Holiday (${row.Remarks})`;
-    if (row.Status.includes('LEAVE')) return 'Leave';
-    if (worked === 0) return 'Absent';
+    
+    // 2. Prioritize worked hours (Even if on leave, if they worked, show they were present)
+    if (worked > 0) {
+        if (row.Status === 'ON SITE' || row.Status === 'ON-SITE') return 'On-Site';
+        if (diff > 0.5) return 'Compensated';
+        return 'Present'; 
+    }
 
-    if (row.Status === 'ON SITE' || row.Status === 'ON-SITE') return 'On-Site';
-    if (diff > 0) return diff > 0.5 ? 'Compensated' : `Present (+${Math.round(diff * 60)}m)`;
-    if (diff < 0) return `Short (-${Math.round(Math.abs(diff) * 60)}m)`;
+    // 3. Fallbacks
+    if (row.Status && String(row.Status).includes('LEAVE')) return 'Leave';
+    if (worked === 0) return 'Absent';
     return 'Present';
 };
 
@@ -364,11 +371,10 @@ export default function ReportPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                                                                statusText.includes('Short') ? 'bg-rose-50 text-rose-500 border border-rose-100' :
-                                                                statusText.includes('Present') || statusText === 'Compensated' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                                                statusText === 'On-Site' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
-                                                                statusText === 'Leave' ? 'bg-indigo-50 text-indigo-500 border border-indigo-100' :
-                                                                statusText === 'Weekend' ? 'bg-slate-50 text-slate-400 border border-slate-100' :
+                                                                statusText.toUpperCase().includes('SHORT') ? 'bg-rose-50 text-rose-500 border border-rose-100' :
+                                                                (statusText.toUpperCase().includes('PRESENT') || statusText.toUpperCase() === 'COMPENSATED' || statusText.toUpperCase() === 'ON-SITE') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                                                statusText.toUpperCase() === 'LEAVE' ? 'bg-indigo-50 text-indigo-500 border border-indigo-100' :
+                                                                statusText.toUpperCase() === 'WEEKEND' ? 'bg-slate-50 text-slate-400 border border-slate-100' :
                                                                 'bg-amber-50 text-amber-600 border border-amber-100'
                                                             }`}>
                                                                 {statusText}
@@ -605,9 +611,9 @@ export default function ReportPage() {
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
-                                                                    ['SHORT DAY', 'SHORT_DAY'].some(s => statusText.includes(s)) ? 'bg-rose-50 text-rose-600' :
-                                                                    ['PRESENT', 'FULL DAY', 'COMPENSATED', 'PRESENT WFH', 'ON SITE', 'ON-SITE'].some(s => statusText.includes(s)) ? 'bg-emerald-50 text-emerald-600' :
-                                                                    statusText === 'Leave' ? 'bg-indigo-50 text-indigo-600' :
+                                                                    statusText.toUpperCase().includes('SHORT') ? 'bg-rose-50 text-rose-600' :
+                                                                    (statusText.toUpperCase().includes('PRESENT') || statusText.toUpperCase() === 'COMPENSATED' || statusText.toUpperCase() === 'ON-SITE' || statusText.toUpperCase() === 'PRESENT WFH') ? 'bg-emerald-50 text-emerald-600' :
+                                                                    statusText.toUpperCase() === 'LEAVE' ? 'bg-indigo-50 text-indigo-600' :
                                                                     'bg-slate-100 text-slate-500'
                                                                 }`}>
                                                                     {statusText}

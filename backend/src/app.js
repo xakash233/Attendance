@@ -7,8 +7,8 @@ import compression from 'compression';
 import path from 'path';
 import hpp from 'hpp';
 import { fileURLToPath } from 'url';
-import { apiLimiter } from './middlewares/rateLimiter.js';
-import xss from './middlewares/xss.js';
+import { apiLimiter } from './middleware/rateLimiter.js';
+import xss from './middleware/xss.js';
 import errorHandler from './middleware/error.js';
 
 // Import Routes
@@ -24,6 +24,7 @@ import healthRoutes from './routes/health.js';
 import notificationRoutes from './routes/notification.js';
 import wfhRoutes from './routes/wfh.js';
 import holidayRoutes from './routes/holiday.js';
+import admsRoutes from './routes/adms.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -63,6 +64,9 @@ app.use(compression());
 
 // Static folder for file uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// ADMS Biometric Support (IClock Push Protocol)
+app.use('/iclock', admsRoutes);
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
