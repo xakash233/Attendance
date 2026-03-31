@@ -363,33 +363,7 @@ export default function DashboardPage() {
                                     <div className="flex justify-between items-start mb-1">
                                         <p className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Today Status</p>
                                         <div className="flex gap-2">
-                                            {(!liveData || liveData.length === 0 || liveData[0].currentStatus === 'ABSENT') && (
-                                                <>
-                                                    <button
-                                                        onClick={() => handlePunchIn(false)}
-                                                        className="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-all border border-emerald-100"
-                                                        title="Punch In (Office)"
-                                                    >
-                                                        <LogIn size={14} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handlePunchIn(true)}
-                                                        className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all border border-blue-100"
-                                                        title="Punch In (WFH)"
-                                                    >
-                                                        <Home size={14} />
-                                                    </button>
-                                                </>
-                                            )}
-                                            {liveData && liveData[0]?.currentStatus === 'IN' && (
-                                                <button
-                                                    onClick={handlePunchOut}
-                                                    className="p-1.5 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-all border border-rose-100"
-                                                    title="Punch Out"
-                                                >
-                                                    <LogOut size={14} />
-                                                </button>
-                                            )}
+                                            {/* Manual Punch Buttons Disabled as per Requirement (Biometric Only) */}
                                         </div>
                                     </div>
                                     <div className="flex items-end justify-between">
@@ -459,7 +433,10 @@ export default function DashboardPage() {
                                                 axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
                                             />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                                            <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                                            <Tooltip 
+                                                formatter={(val: any) => [`${parseFloat(val).toFixed(2)} HRS`, 'Work Duration']}
+                                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                                            />
                                             <Area type="monotone" dataKey="hours" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorHours)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -494,7 +471,7 @@ export default function DashboardPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${['PRESENT', 'FULL DAY', 'IN', 'OUT'].includes(day.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${['PRESENT', 'FULL DAY', 'FULL_DAY', 'SHORT DAY', 'SHORT_DAY', 'IN', 'OUT', 'ON LEAVE', 'ON_LEAVE', 'ON SITE', 'ON-SITE'].includes(day.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                                 {day.status}
                                                             </span>
                                                         </td>
@@ -585,7 +562,10 @@ export default function DashboardPage() {
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                                                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                                                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                                                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                                                <Tooltip 
+                                                    formatter={(val: any) => [parseFloat(val).toFixed(2), 'Identity Count']}
+                                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                                                />
                                                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }} />
                                                 <Bar dataKey="present" name="Present Identity" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
                                                 <Bar dataKey="absent" name="Absent Identity" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={24} />
@@ -617,7 +597,10 @@ export default function DashboardPage() {
                                                     >
                                                         <Cell fill="#10b981" /> <Cell fill="#f59e0b" /> <Cell fill="#6366f1" /> <Cell fill="#f43f5e" />
                                                     </Pie>
-                                                    <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
+                                                    <Tooltip 
+                                                        formatter={(val: any) => [parseFloat(val).toFixed(2), 'Identity Count']}
+                                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
+                                                    />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -816,7 +799,7 @@ export default function DashboardPage() {
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${row.Status === 'FULL DAY' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                                <span className={`px-2.5 py-1 rounded-md text-[11px] font-semibold ${['PRESENT', 'FULL DAY', 'PRESENT WFH'].includes(row.Status) ? 'bg-emerald-100 text-emerald-700' : (['ON SITE', 'ON-SITE'].includes(row.Status) ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700')}`}>
                                                                     {row.Status}
                                                                 </span>
                                                             </td>

@@ -21,7 +21,7 @@ npx vercel env rm JWT_REFRESH_SECRET production --yes || true
 printf 'tectra-attendance-refresh-token-super-secret' | npx vercel env add JWT_REFRESH_SECRET production || true
 
 npx vercel env rm FRONTEND_URL production --yes || true
-printf 'https://frontend-xi-seven-19.vercel.app' | npx vercel env add FRONTEND_URL production || true
+printf 'https://hrms.tectratechnologies.com' | npx vercel env add FRONTEND_URL production || true
 
 cd ..
 VERCEL_ORG_ID=team_X2f8zsWjkKOsLwvLhc2NSHsw VERCEL_PROJECT_ID=prj_2BCZVNEXtsq5iMBRWEdJfsLRfS8T npx vercel deploy --prod --yes

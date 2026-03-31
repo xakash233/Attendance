@@ -347,65 +347,102 @@ class BiometricService {
             orderBy: { timestamp: 'asc' }
         });
 
-        if (punches.length === 0) return;
+        // 2. Fetch Holiday/Leave context for this specific day
+        const [holiday, existingLeave] = await Promise.all([
+            tx.holiday.findFirst({ where: { date: { equals: date } } }),
+            tx.leaveRequest.findFirst({
+                where: {
+                    userId,
+                    startDate: { lte: date },
+                    endDate: { gte: date },
+                    status: 'FINAL_APPROVED'
+                }
+            })
+        ]);
 
-        // 2. Format for centralized utility (Pass Raw Date for 100% precision)
-        const formattedLogs = punches.map((p) => ({
-            timestamp: p.timestamp,
-            employeeCode: user.employeeCode
-        }));
-
-        // 3. Process with ROBUST LOGIC
-        const result = calculateAttendance(formattedLogs);
-
-        // 4. Leave Deduction (Strict Rule: 0.5 per Half Day)
         let leaveDeducted = 0;
-        if (result.status === 'HALF_DAY') {
-            leaveDeducted = 0.5;
-            await this.applyLeaveDeduction(tx, userId, 0.5);
+        let finalStatus = "ABSENT";
+        let workHrs = 0;
+        let deficit = 8.0;
+        let firstPunch = null;
+        let lastPunch = null;
+        let shift = user.shift || 'B';
+
+        if (punches.length > 0) {
+            // Process with ROBUST LOGIC
+            const formattedLogs = punches.map((p) => ({
+                timestamp: p.timestamp,
+                employeeCode: user.employeeCode
+            }));
+            const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            const currentTime = dateStr === todayStr ? new Date() : null;
+            const result = calculateAttendance(formattedLogs, currentTime);
+            
+            finalStatus = result.status;
+            workHrs = parseFloat(result.totalWorkHours);
+            deficit = parseFloat(result.deficit);
+            firstPunch = punches[0].timestamp;
+            lastPunch = punches[punches.length - 1].timestamp;
+            shift = result.shift;
         }
 
-        // 5. Sunday/Holiday Handling
+        // 3. Automated Leave Deduction Logic
         const isSunday = date.getUTCDay() === 0;
-        let finalStatus = result.status;
-        if (isSunday && result.totalWorkMinutes > 0) {
+        const isWorkDay = !isSunday && !holiday && !existingLeave;
+
+        if (isWorkDay) {
+            if (finalStatus === 'ABSENT') {
+                leaveDeducted = 1.0;
+            } else if (finalStatus === 'SHORT DAY') {
+                if (workHrs < 2.0) leaveDeducted = 1.0;
+                else if (workHrs < 6.0) leaveDeducted = 0.5;
+            }
+
+            if (leaveDeducted > 0) {
+                await this.applyLeaveDeduction(tx, userId, leaveDeducted, `Automated Deduction (${finalStatus})`, date);
+            }
+        }
+
+        // 4. Overtime Sunday Handling
+        if (isSunday && workHrs > 0) {
             finalStatus = 'OVERTIME_SUNDAY';
             leaveDeducted = 0;
         }
 
-        // 6. Final Sync to Database
+        // 5. Final Sync to Database
         await tx.attendance.upsert({
             where: { userId_date: { userId, date } },
             update: {
-                checkIn: punches[0].timestamp,
-                checkOut: punches[punches.length - 1].timestamp,
-                workingHours: parseFloat(result.totalWorkHours),
+                checkIn: firstPunch,
+                checkOut: lastPunch,
+                workingHours: workHrs,
                 breakTime: 1.0, 
-                deficit: parseFloat(result.deficit),
+                deficit: deficit,
                 leaveDeducted,
                 status: finalStatus,
-                shiftType: result.shift
+                shiftType: shift
             },
             create: {
                 userId,
                 date,
-                checkIn: punches[0].timestamp,
-                checkOut: punches[punches.length - 1].timestamp,
-                workingHours: parseFloat(result.totalWorkHours),
+                checkIn: firstPunch,
+                checkOut: lastPunch,
+                workingHours: workHrs,
                 breakTime: 1.0,
-                deficit: parseFloat(result.deficit),
+                deficit: deficit,
                 leaveDeducted,
                 status: finalStatus,
-                shiftType: result.shift
+                shiftType: shift
             }
         });
     }
 
     /**
      * Deduct leave based on priority: CL -> SL -> PL
+     * Also Creates a LeaveRequest record so it shows in history/breakdown.
      */
-    async applyLeaveDeduction(tx, userId, amount) {
-        const priority = ['Casual Leave', 'Sick Leave', 'Privilege Leave'];
+    async applyLeaveDeduction(tx, userId, amount, reason, date) {
+        const priority = ['Casual Leave (CL)', 'Sick Leave (SL)', 'Paid Leave (PL)'];
         let remaining = amount;
 
         for (const leaveName of priority) {
@@ -421,6 +458,8 @@ class BiometricService {
 
             if (balance && balance.balance > 0) {
                 const deduct = Math.min(balance.balance, remaining);
+                
+                // 1. Update Balance
                 await tx.leaveBalance.update({
                     where: { id: balance.id },
                     data: {
@@ -428,11 +467,25 @@ class BiometricService {
                         used: balance.used + deduct
                     }
                 });
+
+                // 2. Create Audit-able Leave Request
+                await tx.leaveRequest.create({
+                    data: {
+                        userId,
+                        leaveTypeId: balance.leaveTypeId,
+                        startDate: date,
+                        endDate: date,
+                        totalDays: deduct,
+                        reason: reason,
+                        status: 'FINAL_APPROVED',
+                        durationType: deduct === 0.5 ? 'HALF_DAY' : 'FULL_DAY',
+                        comments: 'System Auto-Deducted'
+                    }
+                });
+
                 remaining -= deduct;
             }
         }
-
-        // If remaining > 0, it means salary deduction applies (handled in monthly process)
     }
 
     /**

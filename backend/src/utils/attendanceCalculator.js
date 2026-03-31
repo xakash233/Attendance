@@ -123,8 +123,9 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const totalDecimalHours = (totalWorkMinutes / 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY - totalWorkMinutes);
     
-    let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL_DAY" : "SHORT_DAY";
-    if (totalWorkMinutes <= 1) status = "ABSENT"; 
+    let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL DAY" : "SHORT DAY";
+    if (isOngoing) status = "ON-SITE";
+    if (totalWorkMinutes <= 1 && !isOngoing) status = "ABSENT"; 
 
     return {
         shift: firstPunch <= getMinutes("09:45") ? "A" : "B",

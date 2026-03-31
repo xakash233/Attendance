@@ -213,12 +213,15 @@ export default function WorkingHoursPage() {
                                             </div>
                                         </div>
                                         
-                                        <div className="pt-4 flex items-center gap-2">
-                                            <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-1 transition-transform" />
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-                                                {isMet ? 'Weekly commitment fulfilled' : 'Continue tracking progress'}
+                                        <Link 
+                                            href={`/dashboard/report?startDate=${selectedMonth}-${String(week.start).padStart(2, '0')}&endDate=${selectedMonth}-${String(week.end).padStart(2, '0')}`}
+                                            className="pt-4 flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer group/link"
+                                        >
+                                            <ChevronRight size={14} className="text-indigo-500 group-hover/link:translate-x-1 transition-transform" />
+                                            <span className="text-[11px] font-bold text-indigo-500 uppercase tracking-widest">
+                                                {isMet ? 'View fulfilled logs' : 'Continue tracking progress'}
                                             </span>
-                                        </div>
+                                        </Link>
                                         {week.holidays && week.holidays.length > 0 && (
                                             <div className="pt-3 mt-1 border-t border-slate-50">
                                                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Holiday Offsets applied:</p>

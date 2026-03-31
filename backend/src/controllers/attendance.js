@@ -270,7 +270,7 @@ export const getSummary = async (req, res, next) => {
             if (!isWeekend && !isHoliday) {
                 const att = attendances.find(a => a.date.toISOString().split('T')[0] === dateStr);
                 if (att) {
-                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY'].includes(att.status)) presentDays++;
+                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE'].includes(att.status)) presentDays++;
                     else if (att.status === 'HALF_DAY') halfDays++;
                 }
             }
@@ -349,10 +349,12 @@ export const getSummary = async (req, res, next) => {
         const dailyLog = [];
         let iter = new Date(startDate);
         while (iter <= endDate) {
+            if (iter > todayLocal) break;
+
             const dateStr = iter.toISOString().split('T')[0];
             const isWeekend = iter.getDay() === 0;
             const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
-            let dayStatus = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (iter <= todayLocal ? 'ABSENT' : 'FUTURE'));
+            let dayStatus = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
             let leaveType = holiday ? holiday.name : null;
 
             // Check attendance memory
@@ -481,30 +483,18 @@ export const getLiveAttendance = async (req, res, next) => {
 
         const liveData = cleanUsers.map(user => {
             const biometricPunches = user.biometricAttendances.map(b => new Date(b.timestamp));
-            const manualPunches = [];
             let isWfh = false;
 
-            // Add manual web punches if any
-            if (user.attendances.length > 0) {
-                const att = user.attendances[0];
-                if (att.status === 'PRESENT_WFH') {
-                    isWfh = true;
-                }
-                if (att.checkIn) {
-                    manualPunches.push(new Date(att.checkIn));
-                }
-                if (att.checkOut) {
-                    manualPunches.push(new Date(att.checkOut));
-                }
+            // Check if WFH is applied for today
+            if (user.attendances.length > 0 && user.attendances[0].status === 'PRESENT_WFH') {
+                isWfh = true;
             }
-
-            // Also check centralized WFH table
             if (user.wfhRequests.length > 0) {
                 isWfh = true;
             }
 
-            // Merge and sort
-            const allPunches = [...biometricPunches, ...manualPunches].sort((a, b) => a.getTime() - b.getTime());
+            // ONLY Biometric punches are recorded as per requirement
+            const allPunches = [...biometricPunches].sort((a, b) => a.getTime() - b.getTime());
 
             // Deduplicate extremely close punches (within 30s) to handle hardware double-triggers
             const rawPunches = [];
@@ -584,10 +574,7 @@ export const getDashboardReport = async (req, res, next) => {
             where: { userId, timestamp: { gte: istTodayStart, lte: istEndOfDay } },
             orderBy: { timestamp: 'asc' }
         });
-        const manualAtt = await prisma.attendance.findUnique({
-            where: { userId_date: { userId, date: todayStart } }
-        });
-
+        // ONLY Biometric data is used for the official log
         const allPunches = biometricPunches.map(b => ({
             time: new Date(b.timestamp),
             type: 'BIO',
@@ -595,10 +582,6 @@ export const getDashboardReport = async (req, res, next) => {
             vMode: b.verificationMode,
             logId: b.deviceLogId
         }));
-        if (manualAtt) {
-            if (manualAtt.checkIn) allPunches.push({ time: new Date(manualAtt.checkIn), type: 'MANUAL_IN', device: 'Web' });
-            if (manualAtt.checkOut) allPunches.push({ time: new Date(manualAtt.checkOut), type: 'MANUAL_OUT', device: 'Web' });
-        }
         allPunches.sort((a, b) => a.time - b.time);
 
         // Deduplicate punches within 30s
@@ -697,6 +680,8 @@ export const getDashboardReport = async (req, res, next) => {
             const d = new Date(mondayOfThisWeek);
             d.setUTCDate(mondayOfThisWeek.getUTCDate() + i);
 
+            if (d > todayStart) break;
+
             // Boundaries for biometric log lookup
             const dStr = d.toISOString().split('T')[0];
             const istDS = new Date(`${dStr}T00:00:00.000+05:30`);
@@ -712,12 +697,8 @@ export const getDashboardReport = async (req, res, next) => {
                 })
             ]);
 
-            // Combine all punches for the day
+            // ONLY Biometric data for history
             const dayPunches = dayBiometric.map(b => ({ time: b.timestamp, type: 'BIOMETRIC' }));
-            if (att) {
-                if (att.checkIn) dayPunches.push({ time: att.checkIn, type: 'MANUAL_IN' });
-                if (att.checkOut) dayPunches.push({ time: att.checkOut, type: 'MANUAL_OUT' });
-            }
             dayPunches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
             let status = 'ABSENT';
@@ -766,10 +747,15 @@ export const getDashboardReport = async (req, res, next) => {
                 // WFH gives them the actual worked, standard no artificial credit. Target remains 8.
             }
 
-            // Include today's live hours if greater than recorded (handles active session)
+            // Include today's live hours and status if it's the current session
             if (d.toISOString().split('T')[0] === todayStart.toISOString().split('T')[0]) {
                 const todayLiveHours = workMs / 3600000;
                 worked = Math.max(worked, todayLiveHours);
+                
+                // Prioritize live status if not already set to something meaningful like LEAVE/HOLIDAY
+                if (status === 'ABSENT' || status === 'OUT') {
+                    status = calcResult.status.replace(/_/g, ' '); 
+                }
             }
 
             totalWeeklyWorked += worked;
@@ -785,10 +771,10 @@ export const getDashboardReport = async (req, res, next) => {
 
             weeklyHistory.push({
                 date: new Date(d),
-                hours: worked,
+                hours: parseFloat(worked.toFixed(2)),
                 status: status,
                 checkIn: att ? att.checkIn : (dayPunches.length > 0 ? dayPunches[0].time : null),
-                checkOut: att ? att.checkOut : (dayPunches.length > 0 ? dayPunches[dayPunches.length - 1].time : null),
+                checkOut: att ? att.checkOut : (dayPunches.length > 1 ? dayPunches[dayPunches.length - 1].time : null),
                 punches: dayPunches.map(p => ({
                     time: p.time,
                     label: p.type === 'BIOMETRIC' ? 'Fingerprint' : (p.type === 'MANUAL_IN' ? 'Web Check-In' : 'Web Check-Out')
@@ -815,15 +801,15 @@ export const getDashboardReport = async (req, res, next) => {
         res.json({
             user: { name: req.user.name, id: req.user.id },
             weeklySummary: {
-                totalWorked: totalWeeklyWorked,
-                target: fullWeekTarget,
-                deficit: Math.max(0, weeklyTargetHours - totalWeeklyWorked),
-                remaining: Math.max(0, fullWeekTarget - totalWeeklyWorked)
+                totalWorked: parseFloat(totalWeeklyWorked.toFixed(2)),
+                target: parseFloat(fullWeekTarget.toFixed(2)),
+                deficit: parseFloat(Math.max(0, weeklyTargetHours - totalWeeklyWorked).toFixed(2)),
+                remaining: parseFloat(Math.max(0, fullWeekTarget - totalWeeklyWorked).toFixed(2))
             },
             today: {
                 currentStatus,
-                workHours: workMs / 3600000,
-                breakHours: breakMs / 3600000,
+                workHours: parseFloat((workMs / 3600000).toFixed(2)),
+                breakHours: parseFloat((breakMs / 3600000).toFixed(2)),
                 breaksCount,
                 firstIn: rawPunches.length > 0 ? rawPunches[0].time : null,
                 lastIn,
@@ -832,7 +818,15 @@ export const getDashboardReport = async (req, res, next) => {
                 expectedWorkHours: 8,
                 totalExpectedHours: 9
             },
-            weekly: weeklyHistory.reverse(),
+            weekly: weeklyHistory.sort((a, b) => {
+                const dateA = a.date.toISOString().split('T')[0];
+                const dateB = b.date.toISOString().split('T')[0];
+                const todayDateStr = todayStart.toISOString().split('T')[0];
+
+                if (dateA === todayDateStr) return -1;
+                if (dateB === todayDateStr) return 1;
+                return b.date.getTime() - a.date.getTime();
+            }),
             tasks: tasks.map(t => ({ id: t.id, title: t.title, time: t.createdAt })),
             settings
         });
@@ -891,7 +885,7 @@ export const getComplianceReport = async (req, res, next) => {
         });
 
         // Batch fetch all data for the month
-        const [allAttendance, allLeaves, allHolidays] = await Promise.all([
+        const [allAttendance, allLeaves, allHolidays, todayBiometric] = await Promise.all([
             prisma.attendance.findMany({
                 where: { date: { gte: start, lte: end }, userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) }
             }),
@@ -908,6 +902,15 @@ export const getComplianceReport = async (req, res, next) => {
             }),
             prisma.holiday.findMany({
                 where: { date: { gte: start, lte: end } }
+            }),
+            // Fetch live data for today if within range
+            prisma.biometricAttendance.findMany({
+                where: {
+                    timestamp: { 
+                        gte: new Date(new Date().setHours(0,0,0,0)), 
+                        lte: new Date(new Date().setHours(23,59,59,999)) 
+                    }
+                }
             })
         ]);
 
@@ -996,7 +999,25 @@ export const getComplianceReport = async (req, res, next) => {
                     weeklyTarget += 8.0;
                 }
 
-                const actualWorkedToday = att ? (att.workingHours || 0) : 0;
+                let actualWorkedToday = att ? (att.workingHours || 0) : 0;
+
+                // Live data overlay for Today (Asia/Kolkata)
+                const dateStrToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                if (dateStr === dateStrToday) {
+                    const userTodayPunches = todayBiometric.filter(b => b.userId === user.id);
+                    if (userTodayPunches.length > 0) {
+                        const now = new Date();
+                        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+                        const calcResult = calculateAttendance(userTodayPunches.map(p => ({ timestamp: p.timestamp })), currentTimeStr);
+                        
+                        actualWorkedToday = Math.max(actualWorkedToday, parseFloat(calcResult.totalWorkHours));
+                        
+                        if (status === 'ABSENT' || status === 'OUT') {
+                            status = calcResult.status.replace(/_/g, ' ');
+                        }
+                    }
+                }
+
                 // Use credited hours for weekly sums to ensure variance and totals include approved leaves/holidays
                 weeklyActualSum += hours;
                 weeklyHoursToDate += hours;
@@ -1446,7 +1467,7 @@ export const getAdminAnalytics = async (req, res, next) => {
             });
             const present = dayAtt.filter(a => {
                 const s = normalizeStatus(a.status);
-                return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'HALF DAY', 'LATE', 'OVERTIME'].includes(s);
+                return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'HALF DAY', 'LATE', 'OVERTIME', 'ON SITE', 'ON-SITE'].includes(s);
             }).length;
             const absent = dayAtt.filter(a => normalizeStatus(a.status) === 'ABSENT').length;
 
@@ -1462,7 +1483,7 @@ export const getAdminAnalytics = async (req, res, next) => {
 
         const onTimePresent = attToday.filter(a => {
             const s = normalizeStatus(a.status);
-            return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'OVERTIME', 'HALF DAY'].includes(s);
+            return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'OVERTIME', 'HALF DAY', 'ON SITE', 'ON-SITE'].includes(s);
         }).length;
 
         const lateArrivals = attToday.filter(a => normalizeStatus(a.status) === 'LATE');

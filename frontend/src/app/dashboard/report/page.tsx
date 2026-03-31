@@ -35,6 +35,7 @@ const formatStatus = (row: any) => {
     if (row.Status.includes('LEAVE')) return 'Leave';
     if (worked === 0) return 'Absent';
 
+    if (row.Status === 'ON SITE' || row.Status === 'ON-SITE') return 'On-Site';
     if (diff > 0) return diff > 0.5 ? 'Compensated' : `Present (+${Math.round(diff * 60)}m)`;
     if (diff < 0) return `Short (-${Math.round(Math.abs(diff) * 60)}m)`;
     return 'Present';
@@ -365,6 +366,7 @@ export default function ReportPage() {
                                                             <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
                                                                 statusText.includes('Short') ? 'bg-rose-50 text-rose-500 border border-rose-100' :
                                                                 statusText.includes('Present') || statusText === 'Compensated' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                                                                statusText === 'On-Site' ? 'bg-blue-50 text-blue-500 border border-blue-100' :
                                                                 statusText === 'Leave' ? 'bg-indigo-50 text-indigo-500 border border-indigo-100' :
                                                                 statusText === 'Weekend' ? 'bg-slate-50 text-slate-400 border border-slate-100' :
                                                                 'bg-amber-50 text-amber-600 border border-amber-100'
@@ -598,11 +600,13 @@ export default function ReportPage() {
                                                             <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.FirstPunch || '-'}</td>
                                                             <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.LastPunch || '-'}</td>
                                                             <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
-                                                            <td className="px-6 py-4 text-[14px] text-[#667085]">08:00</td>
+                                                            <td className="px-6 py-4 text-[14px] text-[#667085]">
+                                                                {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : '08:00'}
+                                                            </td>
                                                             <td className="px-6 py-4">
                                                                 <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
-                                                                    statusText.includes('Short') ? 'bg-rose-50 text-rose-600' :
-                                                                    statusText.includes('Present') ? 'bg-emerald-50 text-emerald-600' :
+                                                                    ['SHORT DAY', 'SHORT_DAY'].some(s => statusText.includes(s)) ? 'bg-rose-50 text-rose-600' :
+                                                                    ['PRESENT', 'FULL DAY', 'COMPENSATED', 'PRESENT WFH', 'ON SITE', 'ON-SITE'].some(s => statusText.includes(s)) ? 'bg-emerald-50 text-emerald-600' :
                                                                     statusText === 'Leave' ? 'bg-indigo-50 text-indigo-600' :
                                                                     'bg-slate-100 text-slate-500'
                                                                 }`}>
