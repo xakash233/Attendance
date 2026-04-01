@@ -173,6 +173,63 @@ class BiometricService {
     }
 
     /**
+     * Fetch all users from the biometric device and create them in the database if missing
+     */
+    async syncUsersFromDevice(ip = '192.168.68.60', port = 4370) {
+        let zkInstance = null;
+        try {
+            zkInstance = new ZKLib(ip, port, 10000, 4000);
+            await zkInstance.createSocket();
+            
+            const users = await zkInstance.getUsers();
+            if (!users || !users.data) {
+                return { success: false, message: 'No users found on device.' };
+            }
+
+            console.log(`[BiometricService] Found ${users.data.length} users on device. Syncing to DB...`);
+
+            let createdCount = 0;
+            for (const deviceUser of users.data) {
+                const employeeCode = deviceUser.uid.toString();
+                
+                // Check if user already exists
+                const existing = await prisma.user.findUnique({
+                    where: { employeeCode }
+                });
+
+                if (!existing) {
+                    // Create a placeholder user
+                    await prisma.user.create({
+                        data: {
+                            email: `${employeeCode}@tectratechnologies.com`,
+                            password: 'Password@123', // Default password
+                            name: deviceUser.name || `User ${employeeCode}`,
+                            employeeCode: employeeCode,
+                            role: 'EMPLOYEE',
+                            needsPasswordChange: true
+                        }
+                    });
+                    createdCount++;
+                }
+            }
+
+            return {
+                success: true,
+                message: `User sync complete. ${createdCount} new employees imported.`,
+                totalOnDevice: users.data.length
+            };
+
+        } catch (error) {
+            console.error('User Sync Error:', error);
+            throw error;
+        } finally {
+            if (zkInstance && zkInstance.disconnect) {
+                try { await zkInstance.disconnect(); } catch (e) {}
+            }
+        }
+    }
+
+    /**
      * Connect to the biometric device and sync all attendance records
      * @param {string} ip - Device IP address
      * @param {number} port - Device Port
@@ -388,11 +445,13 @@ class BiometricService {
             shift = result.shift;
         }
 
-        // 3. Automated Leave Deduction Logic
+        // 3. Automated Leave Deduction Logic (Only for PAST days)
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const isToday = dateStr === todayStr;
         const isSunday = date.getUTCDay() === 0;
         const isWorkDay = !isSunday && !holiday && !existingLeave;
 
-        if (isWorkDay) {
+        if (isWorkDay && !isToday) {
             if (finalStatus === 'ABSENT') {
                 leaveDeducted = 1.0;
             } else if (finalStatus === 'SHORT DAY') {

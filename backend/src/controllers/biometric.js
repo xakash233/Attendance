@@ -55,3 +55,13 @@ export const syncFromDevice = async (req, res, next) => {
         next(error);
     }
 };
+
+export const syncUsersFromDevice = async (req, res, next) => {
+    try {
+        const { ip, port } = req.body;
+        const result = await biometricService.syncUsersFromDevice(ip, port);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};

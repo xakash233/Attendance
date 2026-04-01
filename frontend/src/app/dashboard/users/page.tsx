@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     UserPlus, Search, Filter, Mail, Shield,
     Briefcase, Command, X, ArrowRight, Loader2, User as UserIcon,
-    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2, MoreVertical, Eye, EyeOff, Sparkles
+    ChevronDown, CheckCircle, Key, Globe, Trash2, Edit2, MoreVertical, Eye, EyeOff, Sparkles, RefreshCcw, Fingerprint
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -47,15 +47,19 @@ export default function UsersPage() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [departments, setDepartments] = useState([]);
     const { user: currentUser, logout } = useAuth();
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [settings, setSettings] = useState<any>(null);
 
     const fetchData = useCallback(async () => {
         try {
-            const [usersRes, deptsRes] = await Promise.all([
+            const [usersRes, deptsRes, settingsRes] = await Promise.all([
                 api.get('/users', { params: { includeHours: true } }),
-                api.get('/departments')
+                api.get('/departments'),
+                api.get('/system/settings').catch(() => ({ data: { data: null } }))
             ]);
             setUsers(usersRes.data);
             setDepartments(deptsRes.data);
+            setSettings(settingsRes.data.data);
         } catch (err) {
             console.error(err);
         } finally {
@@ -144,6 +148,26 @@ export default function UsersPage() {
             toast.error(err.response?.data?.message || 'Operation failed');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSyncFromDevice = async () => {
+        setIsSyncing(true);
+        const toastId = toast.loading('Connecting to biometric device...');
+        try {
+            const ip = settings?.biometricDeviceIP || '192.168.1.2';
+            const res = await api.post('/biometric/sync-users', { ip, port: 4370 });
+            
+            if (res.data.success) {
+                toast.success(res.data.message, { id: toastId });
+                fetchData();
+            } else {
+                toast.error(res.data.message, { id: toastId });
+            }
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Sync failed. Ensure device is online.', { id: toastId });
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -258,16 +282,26 @@ export default function UsersPage() {
                     </div>
 
                     {(currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'HR') && (
-                        <button
-                            onClick={() => {
-                                resetModal();
-                                setIsModalOpen(true);
-                            }}
-                            className="btn-primary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
-                        >
-                            <UserPlus size={18} className="mr-2" />
-                            Add User
-                        </button>
+                        <div className="flex items-center gap-3 w-full lg:w-auto">
+                            <button
+                                onClick={handleSyncFromDevice}
+                                disabled={isSyncing}
+                                className="btn-secondary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95 whitespace-nowrap bg-white border-[#E6E8EC]"
+                            >
+                                {isSyncing ? <Loader2 size={18} className="mr-2 animate-spin text-slate-400" /> : <Fingerprint size={18} className="mr-2 text-rose-500" />}
+                                Sync from eSSL
+                            </button>
+                            <button
+                                onClick={() => {
+                                    resetModal();
+                                    setIsModalOpen(true);
+                                }}
+                                className="btn-primary py-2.5 px-6 shadow-sm hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
+                            >
+                                <UserPlus size={18} className="mr-2" />
+                                Add User
+                            </button>
+                        </div>
                     )}
                 </header>
 
