@@ -3,11 +3,14 @@ import { handleCdataGet, handleCdataPost, handleGetRequest, handleDeviceCmd } fr
 
 const router = express.Router();
 
-// IClock/ADMS standard endpoints
-router.get('/cdata', handleCdataGet);      // Heartbeat & Init
-router.post('/cdata', handleCdataPost);    // Attendance & Op Log Push
+// Middleware to capture RAW text body from biometric devices (needed for legacy ADMS protocol)
+router.use(express.text({ type: '*/*', limit: '10mb' }));
 
-router.get('/getrequest', handleGetRequest); // Server commands
-router.post('/devicecmd', handleDeviceCmd);  // Command acknowledgment
+// IClock/ADMS standard endpoints (Supporting both /cdata and /cdata.aspx formats)
+router.get(['/cdata', '/cdata.aspx'], handleCdataGet);      
+router.post(['/cdata', '/cdata.aspx'], handleCdataPost);    
+
+router.get(['/getrequest', '/getrequest.aspx'], handleGetRequest); 
+router.post(['/devicecmd', '/devicecmd.aspx'], handleDeviceCmd);
 
 export default router;

@@ -18,56 +18,52 @@ export const handleCdataGet = async (req, res) => {
 export const handleCdataPost = async (req, res) => {
     const { SN, table } = req.query;
     
+    // Always acknowledge the device as priority #1
+    res.send('OK');
+
     if (table !== 'ATTLOG') {
-        return res.send('OK'); // Only handling attendance logs for now
+        return; 
     }
 
     try {
-        // Raw body as lines of text
-        let body = '';
-        req.on('data', chunk => { body += chunk.toString(); });
-        
-        req.on('end', async () => {
-            if (!body) return res.send('OK');
+        const body = req.body;
+        if (!body || typeof body !== 'string') return;
 
-            // Format of ATTLOG data:
-            // 7\t2026-03-31 10:17:00\t1\t0\t0\t0
-            // UserID\tTimestamp\tVerificationType\t...
-            const lines = body.trim().split('\n');
-            const formattedRecords = lines.map(line => {
-                const parts = line.split('\t');
-                if (parts.length < 2) return null;
-                
-                const employeeCode = parts[0].trim();
-                let timestampStr = parts[1].trim();
-                
-                // Ensure correct timestamp format (Indian Time +05:30)
-                if (!timestampStr.includes('+')) {
-                    timestampStr += '+05:30';
-                }
+        console.log(`[ADMS] Received Data from SN:${SN}`);
 
-                return {
-                    employeeCode,
-                    timestamp: new Date(timestampStr).toISOString()
-                };
-            }).filter(Boolean);
-
-            if (formattedRecords.length > 0) {
-                console.log(`[ADMS] SN:${SN} Pushing ${formattedRecords.length} records to Cloud...`);
-                await biometricService.processSync({
-                    rawRecords: formattedRecords,
-                    deviceIP: req.ip || 'CLOUD-ADMS',
-                    userId: null, // System-triggered
-                    filename: `ADMS_PUSH_${SN}_${new Date().toISOString()}`
-                });
+        // Format of ATTLOG data lines:
+        // UserID  Timestamp  VerificationType  ...
+        const lines = body.trim().split('\n');
+        const formattedRecords = lines.map(line => {
+            const parts = line.split('\t');
+            if (parts.length < 2) return null;
+            
+            const employeeCode = parts[0].trim();
+            let timestampStr = parts[1].trim();
+            
+            // Ensure correct timestamp format (Indian Time +05:30)
+            if (!timestampStr.includes('+')) {
+                timestampStr += '+05:30';
             }
 
-            res.send('OK');
-        });
+            return {
+                employeeCode,
+                timestamp: new Date(timestampStr).toISOString()
+            };
+        }).filter(Boolean);
+
+        if (formattedRecords.length > 0) {
+            console.log(`[ADMS] SN:${SN} Pushing ${formattedRecords.length} records to Cloud...`);
+            await biometricService.processSync({
+                rawRecords: formattedRecords,
+                deviceIP: req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'CLOUD-ADMS',
+                userId: null, // System-triggered
+                filename: `ADMS_PUSH_${SN}_${new Date().toISOString()}`
+            });
+        }
 
     } catch (error) {
         console.error('[ADMS] Sync Error:', error.message);
-        res.send('ERROR');
     }
 };
 

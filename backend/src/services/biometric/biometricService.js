@@ -22,18 +22,20 @@ class BiometricService {
             recordsToProcess = await parseBiometricFile(fileBuffer, mimeType, filename);
         }
 
-        // Strict Protection: Only sync March 2026 data to prevent database bloat
-        const marchRecords = (recordsToProcess || []).filter(r => {
+        // Protection: Filter out extremely old or future records if needed, but allow current year
+        const currentYear = new Date().getUTCFullYear();
+        const relevantRecords = (recordsToProcess || []).filter(r => {
             const d = new Date(r.timestamp);
-            return d.getUTCMonth() === 2 && d.getUTCFullYear() === 2026; // March is Month 2 (0-indexed)
+            // Allow 2026 records (or current year)
+            return d.getUTCFullYear() === currentYear;
         });
         
-        if (!marchRecords || !marchRecords.length) {
-            console.log('[BiometricService] No valid records found for March 2026 in this sync.');
-            return { status: 'SKIPPED', message: 'No March 2026 records found' };
+        if (!relevantRecords || !relevantRecords.length) {
+            console.log(`[BiometricService] No valid records found for ${currentYear} in this sync.`);
+            return { status: 'SKIPPED', message: `No ${currentYear} records found` };
         }
         
-        recordsToProcess = marchRecords;
+        recordsToProcess = relevantRecords;
 
         const syncLog = await prisma.attendanceSyncLog.create({
             data: {
