@@ -264,7 +264,7 @@ export const getSummary = async (req, res, next) => {
 
         while (iterateDate <= limitDate) {
             const dateStr = iterateDate.toISOString().split('T')[0];
-            const isWeekend = iterateDate.getDay() === 0; // Only Sunday is weekend
+            const isWeekend = iterateDate.getDay() === 0 || iterateDate.getDay() === 6; // Sunday & Saturday
             const isHoliday = holidays.some(h => h.date.toISOString().split('T')[0] === dateStr);
 
             if (!isWeekend && !isHoliday) {
@@ -352,7 +352,7 @@ export const getSummary = async (req, res, next) => {
             if (iter > todayLocal) break;
 
             const dateStr = iter.toISOString().split('T')[0];
-            const isWeekend = iter.getDay() === 0;
+            const isWeekend = iter.getDay() === 0 || iter.getDay() === 6;
             const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
             let dayStatus = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
             let leaveType = holiday ? holiday.name : null;
@@ -927,7 +927,7 @@ export const getComplianceReport = async (req, res, next) => {
             while (iter <= end) {
                 const dateStr = iter.toISOString().split('T')[0];
                 const dayOfWeek = iter.getDay(); // 0 is Sunday
-                const isWeekend = dayOfWeek === 0;
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
                 // Reset weekly total on Monday (assuming Mon-Sat week)
                 if (dayOfWeek === 1) {
@@ -1030,7 +1030,7 @@ export const getComplianceReport = async (req, res, next) => {
                 let weeklySummaryStatus = "";
 
                 if (isSaturday) {
-                    weeklySummaryStatus = (weeklyActualSum >= 48) ? "Weekly requirement met" : "Weekly hours incomplete";
+                    weeklySummaryStatus = (weeklyActualSum >= 40) ? "Weekly requirement met" : "Weekly hours incomplete";
                 }
 
                 // Custom Status for deficit/compensation
@@ -1220,7 +1220,7 @@ export const exportComplianceReport = async (req, res, next) => {
                 todayRef.setHours(0, 0, 0, 0);
                 const isFuture = new Date(iter) > todayRef;
 
-                let status = dayOfWeek === 0 ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (isFuture ? 'SCHEDULED' : 'ABSENT'));
+                let status = (dayOfWeek === 0 || dayOfWeek === 6) ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (isFuture ? 'SCHEDULED' : 'ABSENT'));
                 const actualWorkedToday = att ? (att.workingHours || 0) : 0;
 
                 if (dayOfWeek !== 0 && !leave && !holiday) {

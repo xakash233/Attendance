@@ -7,12 +7,32 @@ export const applyWFH = async (req, res, next) => {
     try {
         const { employeeId, startDate, endDate, reason } = req.body;
         const currentUserId = req.user.id;
-        
         const targetUserId = (employeeId && req.user.role !== 'EMPLOYEE') ? employeeId : currentUserId;
 
         if (!startDate || !endDate) {
             return res.status(400).json({ message: 'Start and end dates are required' });
         }
+
+        // --- Auto-Approval Logic ---
+        // 1. One auto-approved WFH per user per month
+        // 2. Must be applied before 10pm IST (12 hours before a 10am shift)
+        
+        const now = new Date();
+        const kolkataTime = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', timeZone: 'Asia/Kolkata' });
+        const currentHour = parseInt(kolkataTime);
+        const isBefore10PM = currentHour < 22;
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+        // Count existing AUTO_APPROVED WFHs for this month
+        const usedAutoApproved = await prisma.wfhRequest.count({
+            where: {
+                userId: targetUserId,
+                status: 'AUTO_APPROVED',
+                wfhDate: { gte: startOfMonth, lte: endOfMonth }
+            }
+        });
 
         const start = new Date(startDate);
         const end = new Date(endDate);
@@ -23,21 +43,23 @@ export const applyWFH = async (req, res, next) => {
             const d = new Date(iter);
             d.setUTCHours(0, 0, 0, 0);
             
-            // Skip weekends (optional, but usually WFH is for work days)
-            const dayOfWeek = d.getUTCDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-                data.push({
-                    userId: targetUserId,
-                    wfhDate: d,
-                    reason: reason || '',
-                    status: 'AUTO_APPROVED'
-                });
+            // Determine status: AUTO_APPROVED only for the first one of the month + lead time met
+            let status = 'PENDING';
+            if (usedAutoApproved === 0 && isBefore10PM && data.length === 0) {
+                status = 'AUTO_APPROVED';
             }
+
+            data.push({
+                userId: targetUserId,
+                wfhDate: d,
+                reason: reason || '',
+                status: status
+            });
             iter.setUTCDate(iter.getUTCDate() + 1);
         }
 
         if (data.length === 0) {
-            return res.status(400).json({ message: 'No valid working days in range' });
+            return res.status(400).json({ message: 'No valid days in range' });
         }
 
         const result = await prisma.wfhRequest.createMany({
@@ -46,7 +68,7 @@ export const applyWFH = async (req, res, next) => {
         });
 
         res.status(201).json({ 
-            message: `${result.count} WFH days registered`,
+            message: `${result.count} WFH days registered (${data.some(d => d.status === 'AUTO_APPROVED') ? 'Auto-Approved' : 'Pending Admin Approval'})`,
             count: result.count
         });
     } catch (error) {

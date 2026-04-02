@@ -84,7 +84,28 @@ export default function ReportPage() {
             if (selectedEmployeeId && selectedEmployeeId !== 'all') params.userId = selectedEmployeeId;
             
             const res = await api.get('/attendance/compliance-report', { params });
-            setReportData(res.data.report);
+            const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+            // Ensure we do not show pending 'future' days that have not been completed yet.
+            // Also enforce Top-Down sorting: Latest day at the top per employee.
+            const filteredAndSorted = res.data.report
+                .filter((r: any) => {
+                    const dateStr = typeof r.Date === 'string' ? r.Date.split('T')[0] : '';
+                    return dateStr <= todayIstStr;
+                })
+                .sort((a: any, b: any) => {
+                    const nameA = a.Name || '';
+                    const nameB = b.Name || '';
+                    if (nameA !== nameB) {
+                        return nameA.localeCompare(nameB);
+                    }
+                    const dA = new Date(a.Date).getTime() || 0;
+                    const dB = new Date(b.Date).getTime() || 0;
+                    // Sort Date Descending (Newer at the top)
+                    return dB - dA;
+                });
+
+            setReportData(filteredAndSorted);
             setMeta(res.data.meta);
         } catch (err) {
             console.error('Failed to fetch report', err);

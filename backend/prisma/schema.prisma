@@ -266,10 +266,10 @@ model WfhRequest {
   id        String   @id @default(uuid())
   userId    String
   wfhDate   DateTime @db.Date
-  reason    String   @default("")
   status    String   @default("AUTO_APPROVED")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  reason    String   @default("")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, wfhDate])

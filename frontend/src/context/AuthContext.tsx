@@ -34,8 +34,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const login = (token: string, userData: User) => {
         localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         socket.connect();
+        // Redirection Logic: landing on main Dashboard
         router.push('/dashboard');
     };
 

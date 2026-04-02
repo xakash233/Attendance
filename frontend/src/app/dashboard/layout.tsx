@@ -11,6 +11,7 @@ import socket from '@/lib/socket';
 import api from '@/lib/axios';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import Image from 'next/image';
+import { LayoutDashboard, Globe } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useAuth();
@@ -105,7 +106,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 socket.off('notification', onNotification);
             };
         }
-    }, [user, loading, router, fetchNotifications]);
+    }, [user, loading, router, fetchNotifications, pathname]);
 
     const markAsRead = async (notif: any) => {
         try {
@@ -246,7 +247,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 lg:gap-8 flex-1 justify-end">
+                    <div className="flex items-center gap-4 lg:gap-6 flex-1 justify-end">
+
                         <div className="relative" id="notifications-dropdown">
                             <button
                                 onClick={(e) => {

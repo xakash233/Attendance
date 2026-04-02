@@ -347,12 +347,12 @@ export default function DashboardPage() {
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md">
-                                    <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-1">Weekly Efficiency (Mon-Sat)</p>
+                                    <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-1">Weekly Efficiency (Mon-Fri)</p>
                                     <div className="flex items-end justify-between">
                                         <div>
                                             <h4 className="text-2xl font-black text-[#101828]">
                                                 {report?.weeklySummary?.totalWorked ? formatDuration(report.weeklySummary.totalWorked) : '0.00'}
-                                                <span className="text-[14px] text-slate-400 font-bold ml-1">/ {report?.weeklySummary?.target || 48}h</span>
+                                                <span className="text-[14px] text-slate-400 font-bold ml-1">/ {report?.weeklySummary?.target || 40}h</span>
                                             </h4>
                                         </div>
                                         <Activity className="text-indigo-200" size={24} />
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                                     <div className="flex items-end justify-between">
                                         <h4 className="text-2xl font-black text-[#101828]">
                                             {report?.weekly?.filter((d: any) => d.status === 'PRESENT' || d.hours > 0).length || 0}
-                                            <span className="text-[14px] text-slate-400 font-bold ml-1">/ 6 Days</span>
+                                            <span className="text-[14px] text-slate-400 font-bold ml-1">/ 5 Days</span>
                                         </h4>
                                         <Calendar className="text-amber-200" size={20} />
                                     </div>
@@ -582,8 +582,8 @@ export default function DashboardPage() {
                                         </div>
                                         <PieIcon className="text-rose-400" size={24} />
                                     </div>
-                                    <div className="flex flex-col md:flex-row items-center gap-8 h-[300px] min-h-[300px]">
-                                        <div className="w-full md:w-1/2 h-[250px] min-h-[250px]">
+                                    <div className="flex flex-col md:flex-row items-center gap-8 h-auto md:h-[300px] min-h-[300px] pb-6 md:pb-0">
+                                        <div className="w-full md:w-1/2 h-[280px] min-h-[250px]">
                                             <ResponsiveContainer width="100%" height={250}>
                                                 <PieChart>
                                                     <Pie

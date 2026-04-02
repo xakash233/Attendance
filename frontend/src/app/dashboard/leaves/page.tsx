@@ -97,7 +97,14 @@ export default function LeavesPage() {
             ]);
 
             setLeaves([...history, ...wfhRes].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setLeaveTypes(types);
+            
+            // Restrict leave types to SL, CL, and PL
+            const filteredTypes = types.filter((t: any) => {
+                const n = t.name.toUpperCase();
+                return n.includes('(SL)') || n.includes('(CL)') || n.includes('(PL)');
+            });
+            setLeaveTypes(filteredTypes.length > 0 ? filteredTypes : types);
+            
             setBalances(balancesRes);
             setSystemSettings(settingsRes);
         } catch (error) {
@@ -185,6 +192,7 @@ export default function LeavesPage() {
             case 'CANCELLED': return 'bg-slate-50 text-slate-400 border-slate-200';
             case 'REJECTED_BY_HR':
             case 'REJECTED_BY_SUPERADMIN': return 'bg-rose-50 text-rose-700 border-rose-200';
+            case 'AUTO_APPROVED': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
             default: return 'bg-slate-50 text-slate-500 border-slate-200';
         }
     };
@@ -452,8 +460,13 @@ export default function LeavesPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-medium uppercase tracking-wider border ${leave.isWFH ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : getStatusStyle(leave.status)}`}>
-                                                    {leave.status.replace(/_/g, ' ')}
+                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
+                                                    {leave.status === 'AUTO_APPROVED' ? (
+                                                        <span className="flex items-center gap-1.5">
+                                                            <ShieldCheck size={13} className="text-indigo-500" />
+                                                            System Approved
+                                                        </span>
+                                                    ) : leave.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
@@ -575,6 +588,18 @@ export default function LeavesPage() {
                                         />
                                     </div>
                                 </div>
+
+                                {isWFHRequest && (
+                                    <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-start gap-4">
+                                        <Clock size={18} className="text-indigo-500 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="text-[12px] font-bold text-indigo-700 uppercase tracking-tight">Auto-Approval Policy</p>
+                                            <p className="text-[12px] text-indigo-600 mt-1 leading-relaxed">
+                                                One request per month is <span className="font-bold underline">auto-approved</span> if submitted before <span className="font-bold">10:00 PM</span>. Requests after 10 PM or additional days require manual approval.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="space-y-1.5">
                                     <label className="text-[13px] font-medium text-[#344054]">Reason</label>

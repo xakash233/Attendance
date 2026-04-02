@@ -224,7 +224,7 @@ class BiometricService {
             throw error;
         } finally {
             if (zkInstance && zkInstance.disconnect) {
-                try { await zkInstance.disconnect(); } catch (e) {}
+                try { await zkInstance.disconnect(); } catch (e) { console.error('Disconnection error', e); }
             }
         }
     }
@@ -406,20 +406,7 @@ class BiometricService {
             orderBy: { timestamp: 'asc' }
         });
 
-        // 2. Fetch Holiday/Leave context for this specific day
-        const [holiday, existingLeave] = await Promise.all([
-            tx.holiday.findFirst({ where: { date: { equals: date } } }),
-            tx.leaveRequest.findFirst({
-                where: {
-                    userId,
-                    startDate: { lte: date },
-                    endDate: { gte: date },
-                    status: 'FINAL_APPROVED'
-                }
-            })
-        ]);
 
-        let leaveDeducted = 0;
         let finalStatus = "ABSENT";
         let workHrs = 0;
         let deficit = 8.0;
@@ -445,29 +432,16 @@ class BiometricService {
             shift = result.shift;
         }
 
-        // 3. Automated Leave Deduction Logic (Only for PAST days)
-        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-        const isToday = dateStr === todayStr;
-        const isSunday = date.getUTCDay() === 0;
-        const isWorkDay = !isSunday && !holiday && !existingLeave;
+        // 3. Automated Leave Deduction Logic: REMOVED per User Request
+        // Employees or HR must manually apply for leave. The system 
+        // will no longer auto-deduct balances or spawn FINAL_APPROVED leaves for absence.
 
-        if (isWorkDay && !isToday) {
-            if (finalStatus === 'ABSENT') {
-                leaveDeducted = 1.0;
-            } else if (finalStatus === 'SHORT DAY') {
-                if (workHrs < 2.0) leaveDeducted = 1.0;
-                else if (workHrs < 6.0) leaveDeducted = 0.5;
-            }
-
-            if (leaveDeducted > 0) {
-                await this.applyLeaveDeduction(tx, userId, leaveDeducted, `Automated Deduction (${finalStatus})`, date);
-            }
-        }
-
-        // 4. Overtime Sunday Handling
-        if (isSunday && workHrs > 0) {
-            finalStatus = 'OVERTIME_SUNDAY';
-            leaveDeducted = 0;
+        // 4. Overtime / Weekend Handling
+        const isWeekend = date.getUTCDay() === 0 || date.getUTCDay() === 6;
+        if (isWeekend && workHrs > 0) {
+            finalStatus = isWeekend ? 'OVERTIME_WEEKEND' : 'OVERTIME_SUNDAY'; // Normalized to WEEKEND
+            if (date.getUTCDay() === 0) finalStatus = 'OVERTIME_SUNDAY';
+            if (date.getUTCDay() === 6) finalStatus = 'OVERTIME_SATURDAY';
         }
 
         // 5. Final Sync to Database
@@ -479,7 +453,7 @@ class BiometricService {
                 workingHours: workHrs,
                 breakTime: 1.0, 
                 deficit: deficit,
-                leaveDeducted,
+                leaveDeducted: 0,
                 status: finalStatus,
                 shiftType: shift
             },
@@ -491,62 +465,11 @@ class BiometricService {
                 workingHours: workHrs,
                 breakTime: 1.0,
                 deficit: deficit,
-                leaveDeducted,
+                leaveDeducted: 0,
                 status: finalStatus,
                 shiftType: shift
             }
         });
-    }
-
-    /**
-     * Deduct leave based on priority: CL -> SL -> PL
-     * Also Creates a LeaveRequest record so it shows in history/breakdown.
-     */
-    async applyLeaveDeduction(tx, userId, amount, reason, date) {
-        const priority = ['Casual Leave (CL)', 'Sick Leave (SL)', 'Paid Leave (PL)'];
-        let remaining = amount;
-
-        for (const leaveName of priority) {
-            if (remaining <= 0) break;
-
-            const balance = await tx.leaveBalance.findFirst({
-                where: {
-                    userId,
-                    leaveType: { name: leaveName }
-                },
-                include: { leaveType: true }
-            });
-
-            if (balance && balance.balance > 0) {
-                const deduct = Math.min(balance.balance, remaining);
-                
-                // 1. Update Balance
-                await tx.leaveBalance.update({
-                    where: { id: balance.id },
-                    data: {
-                        balance: balance.balance - deduct,
-                        used: balance.used + deduct
-                    }
-                });
-
-                // 2. Create Audit-able Leave Request
-                await tx.leaveRequest.create({
-                    data: {
-                        userId,
-                        leaveTypeId: balance.leaveTypeId,
-                        startDate: date,
-                        endDate: date,
-                        totalDays: deduct,
-                        reason: reason,
-                        status: 'FINAL_APPROVED',
-                        durationType: deduct === 0.5 ? 'HALF_DAY' : 'FULL_DAY',
-                        comments: 'System Auto-Deducted'
-                    }
-                });
-
-                remaining -= deduct;
-            }
-        }
     }
 
     /**
@@ -555,6 +478,7 @@ class BiometricService {
     async calculateAndSetCheckout(tx, attendance) {
         await this.updateDailyAttendance(tx, attendance.userId, attendance.date);
     }
+
 
     async getSyncLogs(limit = 50) {
         return prisma.attendanceSyncLog.findMany({
