@@ -7,11 +7,11 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
         if (!input) return null;
         if (input instanceof Date) {
             // Force IST since production servers (Vercel) may be in UTC
-            const kolkataStr = input.toLocaleTimeString('en-US', { 
-                hour12: false, 
-                hour: '2-digit', 
-                minute: '2-digit', 
-                timeZone: 'Asia/Kolkata' 
+            const kolkataStr = input.toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Kolkata'
             });
             const [h, m] = kolkataStr.split(':').map(Number);
             return h * 60 + m;
@@ -20,7 +20,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
         const timeStr = String(input).toUpperCase();
         const isPM = timeStr.includes('PM');
         const isAM = timeStr.includes('AM');
-        
+
         // Remove AM/PM for splitting
         let cleanTime = timeStr.replace(/(AM|PM)/g, '').trim();
         const parts = cleanTime.split(':').map(Number);
@@ -29,7 +29,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
 
         if (isPM && h < 12) h += 12;
         if (isAM && h === 12) h = 0;
-        
+
         return h * 60 + m;
     };
 
@@ -45,11 +45,11 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const STANDARD_WORK_DAY = 480;  // 8 hours
 
     if (!Array.isArray(attendanceLogs) || attendanceLogs.length === 0) {
-        return { 
-            shift: "B", 
-            totalWorkMinutes: 0, 
-            totalWorkHours: "0.00", 
-            status: "ABSENT", 
+        return {
+            shift: "B",
+            totalWorkMinutes: 0,
+            totalWorkHours: "0.00",
+            status: "ABSENT",
             deficit: "8.00",
             firstPunch: "--:--",
             lastPunch: "--:--"
@@ -60,33 +60,46 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const sortedLogs = [...attendanceLogs]
         .map(log => {
             let mins = null;
+            let raw = null;
             if (log instanceof Date) {
                 mins = getMinutes(log);
+                raw = log.getTime();
             } else if (log && typeof log === 'object') {
                 const inner = log.time || log.timestamp || log.mins;
                 mins = getMinutes(inner);
+                raw = inner instanceof Date ? inner.getTime() : (typeof inner === 'string' ? new Date(inner).getTime() : null);
             } else if (log) {
                 mins = getMinutes(log);
+                raw = typeof log === 'string' ? new Date(log).getTime() : null;
             }
-            return { mins };
+            return { mins, raw };
         })
         .filter(l => l.mins !== null)
-        .sort((a, b) => a.mins - b.mins);
+        .sort((a, b) => (a.raw || a.mins) - (b.raw || b.mins));
 
-    // Minor deduplication (30 seconds) just to handle double-sensor triggers
+    // Minor deduplication (10 seconds) just to handle accidental hardware double-triggers
+    // 10s is safe; real back-to-back IN/OUT usually takes at least 15-20s (walk, turn, re-verify)
     const cleanLogs = [];
     for (const log of sortedLogs) {
-        if (cleanLogs.length === 0 || log.mins - cleanLogs[cleanLogs.length - 1].mins >= 1) {
+        if (cleanLogs.length === 0) {
+            cleanLogs.push(log);
+            continue;
+        }
+
+        const last = cleanLogs[cleanLogs.length - 1];
+        const diffMs = (log.raw && last.raw) ? (log.raw - last.raw) : (log.mins - last.mins) * 60000;
+
+        if (diffMs > 10000) { // 10 seconds window
             cleanLogs.push(log);
         }
     }
 
     if (cleanLogs.length === 0) {
-        return { 
-            shift: "B", 
-            totalWorkMinutes: 0, 
-            totalWorkHours: "0.00", 
-            status: "ABSENT", 
+        return {
+            shift: "B",
+            totalWorkMinutes: 0,
+            totalWorkHours: "0.00",
+            status: "ABSENT",
             deficit: "8.00",
             firstPunch: "--:--",
             lastPunch: "--:--"
@@ -97,17 +110,17 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     let totalWorkMinutes = 0;
     const firstPunch = cleanLogs[0].mins;
     const lastPunch = cleanLogs[cleanLogs.length - 1].mins;
-    
+
     // Pair consecutive punches: [1-2], [3-4], [5-6]...
     for (let i = 0; i < cleanLogs.length - 1; i += 2) {
         const checkIn = cleanLogs[i].mins;
-        const checkOut = cleanLogs[i+1].mins;
-        
+        const checkOut = cleanLogs[i + 1].mins;
+
         if (checkOut > checkIn) {
             totalWorkMinutes += (checkOut - checkIn);
         }
     }
-    
+
     // Add real-time progression if they are currently clocked in (Odd number of punches)
     if (cleanLogs.length % 2 !== 0 && currentTimeStr) {
         const currentMins = getMinutes(currentTimeStr);
@@ -122,15 +135,15 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     // 5. Final Calculations
     const totalDecimalHours = (totalWorkMinutes / 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY - totalWorkMinutes);
-    
+
     let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL DAY" : "SHORT DAY";
     if (isOngoing) status = "ON-SITE";
-    if (totalWorkMinutes <= 1 && !isOngoing) status = "ABSENT"; 
+    if (totalWorkMinutes <= 1 && !isOngoing) status = "ABSENT";
 
     return {
         shift: firstPunch <= getMinutes("09:45") ? "A" : "B",
         totalWorkMinutes,
-        totalWorkHours: totalDecimalHours.toFixed(2), 
+        totalWorkHours: totalDecimalHours.toFixed(2),
         status,
         isOngoing,
         deficit: (deficitMinutes / 60).toFixed(2),

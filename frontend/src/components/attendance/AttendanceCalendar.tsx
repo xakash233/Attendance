@@ -56,32 +56,99 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
     }, [summary, currentMonth]);
 
     const getStatusColor = (log: any) => {
-        if (!log) return 'bg-slate-50 text-slate-200 border-slate-100';
-        // Sunday should not be green, even if worked
-        if (log.isWeekend) return 'bg-slate-50 text-slate-300 border-slate-100';
-        if (log.status === 'FUTURE') return 'bg-white text-slate-100 border-slate-100';
+        if (!log) return 'bg-white text-slate-200 border-slate-50';
         
-        // Absent or Unexcused Leave
-        if (log.status === 'ABSENT') return 'bg-rose-50 text-rose-400 border-rose-100';
-
-        if (log.status?.includes('LEAVE')) {
-            if (log.status?.includes('PENDING')) return 'bg-amber-400 text-white font-bold border-amber-500 shadow-sm';
-            return 'bg-rose-500 text-white font-bold border-rose-600 shadow-sm';
-        }
-
-        switch (log.status) {
+        if (log.status === 'FUTURE') return 'bg-white text-slate-100 border-slate-50';
+        
+        const status = log.status?.toUpperCase();
+        
+        // Explicit statuses should take precedence over weekend/holiday styling
+        switch (status) {
             case 'PRESENT':
             case 'OVERTIME':
             case 'FULL_DAY':
-                return 'bg-emerald-600 text-white font-bold border-emerald-700 shadow-sm';
+            case 'ON SITE':
+            case 'ON-SITE':
+            case 'WFH':
+            case 'PRESENT_WFH':
+                return 'bg-emerald-50 text-emerald-600 border-emerald-100';
             case 'LATE':
             case 'HALF_DAY':
-                return 'bg-amber-500 text-white font-bold border-amber-600 shadow-sm';
-            case 'REJECTED_LEAVE':
-                return 'bg-slate-200 text-slate-400 border-slate-300';
+            case 'SHORT_DAY':
+            case 'PARTIAL':
+                return 'bg-amber-50 text-amber-600 border-amber-100';
+            case 'ABSENT':
+            case 'LOP':
+                return 'bg-rose-50 text-rose-500 border-rose-100';
+            case 'SL':
+            case 'CL':
+            case 'PL':
+            case 'LEAVE':
+            case 'FINAL_APPROVED':
+            case 'APPROVED':
+            case 'ON LEAVE':
+            case 'ON_LEAVE':
+                return 'bg-rose-50 text-rose-600 border-rose-100';
+            case 'PENDING_LEAVE':
+            case 'PENDING':
+                return 'bg-amber-50 text-amber-600 border-amber-100 italic';
             default:
-                return 'bg-slate-50 text-slate-400 border-slate-200';
+                break;
         }
+
+        if (log.isWeekend || status === 'SUNDAY' || status === 'SATURDAY' || status === 'HOLIDAY' || status === 'OFF') {
+            return 'bg-slate-50/50 text-slate-300 border-slate-100';
+        }
+
+        return 'bg-white text-slate-400 border-slate-100';
+    };
+
+    const getDotColor = (log: any) => {
+        if (!log || log.status === 'FUTURE') return 'bg-slate-100';
+        
+        const status = log.status?.toUpperCase();
+        
+        switch (status) {
+            case 'PRESENT':
+            case 'OVERTIME':
+            case 'FULL_DAY':
+            case 'ON SITE':
+            case 'ON-SITE':
+            case 'WFH':
+            case 'PRESENT_WFH':
+                return 'bg-emerald-400';
+            case 'LATE':
+            case 'HALF_DAY':
+            case 'SHORT_DAY':
+            case 'PARTIAL':
+                return 'bg-amber-400';
+            case 'ABSENT':
+            case 'LOP':
+                return 'bg-rose-400';
+            case 'SL':
+            case 'CL':
+            case 'PL':
+            case 'LEAVE':
+            case 'FINAL_APPROVED':
+            case 'APPROVED':
+            case 'ON LEAVE':
+            case 'ON_LEAVE':
+                return 'bg-rose-400';
+            case 'PENDING_LEAVE':
+            case 'PENDING':
+                return 'bg-amber-400';
+            case 'SUNDAY':
+            case 'SATURDAY':
+            case 'HOLIDAY':
+            case 'OFF':
+                return 'bg-slate-200';
+            default:
+                break;
+        }
+
+        if (log.isWeekend) return 'bg-slate-200';
+        
+        return 'bg-slate-200';
     };
 
     if (loading && !summary) {
@@ -98,38 +165,38 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
         <div className="space-y-4 animate-fade-in w-full max-w-4xl mx-auto">
 
             {/* Calendar UI - Compact & Technical */}
-            <div className="card p-6 border-[#f1f5f9]">
-                <div className="flex justify-between items-center mb-6">
+            <div className="bg-white p-6 rounded-[24px] border border-[#f1f5f9] shadow-sm">
+                <div className="flex justify-between items-center mb-10">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shadow-2xl shadow-black/20">
-                            <CalendarIcon size={18} strokeWidth={2.5} />
+                        <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center shadow-lg shadow-black/10">
+                            <CalendarIcon size={20} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h3 className="text-[24px] font-semibold text-[#101828] leading-none">Frequency Matrix</h3>
-                            <p className="text-[13px] font-medium text-[#667085] mt-1">
+                            <h3 className="text-[22px] font-bold text-[#101828] leading-none tracking-tight">Frequency Matrix</h3>
+                            <p className="text-[14px] font-medium text-[#667085] mt-1.5 opacity-80">
                                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
                             </p>
                         </div>
                     </div>
-                    <div className="flex gap-1.5">
-                        <button onClick={handlePrevMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-50 transition-all active:scale-95 shadow-sm">
-                            <ChevronLeft size={16} strokeWidth={3} />
+                    <div className="flex gap-2">
+                        <button onClick={handlePrevMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-100 transition-all active:scale-95 shadow-sm">
+                            <ChevronLeft size={18} strokeWidth={2.5} />
                         </button>
-                        <button onClick={handleNextMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-50 transition-all active:scale-95 shadow-sm">
-                            <ChevronRight size={16} strokeWidth={3} />
+                        <button onClick={handleNextMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-100 transition-all active:scale-95 shadow-sm">
+                            <ChevronRight size={18} strokeWidth={2.5} />
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5 mb-2">
+                <div className="grid grid-cols-7 gap-2 mb-4 px-2">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                        <div key={day} className="text-center text-[11px] font-semibold text-[#667085] uppercase tracking-wider">
+                        <div key={day} className="text-center text-[12px] font-bold text-[#667085] uppercase tracking-[0.2em] opacity-60">
                             {day}
                         </div>
                     ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5">
+                <div className="grid grid-cols-7 gap-2">
                     {calendarGrid.map((cell, idx) => {
                         const dateObj = cell ? new Date(cell.dateStr) : null;
                         const dateLabel = dateObj ? dateObj.toLocaleDateString('en-GB', { 
@@ -143,14 +210,12 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                             <div 
                                 key={idx} 
                                 title={cell ? `${dateLabel}${statusLabel}` : ''}
-                                className={`h-12 sm:h-14 rounded-xl flex flex-col items-center justify-center border transition-all duration-300 group relative cursor-pointer ${cell ? getStatusColor(cell.log) : 'bg-transparent border-transparent'}`}
+                                className={`aspect-square sm:aspect-auto sm:h-20 rounded-[20px] flex flex-col items-center justify-center border transition-all duration-300 group relative cursor-pointer ${cell ? getStatusColor(cell.log) : 'bg-transparent border-transparent'}`}
                             >
                                 {cell && (
                                     <>
-                                        <span className="text-[13px] font-bold leading-none">{cell.day}</span>
-                                        {cell.log && !['WEEKEND', 'FUTURE', 'PRESENT', 'ABSENT'].includes(cell.log.status) && (
-                                            <div className="absolute bottom-1 w-1 h-1 bg-white/60 rounded-full" />
-                                        )}
+                                        <span className="text-[15px] font-bold leading-none">{cell.day}</span>
+                                        <div className={`absolute bottom-2.5 w-1 h-1 rounded-full transition-all duration-300 ${getDotColor(cell.log)}`} />
                                     </>
                                 )}
                             </div>
@@ -159,17 +224,17 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                 </div>
 
                 {/* Legend - Detailed & User-Centric */}
-                <div className="flex flex-wrap items-center justify-center gap-6 mt-8 pt-6 border-t border-slate-50">
+                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 mt-12 pt-8 border-t border-slate-50">
                     {[
-                        { color: 'bg-emerald-500', label: 'Present' },
-                        { color: 'bg-amber-400', label: 'Late / Partial' },
-                        { color: 'bg-rose-500', label: 'Leave' },
-                        { color: 'bg-rose-100 border-rose-200', label: 'Absent' },
-                        { color: 'bg-slate-50 border-slate-100', label: 'Off / Holiday' }
+                        { color: 'bg-[#10b981]', label: 'Present' },
+                        { color: 'bg-[#f59e0b]', label: 'Late / Partial' },
+                        { color: 'bg-[#ef4444]', label: 'Leave' },
+                        { color: 'bg-[#f87171] opacity-40', label: 'Absent' },
+                        { color: 'bg-slate-200', label: 'Off / Holiday' }
                     ].map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-md ${item.color} border shadow-sm`}></div>
-                            <span className="text-[11px] font-bold text-[#667085] uppercase tracking-wider">
+                        <div key={i} className="flex items-center gap-2.5">
+                            <div className={`w-2.5 h-2.5 rounded-full ${item.color} shadow-sm`}></div>
+                            <span className="text-[10px] font-black text-[#667085] uppercase tracking-[0.2em]">
                                 {item.label}
                             </span>
                         </div>

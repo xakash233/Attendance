@@ -46,13 +46,13 @@ export default function AttendancePage() {
     };
 
     const formatDuration = (decimalHours: any) => {
-        if (typeof decimalHours === 'string' && decimalHours.includes('h+')) return decimalHours;
+        if (typeof decimalHours === 'string' && decimalHours.includes('h')) return decimalHours;
         const val = parseFloat(decimalHours);
-        if (isNaN(val)) return '--.--';
+        if (isNaN(val)) return '--h --m';
         const totalMinutes = Math.round(val * 60);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        return `${hours}.${minutes.toString().padStart(2, '0')}`;
+        return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
     };
 
     if (loading || isFetchingLive) {
@@ -173,7 +173,6 @@ export default function AttendancePage() {
                                                     <span className="text-[18px] font-black text-[#101828]">
                                                         {formatDuration(emp.totalHours)}
                                                     </span>
-                                                    <span className="text-[11px] font-bold text-[#667085] ml-1">HRS</span>
                                                     {emp.punchesCount % 2 !== 0 && (
                                                         <p className="text-[9px] font-black text-amber-600 uppercase tracking-tighter mt-1 animate-pulse">
                                                             Ongoing Session
@@ -186,7 +185,7 @@ export default function AttendancePage() {
                                                 <td colSpan={5} className="px-6 py-4 border-t border-slate-100">
                                                     <div className="flex justify-between items-center py-1">
                                                         <span className="text-slate-500">Working Hours:</span>
-                                                        <span className="font-bold text-[#101828]">{formatDuration(emp.totalHours)} HRS</span>
+                                                        <span className="font-bold text-[#101828]">{formatDuration(emp.totalHours)}</span>
                                                     </div>
                                                     <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-4 mt-2">
                                                         <span className="text-[11px] font-black text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>

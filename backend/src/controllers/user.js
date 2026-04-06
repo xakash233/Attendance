@@ -463,7 +463,8 @@ export const updateUserProfile = async (req, res, next) => {
                 bio: true,
                 phone: true,
                 profileImage: true,
-                department: true
+                department: true,
+                leaveBalances: { include: { leaveType: true } }
             }
         });
         res.json(user);

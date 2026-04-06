@@ -23,7 +23,7 @@ if (isMain || process.env.NODE_ENV === 'development') {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
     
     // Start background tasks
-    startBiometricAutoSync(10); // Sync every 10 seconds
+    startBiometricAutoSync(30); // Sync every 30 seconds
   });
 }
 
@@ -36,3 +36,4 @@ process.on('unhandledRejection', (err, promise) => {
 });
 
 export default app;
+// Force nodemon restart

@@ -28,7 +28,7 @@ const runDeviceSync = async () => {
         isSyncing = true;
         // Fetch settings for IP and Port if available, else use defaults
         const settings = await prisma.systemSettings.findFirst();
-        const ip = settings?.biometricDeviceIP || '192.168.1.2';
+        const ip = settings?.biometricDeviceIP || '192.168.68.60';
         const port = 4370; // Common default ZKTeco port
 
         console.log(`[BiometricSyncTask] Auto-syncing from device ${ip}:${port}...`);

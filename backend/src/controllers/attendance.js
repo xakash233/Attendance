@@ -352,9 +352,12 @@ export const getSummary = async (req, res, next) => {
             if (iter > todayLocal) break;
 
             const dateStr = iter.toISOString().split('T')[0];
-            const isWeekend = iter.getDay() === 0 || iter.getDay() === 6;
+            const dow = iter.getDay();
+            const isSunday = dow === 0;
+            const isSaturday = dow === 6;
             const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
-            let dayStatus = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
+
+            let dayStatus = isSunday ? 'SUNDAY' : (holiday ? 'HOLIDAY' : 'ABSENT');
             let leaveType = holiday ? holiday.name : null;
 
             // Check attendance memory
@@ -386,14 +389,28 @@ export const getSummary = async (req, res, next) => {
                 const rejected = activeLeaves.find(l => ['REJECTED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN'].includes(l.status));
 
                 if (approved) {
-                    dayStatus = approved.leaveType.name.toUpperCase().replace(/ /g, '_');
+                    const ltName = approved.leaveType.name.toUpperCase();
+                    if (approved.durationType === 'WORK_FROM_HOME') {
+                        dayStatus = 'WFH';
+                    } else if (ltName.includes('SICK')) {
+                        dayStatus = 'SL';
+                    } else if (ltName.includes('CASUAL')) {
+                        dayStatus = 'CL';
+                    } else if (ltName.includes('PAID') || ltName.includes('EARNED')) {
+                        dayStatus = 'PL';
+                    } else if (ltName.includes('LOP') || ltName.includes('UNPAID')) {
+                        dayStatus = 'LOP';
+                    } else {
+                        dayStatus = 'LEAVE';
+                    }
+
                     leaveType = approved.leaveType.name;
                     durationType = approved.durationType;
                     if (approved.durationType === 'FIRST_HALF' || approved.durationType === 'SECOND_HALF') {
-                        dayStatus = 'HALF_DAY_LEAVE';
-                        workingHours = workingHours + 4; // standard 4 hours credit for half day
-                    } else {
-                        workingHours = Math.max(workingHours, 8); // Minimum 8 hours credit for full day leave (e.g. CASUAL_LEAVE, SICK_LEAVE, WFH)
+                        dayStatus = 'HALF_DAY';
+                        workingHours = workingHours + 4;
+                    } else if (approved.durationType !== 'WORK_FROM_HOME') {
+                        workingHours = Math.max(workingHours, 8);
                     }
                 } else if (pending) {
                     if (dayStatus === 'ABSENT' || dayStatus === 'FUTURE') dayStatus = 'PENDING_LEAVE';
@@ -406,7 +423,8 @@ export const getSummary = async (req, res, next) => {
             dailyLog.push({
                 date: dateStr,
                 status: dayStatus,
-                isWeekend,
+                isWeekend: isSunday || isSaturday,
+                isSunday: isSunday,
                 leaveType,
                 durationType,
                 checkIn,
@@ -504,7 +522,7 @@ export const getLiveAttendance = async (req, res, next) => {
                 } else {
                     const last = rawPunches[rawPunches.length - 1];
                     // 30 seconds is enough to catch biometric double-presents without skipping valid separate sessions
-                    if (punch.getTime() - last.getTime() > 30000) {
+                    if (punch.getTime() - last.getTime() > 10000) {
                         rawPunches.push(punch);
                     }
                 }
@@ -587,7 +605,7 @@ export const getDashboardReport = async (req, res, next) => {
         // Deduplicate punches within 30s
         const rawPunches = [];
         for (let p of allPunches) {
-            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 30000)) {
+            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 10000)) {
                 rawPunches.push(p);
             }
         }
@@ -751,10 +769,10 @@ export const getDashboardReport = async (req, res, next) => {
             if (d.toISOString().split('T')[0] === todayStart.toISOString().split('T')[0]) {
                 const todayLiveHours = workMs / 3600000;
                 worked = Math.max(worked, todayLiveHours);
-                
+
                 // Prioritize live status if not already set to something meaningful like LEAVE/HOLIDAY
                 if (status === 'ABSENT' || status === 'OUT') {
-                    status = calcResult.status.replace(/_/g, ' '); 
+                    status = calcResult.status.replace(/_/g, ' ');
                 }
             }
 
@@ -906,9 +924,9 @@ export const getComplianceReport = async (req, res, next) => {
             // Fetch live data for today if within range
             prisma.biometricAttendance.findMany({
                 where: {
-                    timestamp: { 
-                        gte: new Date(new Date().setHours(0,0,0,0)), 
-                        lte: new Date(new Date().setHours(23,59,59,999)) 
+                    timestamp: {
+                        gte: new Date(new Date().setHours(0, 0, 0, 0)),
+                        lte: new Date(new Date().setHours(23, 59, 59, 999))
                     }
                 }
             })
@@ -1009,9 +1027,9 @@ export const getComplianceReport = async (req, res, next) => {
                         const now = new Date();
                         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
                         const calcResult = calculateAttendance(userTodayPunches.map(p => ({ timestamp: p.timestamp })), currentTimeStr);
-                        
+
                         actualWorkedToday = Math.max(actualWorkedToday, parseFloat(calcResult.totalWorkHours));
-                        
+
                         if (status === 'ABSENT' || status === 'OUT') {
                             status = calcResult.status.replace(/_/g, ' ');
                         }

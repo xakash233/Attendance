@@ -293,7 +293,8 @@ class BiometricService {
 
         } catch (error) {
             console.error('Biometric Device Sync Error:', error);
-            throw new Error(`Failed to connect to biometric device at ${ip}: ${error.message}`);
+            const msg = (error.err?.message || error.message || 'Unknown error');
+            throw new Error(`Failed to connect to biometric device at ${ip}: ${msg}`);
         } finally {
             if (zkInstance && zkInstance.disconnect) {
                 try {
