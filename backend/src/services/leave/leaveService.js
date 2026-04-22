@@ -1,6 +1,7 @@
 import prisma from '../../config/prisma.js';
 import notificationService from '../notification/notificationService.js';
 import auditService from '../audit/auditService.js';
+import biometricService from '../biometric/biometricService.js';
 
 
 class LeaveService {
@@ -22,15 +23,22 @@ class LeaveService {
     }
 
     async applyLeave({ userId, departmentId, userRole, leaveTypeId, durationType, startDate, endDate, reason }) {
+        // Only invoked from POST /leaves/apply — no automatic half-day or full-day leave creation elsewhere.
+        const normalizedDuration = (durationType || 'FULL_DAY').toString().toUpperCase();
+        const mappedDuration = normalizedDuration === 'HALF_DAY' ? 'FIRST_HALF' : normalizedDuration;
+        const allowedDurations = ['FULL_DAY', 'FIRST_HALF', 'SECOND_HALF', 'WORK_FROM_HOME'];
+        if (!allowedDurations.includes(mappedDuration)) {
+            throw new Error('Invalid duration type selected.');
+        }
+
         const start = new Date(startDate);
         const end = new Date(endDate);
         let totalDays = 0;
 
-        if (durationType === 'FIRST_HALF' || durationType === 'SECOND_HALF') {
+        if (mappedDuration === 'FIRST_HALF' || mappedDuration === 'SECOND_HALF') {
             totalDays = 0.5;
-            // Force end date to be same as start date for half days
             end.setTime(start.getTime());
-        } else if (durationType === 'WORK_FROM_HOME') {
+        } else if (mappedDuration === 'WORK_FROM_HOME') {
             totalDays = this.calculateWorkingDays(start, end);
         } else {
             totalDays = this.calculateWorkingDays(start, end);
@@ -54,10 +62,10 @@ class LeaveService {
 
             if (overlapping) {
                 // Determine conflict type
-                if (overlapping.durationType === 'WORK_FROM_HOME' && durationType !== 'WORK_FROM_HOME') {
+                if (overlapping.durationType === 'WORK_FROM_HOME' && mappedDuration !== 'WORK_FROM_HOME') {
                     throw new Error('You already have a WFH request covering these dates.');
                 }
-                if (overlapping.durationType !== 'WORK_FROM_HOME' && durationType === 'WORK_FROM_HOME') {
+                if (overlapping.durationType !== 'WORK_FROM_HOME' && mappedDuration === 'WORK_FROM_HOME') {
                     throw new Error('You already have a leave request covering these dates.');
                 }
                 // Normal overlap
@@ -65,7 +73,7 @@ class LeaveService {
             }
 
             // 2. Validate Balance BEFORE creating (Skip for WFH)
-            if (durationType !== 'WORK_FROM_HOME') {
+            if (mappedDuration !== 'WORK_FROM_HOME') {
                 let balanceRecord = await tx.leaveBalance.findUnique({
                     where: { userId_leaveTypeId: { userId, leaveTypeId } }
                 });
@@ -78,16 +86,14 @@ class LeaveService {
                     });
                 }
 
-                if (balanceRecord.balance < totalDays) {
-                    throw new Error(`Insufficient leave balance. You have ${balanceRecord.balance} days available.`);
-                }
+                // Policy: allow request submission even when available balance is lower than requested days.
+                // Final approval stage converts these requests to LOP without blocking submission.
             } else {
                 // WFH Limits Check
                 const settings = await tx.systemSettings.findFirst() || { wfhMonthlyLimit: 4, wfhConsecutiveLimit: 2 };
                 if (totalDays > settings.wfhConsecutiveLimit) {
                     throw new Error(`Cannot request more than ${settings.wfhConsecutiveLimit} consecutive WFH days.`);
                 }
-                // Note: Needs more complex monthly aggregation check here for full robustness
             }
 
             // 3. Create Request - HR/Admin/SuperAdmin route to SuperAdmin pending, Employees to HR
@@ -100,7 +106,7 @@ class LeaveService {
                     userId,
                     departmentId,
                     leaveTypeId,
-                    durationType: durationType || 'FULL_DAY',
+                    durationType: mappedDuration,
                     startDate: start,
                     endDate: end,
                     totalDays,
@@ -132,7 +138,7 @@ class LeaveService {
                 action: 'LEAVE_APPLIED',
                 entity: 'LeaveRequest',
                 entityId: leaveRequest.id,
-                details: { durationType, startDate, endDate, totalDays, reason, isFrequentLeaver: leaveRequest.isFrequentLeaver }
+                details: { durationType: mappedDuration, startDate, endDate, totalDays, reason, isFrequentLeaver: leaveRequest.isFrequentLeaver }
             }, tx);
 
             return leaveRequest;
@@ -166,6 +172,16 @@ class LeaveService {
                 details: { comments, stage: 'HR' }
             }, tx);
 
+            // Recalculate attendance for rejected dates to ensure they rollback to ABSENT if no punches
+            if (decision.startsWith('REJECTED')) {
+                let cur = new Date(leaveRequest.startDate);
+                const end = new Date(leaveRequest.endDate);
+                while (cur <= end) {
+                    await biometricService.updateDailyAttendance(tx, leaveRequest.userId, new Date(cur));
+                    cur.setUTCDate(cur.getUTCDate() + 1);
+                }
+            }
+
             return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
         }, { maxWait: 8000, timeout: 20000 });
     }
@@ -185,40 +201,56 @@ class LeaveService {
 
             const wasPendingHR = leaveRequest.status === 'PENDING_HR';
 
-            // Lock and Deduct if Approved and not WFH
-            if (decision === 'FINAL_APPROVED' && leaveRequest.durationType !== 'WORK_FROM_HOME') {
-                const currentBalance = await tx.leaveBalance.findUnique({
-                    where: {
-                        userId_leaveTypeId: {
-                            userId: leaveRequest.userId,
-                            leaveTypeId: leaveRequest.leaveTypeId
+                let isInsufficient = false;
+                if (decision === 'FINAL_APPROVED' && leaveRequest.durationType !== 'WORK_FROM_HOME') {
+                    let currentBalance = await tx.leaveBalance.findUnique({
+                        where: {
+                            userId_leaveTypeId: {
+                                userId: leaveRequest.userId,
+                                leaveTypeId: leaveRequest.leaveTypeId
+                            }
                         }
-                    }
-                });
+                    });
 
-                if (!currentBalance || currentBalance.balance < leaveRequest.totalDays) {
-                    throw new Error('Insufficient balance during final deduction.');
+                    if (!currentBalance) {
+                        const lt = await tx.leaveType.findUnique({ where: { id: leaveRequest.leaveTypeId } });
+                        if (!lt) throw new Error('Leave type not found');
+                        currentBalance = await tx.leaveBalance.create({
+                            data: {
+                                userId: leaveRequest.userId,
+                                leaveTypeId: leaveRequest.leaveTypeId,
+                                balance: lt.daysAllowed
+                            }
+                        });
+                    }
+
+                    if (currentBalance.balance < leaveRequest.totalDays) {
+                        // Instead of throwing, we treat this as Loss of Pay (LOP)
+                        // We do NOT deduct if balance is insufficient
+                        isInsufficient = true;
+                    } else {
+                        await tx.leaveBalance.update({
+                            where: {
+                                userId_leaveTypeId: {
+                                    userId: leaveRequest.userId,
+                                    leaveTypeId: leaveRequest.leaveTypeId
+                                }
+                            },
+                            data: {
+                                balance: { decrement: leaveRequest.totalDays },
+                                used: { increment: leaveRequest.totalDays }
+                            }
+                        });
+                    }
                 }
-
-                await tx.leaveBalance.update({
-                    where: {
-                        userId_leaveTypeId: {
-                            userId: leaveRequest.userId,
-                            leaveTypeId: leaveRequest.leaveTypeId
-                        }
-                    },
-                    data: {
-                        balance: { decrement: leaveRequest.totalDays },
-                        used: { increment: leaveRequest.totalDays }
-                    }
-                });
-            }
 
             const updated = await tx.leaveRequest.update({
                 where: { id: leaveId },
                 data: {
                     status: decision,
                     comments: comments || leaveRequest.comments,
+                    approvedById: decision === 'FINAL_APPROVED' ? superAdminId : leaveRequest.approvedById,
+                    hrApprovedAt: (decision === 'FINAL_APPROVED' && !leaveRequest.hrApprovedAt) ? new Date() : leaveRequest.hrApprovedAt,
                     superadminApprovedAt: decision === 'FINAL_APPROVED' ? new Date() : null
                 }
             });
@@ -230,6 +262,37 @@ class LeaveService {
                 entityId: leaveId,
                 details: { comments, stage: 'FINAL', overriden: wasPendingHR }
             }, tx);
+
+            // Sync Attendance Registry for Approved/Rejected dates
+            let cur = new Date(leaveRequest.startDate);
+            const end = new Date(leaveRequest.endDate);
+            while (cur <= end) {
+                if (decision === 'FINAL_APPROVED') {
+                    // Normalize date to 00:00 UTC as used in BiometricService & Attendance table
+                    const dateStr = cur.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                    const normalizedDate = new Date(`${dateStr}T00:00:00.000Z`);
+
+                    const isLOP = isInsufficient;
+                    const attStatus = (leaveRequest.durationType === 'WORK_FROM_HOME') ? 'PRESENT_WFH' : (isLOP ? 'LOP' : 'LEAVE');
+                    const workHrs = leaveRequest.durationType === 'WORK_FROM_HOME' ? 8.0 : 0;
+
+                    await tx.attendance.upsert({
+                        where: { userId_date: { userId: leaveRequest.userId, date: normalizedDate } },
+                        update: { status: attStatus, workingHours: workHrs, deficit: 8.0 - workHrs, leaveDeducted: (attStatus === 'LEAVE' ? 1 : 0) },
+                        create: {
+                            userId: leaveRequest.userId,
+                            date: normalizedDate,
+                            status: attStatus,
+                            workingHours: workHrs,
+                            deficit: 8.0 - workHrs,
+                            leaveDeducted: (attStatus === 'LEAVE' ? 1 : 0)
+                        }
+                    });
+                } else if (decision.startsWith('REJECTED')) {
+                    await biometricService.updateDailyAttendance(tx, leaveRequest.userId, new Date(cur));
+                }
+                cur.setUTCDate(cur.getUTCDate() + 1);
+            }
 
             return { updated, user: leaveRequest.user, leaveType: leaveRequest.leaveType, wasPendingHR, departmentId: leaveRequest.departmentId, durationType: leaveRequest.durationType, totalDays: leaveRequest.totalDays, startDate: leaveRequest.startDate, endDate: leaveRequest.endDate, reason: leaveRequest.reason };
         }, { maxWait: 8000, timeout: 20000 });
@@ -306,6 +369,14 @@ class LeaveService {
                 message: `${leaveRequest.user.name} cancelled their leave request.`,
                 type: 'LEAVE_CANCELLATION'
             }).catch(e => console.error(e));
+
+            // Recalculate attendance for cancelled dates to ensure they rollback to ABSENT if no punches
+            let cur = new Date(leaveRequest.startDate);
+            const end = new Date(leaveRequest.endDate);
+            while (cur <= end) {
+                await biometricService.updateDailyAttendance(tx, leaveRequest.userId, new Date(cur));
+                cur.setUTCDate(cur.getUTCDate() + 1);
+            }
 
             return updated;
         }, { maxWait: 8000, timeout: 20000 });

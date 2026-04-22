@@ -228,7 +228,8 @@ export default function EmployeeProfileView() {
                             {(() => {
                                 let SL = 0, CL = 0, PL = 0, HD = 0;
                                 leaves.forEach(l => {
-                                    if (l.durationType === 'HALF_DAY' || l.totalDays % 1 !== 0) HD += l.totalDays;
+                                    const dt = (l.durationType || '').toUpperCase();
+                                    if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += l.totalDays;
                                     else if (l.leaveType?.name.includes('Sick')) SL += l.totalDays;
                                     else if (l.leaveType?.name.includes('Casual')) CL += l.totalDays;
                                     else if (l.leaveType?.name.includes('Paid')) PL += l.totalDays;

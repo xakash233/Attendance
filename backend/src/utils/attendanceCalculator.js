@@ -41,7 +41,6 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
 
     // const LUNCH_START = 780; // 13:00
     // const LUNCH_END = 840;   // 14:00
-    const FULL_DAY_THRESHOLD = 480; // 8.0 hours
     const STANDARD_WORK_DAY = 480;  // 8 hours
 
     if (!Array.isArray(attendanceLogs) || attendanceLogs.length === 0) {
@@ -136,7 +135,9 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     const totalDecimalHours = (totalWorkMinutes / 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY - totalWorkMinutes);
 
-    let status = totalWorkMinutes >= FULL_DAY_THRESHOLD ? "FULL DAY" : "SHORT DAY";
+    // Manual-policy mode: do not auto-label FULL/SHORT by time.
+    // Attendance remains PRESENT once valid work exists; only live sessions are ON-SITE.
+    let status = "PRESENT";
     if (isOngoing) status = "ON-SITE";
     if (totalWorkMinutes <= 1 && !isOngoing) status = "ABSENT";
 

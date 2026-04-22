@@ -175,7 +175,8 @@ export const finalDecision = async (req, res, next) => {
 
         res.json(updated);
     } catch (error) {
-        if (['HR Approved', 'insufficient balance', 'already', 'not found'].some(msg => error.message.toLowerCase().includes(msg))) {
+        const msg = (error.message || '').toLowerCase();
+        if (['hr approved', 'insufficient balance', 'already', 'not found'].some(item => msg.includes(item))) {
             return res.status(400).json({ message: error.message });
         }
         next(error);
@@ -190,7 +191,13 @@ export const getHistory = async (req, res, next) => {
         if (role === 'EMPLOYEE') {
             query = { userId: id };
         } else if (role === 'HR') {
-            query = { departmentId: departmentId };
+            // Match broadcastToRole: HR sees requests for their own department OR departments where they are assigned (Department.hrId).
+            const orConditions = [];
+            if (departmentId) {
+                orConditions.push({ departmentId });
+            }
+            orConditions.push({ department: { hrId: id } });
+            query = { OR: orConditions };
         }
 
         const history = await prisma.leaveRequest.findMany({

@@ -51,9 +51,31 @@ model User {
   TaskSubmission       TaskSubmission[]
   department           Department?           @relation("DeptEmployees", fields: [departmentId], references: [id])
   wfhRequests          WfhRequest[]
+  workLogs             WorkLog[]
 
   @@index([role])
   @@index([departmentId])
+}
+
+model WorkLog {
+  id           String   @id @default(uuid())
+  userId       String
+  date         DateTime @db.Date
+  startTime    DateTime
+  endTime      DateTime
+  totalHours   Float
+  workType     String   // Shoot / Editing / Travel / Meeting / Other
+  location     String   // On-site / Client Location / Remote
+  description  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deviceInfo   String?
+  ipAddress    String?
+  
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([date])
 }
 
 model LeaveType {

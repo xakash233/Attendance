@@ -10,6 +10,10 @@ console.log('-------------------------------------------');
 // It will connect to the same DB and same device.
 const main = async () => {
     try {
+        if (process.env.ENABLE_BIOMETRIC_AUTO_SYNC !== 'true') {
+            console.log('⏹️  Biometric worker disabled. Set ENABLE_BIOMETRIC_AUTO_SYNC=true to run.');
+            return;
+        }
         // Just verify DB connection before starting the interval
         await prisma.$connect();
         console.log('✅ Connected to database registry.');

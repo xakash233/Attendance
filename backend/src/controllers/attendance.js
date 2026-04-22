@@ -127,7 +127,9 @@ export const checkOut = async (req, res, next) => {
             workingHours = 8;
         }
 
-        let finalStatus = workingHours >= 8.0 ? 'FULL_DAY' : 'SHORT_DAY';
+        // Manual-policy mode: do not auto-set FULL_DAY/SHORT_DAY from hours.
+        // Keep explicit attendance status unless no meaningful work is recorded.
+        let finalStatus = attendance.status || 'PRESENT';
         if (workingHours <= 0.1) finalStatus = 'ABSENT';
 
         const updated = await prisma.attendance.update({
@@ -255,7 +257,8 @@ export const getSummary = async (req, res, next) => {
         ]);
 
         let presentDays = 0;
-        let halfDays = 0;
+        /** Legacy attendance row with status HALF_DAY (not approved leave). Do not treat as leave balance. */
+        let partialAttendanceDays = 0;
         const now = new Date();
 
         // Robust calculation: iterate through days from start to (end or today)
@@ -270,8 +273,11 @@ export const getSummary = async (req, res, next) => {
             if (!isWeekend && !isHoliday) {
                 const att = attendances.find(a => a.date.toISOString().split('T')[0] === dateStr);
                 if (att) {
-                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE'].includes(att.status)) presentDays++;
-                    else if (att.status === 'HALF_DAY') halfDays++;
+                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE'].includes(att.status)) {
+                        presentDays++;
+                    } else if (att.status === 'HALF_DAY') {
+                        partialAttendanceDays += 0.5;
+                    }
                 }
             }
             iterateDate.setDate(iterateDate.getDate() + 1);
@@ -330,7 +336,7 @@ export const getSummary = async (req, res, next) => {
         }
 
         // Absent is calculated by days not having attendance or leave
-        const totalAccounted = presentDays + (halfDays * 0.5) + leaveDaysInMonth;
+        const totalAccounted = presentDays + partialAttendanceDays + leaveDaysInMonth;
         let calcAbsentDays = elapsedWorkingDays - totalAccounted;
         if (calcAbsentDays < 0) calcAbsentDays = 0;
 
@@ -438,7 +444,7 @@ export const getSummary = async (req, res, next) => {
         res.json({
             presentDays,
             absentDays: Math.max(0, Math.floor(calcAbsentDays)),
-            halfDays,
+            halfDays: partialAttendanceDays * 2,
             leaveDays: leaveDaysInMonth,
             startDate,
             endDate,
@@ -905,7 +911,10 @@ export const getComplianceReport = async (req, res, next) => {
         // Batch fetch all data for the month
         const [allAttendance, allLeaves, allHolidays, todayBiometric] = await Promise.all([
             prisma.attendance.findMany({
-                where: { date: { gte: start, lte: end }, userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) }
+                where: { 
+                    date: { gte: start, lte: end }, 
+                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) 
+                }
             }),
             prisma.leaveRequest.findMany({
                 where: {
@@ -914,7 +923,7 @@ export const getComplianceReport = async (req, res, next) => {
                         { endDate: { gte: start, lte: end } },
                         { AND: [{ startDate: { lte: start } }, { endDate: { gte: end } }] }
                     ],
-                    userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
                 },
                 include: { leaveType: true }
             }),
@@ -974,7 +983,6 @@ export const getComplianceReport = async (req, res, next) => {
 
                 if (att) {
                     status = att.status.replace(/_/g, ' ');
-                    if (att.deficit > 0) remarks = `Short Hours (${att.deficit.toFixed(2)}h)`;
                 }
 
                 if (leave) {
@@ -1051,17 +1059,6 @@ export const getComplianceReport = async (req, res, next) => {
                     weeklySummaryStatus = (weeklyActualSum >= 40) ? "Weekly requirement met" : "Weekly hours incomplete";
                 }
 
-                // Custom Status for deficit/compensation
-                if (actualWorkedToday > 0 && !leave && !holiday) {
-                    if (actualWorkedToday < 8.0) {
-                        remarks = `Short Day (Deficit: ${(8.0 - actualWorkedToday).toFixed(2)}h)`;
-                    } else if (actualWorkedToday > 8.0) {
-                        remarks = actualWorkedToday >= 8 ? "Full Day (Surplus Covered)" : "Full Day";
-                    } else {
-                        status = "FULL DAY";
-                    }
-                }
-
                 formattedOutput.push({
                     id: user.id,
                     EmployeeID: user.employeeCode,
@@ -1078,7 +1075,7 @@ export const getComplianceReport = async (req, res, next) => {
                     WeeklySummary: weeklySummaryStatus,
                     WeekHistory: weeklySeries.join(' + '),
                     Status: status,
-                    LeaveDeducted: att ? (att.leaveDeducted || 0) : (leave ? 1 : 0),
+                    LeaveDeducted: att?.leaveDeducted ?? 0,
                     Remarks: remarks
                 });
 
@@ -1163,7 +1160,10 @@ export const exportComplianceReport = async (req, res, next) => {
         // Batch fetch all data
         const [allAttendance, allLeaves, allHolidays] = await Promise.all([
             prisma.attendance.findMany({
-                where: { date: { gte: start, lte: end }, userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) }
+                where: { 
+                    date: { gte: start, lte: end }, 
+                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) 
+                }
             }),
             prisma.leaveRequest.findMany({
                 where: {
@@ -1171,7 +1171,7 @@ export const exportComplianceReport = async (req, res, next) => {
                         { startDate: { gte: start, lte: end } },
                         { endDate: { gte: start, lte: end } }
                     ],
-                    userId: userId ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
                 },
                 include: { leaveType: true }
             }),
@@ -1245,7 +1245,7 @@ export const exportComplianceReport = async (req, res, next) => {
                     weeklyTarget += 8.0;
                 }
 
-                let remarks = att && actualWorkedToday < 8.0 && actualWorkedToday > 0 ? `Deficit: ${(8.0 - actualWorkedToday).toFixed(2)}h` : '';
+                let remarks = '';
                 if (att) status = att.status.replace(/_/g, ' ');
 
                 if (leave) {

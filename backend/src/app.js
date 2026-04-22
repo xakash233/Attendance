@@ -25,6 +25,7 @@ import notificationRoutes from './routes/notification.js';
 import wfhRoutes from './routes/wfh.js';
 import holidayRoutes from './routes/holiday.js';
 import admsRoutes from './routes/adms.js';
+import workLogRoutes from './routes/workLog.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -80,6 +81,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wfh', wfhRoutes);
 app.use('/api/holidays', holidayRoutes);
+app.use('/api/work-logs', workLogRoutes);
 app.use('/health', healthRoutes);
 
 // Root route

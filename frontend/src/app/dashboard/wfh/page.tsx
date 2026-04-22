@@ -55,7 +55,7 @@ export default function WFHAdminPage() {
                         <h1 className="text-[24px] font-bold text-[#101828] leading-none tracking-tight">Remote Log</h1>
                     </div>
                     <p className="text-[13px] font-medium text-[#667085] ml-8">
-                        Centralized management of auto-approved work-from-home requests.
+                        Centralized management of pending and approved work-from-home requests.
                     </p>
                 </div>
             </header>
@@ -73,8 +73,10 @@ export default function WFHAdminPage() {
                     </h3>
                 </div>
                 <div className="card p-6 border-l-4 border-l-amber-500">
-                    <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Auto-Approved</p>
-                    <h3 className="text-[28px] font-bold text-[#101828]">100%</h3>
+                    <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Pending Approval</p>
+                    <h3 className="text-[28px] font-bold text-[#101828]">
+                        {wfhRecords.filter(r => r.status === 'PENDING').length}
+                    </h3>
                 </div>
             </div>
 
@@ -133,10 +135,17 @@ export default function WFHAdminPage() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">
-                                                <CheckCircle2 size={12} />
-                                                Approved
-                                            </span>
+                                            {r.status === 'PENDING' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">
+                                                    <Clock size={12} />
+                                                    Pending
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">
+                                                    <CheckCircle2 size={12} />
+                                                    Approved
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <button className="p-2 text-[#667085] hover:text-[#101828] hover:bg-white rounded-lg transition-all border border-transparent hover:border-[#E6E8EC]">

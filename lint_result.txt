@@ -1,0 +1,16 @@
+
+> frontend@0.1.0 lint
+> eslint
+
+
+/Users/akashsmac/Documents/AVMC/AVMC-College/frontend/app/alumni/career-guidance/page.tsx
+  13:3  warning  'Stethoscope' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/akashsmac/Documents/AVMC/AVMC-College/frontend/app/alumni/horizon/page.tsx
+  4:8  warning  'Link' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/akashsmac/Documents/AVMC/AVMC-College/frontend/app/blog/page.tsx
+  5:10  warning  'useEffect' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 3 problems (0 errors, 3 warnings)
+

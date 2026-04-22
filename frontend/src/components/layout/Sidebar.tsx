@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
     Users, LayoutDashboard, Briefcase, User,
-    Settings, LogOut, Globe, Clock, Fingerprint, MapPin, ChevronLeft, ArrowRight, Calendar, TrendingUp
+    Settings, LogOut, Globe, Clock, Fingerprint, MapPin, ChevronLeft, ArrowRight, Calendar, TrendingUp, FileText
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -27,10 +27,13 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: getLeaveLabel(), href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Work Logs', href: '/dashboard/work-logs', icon: Briefcase, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
+        { label: 'Company Policy', href: '/dashboard/policies/company-policy', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Leave & Attendance Rulebook', href: '/dashboard/policies/leave-attendance-rulebook', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
     ];
 
     const filteredLinks = links.filter(link => link.roles.includes(user?.role || ''));

@@ -21,9 +21,14 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolv
 if (isMain || process.env.NODE_ENV === 'development') {
   server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    
-    // Start background tasks
-    startBiometricAutoSync(30); // Sync every 30 seconds
+
+    const shouldRunBiometricSync = process.env.ENABLE_BIOMETRIC_AUTO_SYNC === 'true';
+    if (shouldRunBiometricSync) {
+      startBiometricAutoSync(30);
+      console.log('[Startup] Biometric auto-sync enabled.');
+    } else {
+      console.log('[Startup] Biometric auto-sync disabled. Set ENABLE_BIOMETRIC_AUTO_SYNC=true to enable.');
+    }
   });
 }
 

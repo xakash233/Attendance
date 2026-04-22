@@ -171,8 +171,8 @@ export default function ReportPage() {
 
             const isWeekend = dayOfWeek === 0;
             const isHoliday = r.Status === 'HOLIDAY';
-            const isLeave = r.Status && r.Status.includes('LEAVE');
-            const isHalfDayLeave = isLeave && (r.Status.includes('HALF DAY') || r.Status.includes('HALF_DAY'));
+            const isLeave = typeof r.Status === 'string' && r.Status.includes('LEAVE');
+            const isHalfDayLeave = String(r.Remarks || '').includes('HALF DAY LEAVE');
 
             // 1. Numerator: always use actual worked hours (compliance report provides actual, not credited)
             summaries[r.id].worked += worked;
@@ -210,8 +210,8 @@ export default function ReportPage() {
             const dayOfWeek = dateObj.getUTCDay();
             const isWeekend = dayOfWeek === 0;
             const isHoliday = r.Status === 'HOLIDAY';
-            const isLeave = (typeof r.Status === 'string' && r.Status.includes('LEAVE')) || (typeof r.Status === 'string' && r.Status.includes('WFH'));
-            const isHalfDayLeave = isLeave && (r.Status.includes('HALF DAY') || r.Status.includes('HALF_DAY') || r.Status.includes('WFH'));
+            const isLeave = typeof r.Status === 'string' && r.Status.includes('LEAVE');
+            const isHalfDayLeave = String(r.Remarks || '').includes('HALF DAY LEAVE');
             const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             const isToday = dateStr === todayIstStr;
 

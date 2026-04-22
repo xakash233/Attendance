@@ -3,6 +3,20 @@ import sendEmail from '../../utils/email.js';
 import { getIo } from '../../config/socket.js';
 import auditService from '../audit/auditService.js';
 
+const HRMS_PORTAL_URL = 'https://hrms.tectratechnologies.com';
+const portalCtaHtml = `
+    <div style="margin: 0 0 24px 0;">
+        <a href="${HRMS_PORTAL_URL}" target="_blank" rel="noopener noreferrer"
+           style="display: inline-block; background: #0f172a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 8px;">
+            Open HRMS Portal
+        </a>
+    </div>
+    <p style="margin: 0 0 24px 0; color: #64748b; font-size: 12px;">
+        If the button does not work, copy and paste this URL in your browser:
+        <a href="${HRMS_PORTAL_URL}" target="_blank" rel="noopener noreferrer" style="color: #0f172a;">${HRMS_PORTAL_URL}</a>
+    </p>
+`;
+
 class NotificationService {
     /**
      * Send in-app notification via socket and persist in DB
@@ -104,6 +118,7 @@ class NotificationService {
             </div>
             <h2 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3;">${title}</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 32px 0;">${message}</p>
+            ${portalCtaHtml}
             <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <p style="margin: 0; font-size: 13px; font-weight: 600; color: #0f172a;">Tectra Technologies</p>
@@ -138,7 +153,8 @@ class NotificationService {
                 <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Reason Provided</h3>
                 <p style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; margin: 0 0 32px 0; line-height: 1.5; color: #334155;">${templateData.reason}</p>
                 
-                <p style="font-size: 14px; color: #475569; margin-bottom: 32px;">Please log in to the HR Portal to approve or decline this request.</p>
+                <p style="font-size: 14px; color: #475569; margin-bottom: 16px;">Please log in to the HR Portal to approve or decline this request.</p>
+                ${portalCtaHtml}
                 
                 <div style="padding-top: 24px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-align: center;">
                     Tectra Technologies &bull; HR Management System
@@ -161,7 +177,8 @@ class NotificationService {
                     </table>
                 </div>
                 
-                <p style="font-size: 14px; color: #475569; line-height: 1.6;">Please ensure a smooth handover of your tasks prior to your leave. We wish you a pleasant time off.</p>
+                <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">Please ensure a smooth handover of your tasks prior to your leave. We wish you a pleasant time off.</p>
+                ${portalCtaHtml}
                 
                 <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-align: center;">
                     Tectra Technologies &bull; HR Management System
@@ -233,7 +250,8 @@ class NotificationService {
                     <p style="margin: 0; font-size: 13px; color: #b91c1c;"><strong>Policy Note:</strong> ${templateData.rejectionReason}</p>
                 </div>
                 
-                <p style="font-size: 15px; color: #475569; margin: 0 0 32px 0;">We appreciate your understanding and cooperation.</p>
+                <p style="font-size: 15px; color: #475569; margin: 0 0 16px 0;">We appreciate your understanding and cooperation.</p>
+                ${portalCtaHtml}
                 
                 <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; position: relative;">
                     <div style="margin-bottom: 20px;">

@@ -9,10 +9,12 @@ module.exports = {
       watch: false,
       max_memory_restart: '1G',
       env: {
-        NODE_ENV: 'development'
+        NODE_ENV: 'development',
+        ENABLE_BIOMETRIC_AUTO_SYNC: 'false'
       },
       env_production: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        ENABLE_BIOMETRIC_AUTO_SYNC: 'false'
       }
     },
     {
@@ -23,10 +25,12 @@ module.exports = {
       watch: false,
       max_memory_restart: '500M',
       env: {
-        NODE_ENV: 'development'
+        NODE_ENV: 'development',
+        ENABLE_BIOMETRIC_AUTO_SYNC: 'false'
       },
       env_production: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        ENABLE_BIOMETRIC_AUTO_SYNC: 'false'
       }
     }
   ]

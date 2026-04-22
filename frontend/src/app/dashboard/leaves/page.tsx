@@ -32,6 +32,16 @@ export default function LeavesPage() {
         durationType: 'FULL_DAY'
     });
 
+    const resetLeaveForm = useCallback((wfh = false) => {
+        setFormData({
+            leaveTypeId: '',
+            startDate: '',
+            endDate: '',
+            reason: '',
+            durationType: wfh ? 'WORK_FROM_HOME' : 'FULL_DAY'
+        });
+    }, []);
+
     useEffect(() => {
         setMounted(true);
     }, []);
@@ -101,7 +111,7 @@ export default function LeavesPage() {
             // Restrict leave types to SL, CL, and PL
             const filteredTypes = types.filter((t: any) => {
                 const n = t.name.toUpperCase();
-                return n.includes('(SL)') || n.includes('(CL)') || n.includes('(PL)');
+                return n.includes('(SL)') || n.includes('(CL)') || n.includes('(PL)') || n.includes('(LOP)');
             });
             setLeaveTypes(filteredTypes.length > 0 ? filteredTypes : types);
             
@@ -117,6 +127,14 @@ export default function LeavesPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useEffect(() => {
+        if ((formData.durationType === 'FIRST_HALF' || formData.durationType === 'SECOND_HALF') && formData.startDate) {
+            if (formData.endDate !== formData.startDate) {
+                setFormData(prev => ({ ...prev, endDate: prev.startDate }));
+            }
+        }
+    }, [formData.durationType, formData.startDate, formData.endDate]);
 
     const handleApply = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -134,6 +152,7 @@ export default function LeavesPage() {
                 toast.success('Leave Request submitted');
             }
             setIsApplyModalOpen(false);
+            resetLeaveForm(false);
             fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Submission failed');
@@ -153,7 +172,7 @@ export default function LeavesPage() {
             toast.success(`Request ${decision.toLowerCase().replace(/_/g, ' ')}`);
             fetchData();
         } catch (err: any) {
-            toast.error('Oversight decision failed');
+            toast.error(err.response?.data?.message || 'Oversight decision failed');
         }
     };
 
@@ -168,7 +187,7 @@ export default function LeavesPage() {
             toast.success(`Approval finalized`);
             fetchData();
         } catch (err: any) {
-            toast.error('Structural finalization failed');
+            toast.error(err.response?.data?.message || 'Structural finalization failed');
         }
     };
 
@@ -189,10 +208,10 @@ export default function LeavesPage() {
             case 'HR_APPROVED': return 'bg-slate-900 text-white border-slate-800';
             case 'PENDING_HR':
             case 'PENDING_SUPERADMIN': return 'bg-amber-50 text-amber-700 border-amber-200';
+            case 'AUTO_APPROVED': return 'bg-amber-50 text-amber-700 border-amber-200'; // legacy values
             case 'CANCELLED': return 'bg-slate-50 text-slate-400 border-slate-200';
             case 'REJECTED_BY_HR':
             case 'REJECTED_BY_SUPERADMIN': return 'bg-rose-50 text-rose-700 border-rose-200';
-            case 'AUTO_APPROVED': return 'bg-indigo-50 text-indigo-700 border-indigo-200';
             default: return 'bg-slate-50 text-slate-500 border-slate-200';
         }
     };
@@ -223,14 +242,22 @@ export default function LeavesPage() {
                         <div className="flex gap-3 shrink-0">
 
                             <button
-                                onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
+                                onClick={() => {
+                                    setIsWFHRequest(true);
+                                    resetLeaveForm(true);
+                                    setIsApplyModalOpen(true);
+                                }}
                                 className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[14px] font-bold shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2"
                             >
                                 <Briefcase size={18} />
                                 Request WFH
                             </button>
                             <button
-                                onClick={() => { setIsWFHRequest(false); setIsApplyModalOpen(true); }}
+                                onClick={() => {
+                                    setIsWFHRequest(false);
+                                    resetLeaveForm(false);
+                                    setIsApplyModalOpen(true);
+                                }}
                                 className="btn-primary py-2.5 px-6"
                             >
                                 <Plus size={18} />
@@ -274,7 +301,8 @@ export default function LeavesPage() {
                     {(() => {
                         let SL = 0, CL = 0, PL = 0, HD = 0;
                         leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).forEach((l: any) => {
-                            if (l.durationType === 'HALF_DAY' || l.totalDays % 1 !== 0) HD += l.totalDays;
+                            const dt = (l.durationType || '').toUpperCase();
+                            if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += l.totalDays;
                             else if (l.leaveType?.name.includes('Sick')) SL += l.totalDays;
                             else if (l.leaveType?.name.includes('Casual')) CL += l.totalDays;
                             else if (l.leaveType?.name.includes('Paid')) PL += l.totalDays;
@@ -354,14 +382,22 @@ export default function LeavesPage() {
                                                     {user?.role === 'EMPLOYEE' && (
                                                         <div className="flex gap-4">
                                                             <button 
-                                                                onClick={() => { setIsApplyModalOpen(true); }}
+                                                                onClick={() => {
+                                                                    setIsWFHRequest(false);
+                                                                    resetLeaveForm(false);
+                                                                    setIsApplyModalOpen(true);
+                                                                }}
                                                                 className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
                                                             >
                                                                 <Plus size={18} />
                                                                 Apply Leave
                                                             </button>
                                                             <button 
-                                                                onClick={() => { setIsWFHRequest(true); setIsApplyModalOpen(true); }}
+                                                                onClick={() => {
+                                                                    setIsWFHRequest(true);
+                                                                    resetLeaveForm(true);
+                                                                    setIsApplyModalOpen(true);
+                                                                }}
                                                                 className="btn-secondary py-3 px-10 shadow-lg flex items-center justify-center gap-2 border-indigo-100 text-indigo-600"
                                                             >
                                                                 <Briefcase size={18} />
@@ -463,8 +499,8 @@ export default function LeavesPage() {
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
                                                     {leave.status === 'AUTO_APPROVED' ? (
                                                         <span className="flex items-center gap-1.5">
-                                                            <ShieldCheck size={13} className="text-indigo-500" />
-                                                            System Approved
+                                                            <ShieldCheck size={13} className="text-amber-500" />
+                                                            Pending Approval
                                                         </span>
                                                     ) : leave.status.replace(/_/g, ' ')}
                                                 </span>
@@ -517,7 +553,10 @@ export default function LeavesPage() {
                                 </p>
                             </div>
                             <button
-                                onClick={() => setIsApplyModalOpen(false)}
+                                onClick={() => {
+                                    setIsApplyModalOpen(false);
+                                    resetLeaveForm(false);
+                                }}
                                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-[#667085] transition-all"
                             >
                                 <X size={20} />
@@ -593,9 +632,9 @@ export default function LeavesPage() {
                                     <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-start gap-4">
                                         <Clock size={18} className="text-indigo-500 mt-0.5 shrink-0" />
                                         <div>
-                                            <p className="text-[12px] font-bold text-indigo-700 uppercase tracking-tight">Auto-Approval Policy</p>
+                                            <p className="text-[12px] font-bold text-indigo-700 uppercase tracking-tight">WFH Approval Policy</p>
                                             <p className="text-[12px] text-indigo-600 mt-1 leading-relaxed">
-                                                One request per month is <span className="font-bold underline">auto-approved</span> if submitted before <span className="font-bold">10:00 PM</span>. Requests after 10 PM or additional days require manual approval.
+                                                All WFH requests are now routed for manual approval.
                                             </p>
                                         </div>
                                     </div>
@@ -629,7 +668,10 @@ export default function LeavesPage() {
                                 <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
                                     <button
                                         type="button"
-                                        onClick={() => setIsApplyModalOpen(false)}
+                                        onClick={() => {
+                                            setIsApplyModalOpen(false);
+                                            resetLeaveForm(false);
+                                        }}
                                         className="btn-secondary"
                                     >
                                         Cancel
