@@ -398,7 +398,7 @@ export default function WorkLogsPage() {
                                             </div>
                                         </div>
                                         
-                                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 absolute top-4 right-4 transition-all duration-300">
+                                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-2 absolute top-1 right-4 transition-all duration-300">
                                             {(!isAdmin || log.userId === user?.id) && (
                                                 <>
                                                     <button 

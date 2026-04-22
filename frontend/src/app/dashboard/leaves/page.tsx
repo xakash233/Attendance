@@ -47,6 +47,7 @@ export default function LeavesPage() {
     }, []);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
 
     const calculateDays = () => {
         if (!formData.startDate || !formData.endDate) return 0;
@@ -442,7 +443,10 @@ export default function LeavesPage() {
                                     return filtered.map((leave: any) => (
                                         <tr key={leave.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
+                                                <div
+                                                    className="flex items-start gap-3 cursor-pointer"
+                                                    onClick={() => setExpandedLeaveId((prev) => (prev === leave.id ? null : leave.id))}
+                                                >
                                                     <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[12px] uppercase relative overflow-hidden border border-[#E6E8EC]">
                                                         {leave.user.profileImage ? (
                                                             <Image
@@ -457,13 +461,25 @@ export default function LeavesPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <Link 
-                                                            href={`/dashboard/users/${leave.userId || leave.user.id}`}
-                                                            className="text-[14px] font-medium text-[#101828] hover:text-indigo-600 hover:underline transition-all"
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-[14px] font-medium text-[#101828] hover:text-indigo-600 transition-all"
                                                         >
                                                             {leave.user.name}
-                                                        </Link>
+                                                        </button>
                                                         <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.employeeCode}</p>
+                                                        {expandedLeaveId === leave.id && (
+                                                            <div className="mt-2 rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed max-w-sm">
+                                                                {leave.reason?.trim() || 'No reason provided.'}
+                                                            </div>
+                                                        )}
+                                                        <Link
+                                                            href={`/dashboard/users/${leave.userId || leave.user.id}`}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                            className="mt-1 inline-flex text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+                                                        >
+                                                            Open profile
+                                                        </Link>
                                                     </div>
                                                 </div>
                                             </td>
