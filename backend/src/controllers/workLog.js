@@ -1,5 +1,4 @@
 import prisma from '../config/prisma.js';
-import { calculateAttendance } from '../utils/attendanceCalculator.js';
 
 const NISHANTH_ID = 'c7c74ad0-581f-405d-b47a-7f83590e66a0';
 
@@ -54,7 +53,6 @@ export const addWorkLog = async (req, res, next) => {
         // even on Sundays/Holidays, but still calculate OT.
         // Special case: For Nishanth, Sundays are regular working days (OT only after 8h)
         const isNishanth = req.user.id === NISHANTH_ID;
-        const isNormalWorkingDay = !isSunday && !holiday;
         const treatsAsOTDay = (isSunday || holiday) && !isNishanth;
 
         if (totalHours >= 8) {

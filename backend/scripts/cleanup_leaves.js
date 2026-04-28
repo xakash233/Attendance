@@ -17,7 +17,6 @@ async function cleanup() {
         console.log(`Successfully deleted ${deleted.count} generated leave records.`);
 
         // Now trigger attendance recalculation for these dates to reset them
-        const users = await prisma.user.findMany({ select: { id: true } });
         const dates = [new Date('2026-04-06'), new Date('2026-04-07')];
 
         console.log('Recalculating attendance to clear "Leave" status labels...');

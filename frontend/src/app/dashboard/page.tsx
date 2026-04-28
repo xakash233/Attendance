@@ -24,6 +24,16 @@ import Image from 'next/image';
 
 import { createPortal } from 'react-dom';
 
+const CHART_MONO_COLORS = {
+    present: '#111827',
+    absent: '#9CA3AF',
+    late: '#6B7280',
+    onLeave: '#D1D5DB',
+    icon: '#6B7280',
+    grid: '#D1D5DB',
+    tick: '#4B5563'
+};
+
 export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
@@ -276,6 +286,12 @@ export default function DashboardPage() {
         return `${hours}.${minutes.toString().padStart(2, '0')}`;
     };
 
+    const formatCompactHours = (value: any) => {
+        const parsed = Number.parseFloat(String(value));
+        if (!Number.isFinite(parsed)) return '--';
+        return parsed.toFixed(2).replace(/\.?0+$/, '');
+    };
+
     if (loading && !report) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -434,7 +450,8 @@ export default function DashboardPage() {
                                             />
                                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
                                             <Tooltip 
-                                                formatter={(val: any) => [`${parseFloat(val).toFixed(2)} HRS`, 'Work Duration']}
+                                                labelFormatter={(label) => formatDate(new Date(String(label)))}
+                                                formatter={(val: any) => [`${formatCompactHours(val)} HRS`, 'Work Duration']}
                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
                                             />
                                             <Area type="monotone" dataKey="hours" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorHours)" />
@@ -513,37 +530,37 @@ export default function DashboardPage() {
                     {/* 2. ADMIN DASHBOARD (SUPER_ADMIN, HR, ADMIN) */}
                     {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
                         <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-emerald-200 hover:shadow-md">
-                                    <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center mb-2">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
+                                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-900 flex items-center justify-center mb-2">
                                         <UserCheck size={24} />
                                     </div>
                                     <h3 className="text-4xl font-black text-[#101828]">{stats.present}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Present Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-rose-200 hover:shadow-md">
-                                    <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-2">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
+                                    <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center mb-2">
                                         <UserMinus size={24} />
                                     </div>
                                     <h3 className="text-4xl font-black text-[#101828]">{stats.absent}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Absent Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-amber-200 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
-                                    <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center mb-2">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
+                                    <div className="w-12 h-12 rounded-full bg-slate-300 text-slate-800 flex items-center justify-center mb-2">
                                         <Calendar size={24} />
                                     </div>
                                     <h3 className="text-4xl font-black text-[#101828]">{pendingLeavesCount}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Admin Actions Needed</p>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Admin Actions</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-indigo-200 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/users')}>
-                                    <div className="w-12 h-12 rounded-full bg-indigo-50 text-indigo-500 flex items-center justify-center mb-2">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/users')}>
+                                    <div className="w-12 h-12 rounded-full bg-slate-50 text-slate-950 flex items-center justify-center mb-2">
                                         <Users size={24} />
                                     </div>
                                     <h3 className="text-4xl font-black text-[#101828]">{stats.total}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Active Workforce</p>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Employess</p>
                                 </motion.div>
                             </div>
 
@@ -551,24 +568,24 @@ export default function DashboardPage() {
                                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-[32px] border border-[#E6E8EC] shadow-sm">
                                     <div className="flex justify-between items-center mb-8">
                                         <div>
-                                            <h3 className="text-xl font-black text-[#101828] uppercase tracking-tight">System Presence Evolution</h3>
+                                            <h3 className="text-xl font-black text-[#101828] tracking-[1px]">System Presence Evolution</h3>
                                             <p className="text-[13px] font-medium text-slate-500 mt-1">Weekly identity sync and presence lifecycle trend.</p>
                                         </div>
-                                        <BarChart3 className="text-indigo-300" size={24} />
+                                        <BarChart3 style={{ color: CHART_MONO_COLORS.icon }} size={24} />
                                     </div>
                                     <div className="h-[300px] w-full min-h-[300px]">
                                         <ResponsiveContainer width="100%" height={300}>
                                             <BarChart data={adminAnalytics?.weeklyTrends || []}>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
-                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={CHART_MONO_COLORS.grid} />
+                                                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: CHART_MONO_COLORS.tick }} />
+                                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: CHART_MONO_COLORS.tick }} />
                                                 <Tooltip 
                                                     formatter={(val: any) => [parseFloat(val).toFixed(2), 'Identity Count']}
                                                     contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
                                                 />
                                                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase' }} />
-                                                <Bar dataKey="present" name="Present Identity" fill="#10b981" radius={[6, 6, 0, 0]} barSize={24} />
-                                                <Bar dataKey="absent" name="Absent Identity" fill="#ef4444" radius={[6, 6, 0, 0]} barSize={24} />
+                                                <Bar dataKey="present" name="Present Identity" fill={CHART_MONO_COLORS.present} radius={[6, 6, 0, 0]} barSize={30} />
+                                                <Bar dataKey="absent" name="Absent Identity" fill={CHART_MONO_COLORS.absent} radius={[6, 6, 0, 0]} barSize={30} />
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -577,10 +594,10 @@ export default function DashboardPage() {
                                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-8 rounded-[32px] border border-[#E6E8EC] shadow-sm">
                                     <div className="flex justify-between items-center mb-8">
                                         <div>
-                                            <h3 className="text-xl font-black text-[#101828] uppercase tracking-tight">Workforce Stratification</h3>
+                                            <h3 className="text-xl font-black text-[#101828] tracking-[1px]">Workforce Stratification</h3>
                                             <p className="text-[13px] font-medium text-slate-500 mt-1">Real-time digital resource allocation.</p>
                                         </div>
-                                        <PieIcon className="text-rose-400" size={24} />
+                                        <PieIcon style={{ color: CHART_MONO_COLORS.icon }} size={24} />
                                     </div>
                                     <div className="flex flex-col md:flex-row items-center gap-8 h-auto md:h-[300px] min-h-[300px] pb-6 md:pb-0">
                                         <div className="w-full md:w-1/2 h-[280px] min-h-[250px]">
@@ -595,7 +612,10 @@ export default function DashboardPage() {
                                                         ]}
                                                         innerRadius={65} outerRadius={95} paddingAngle={10} dataKey="value" stroke="none"
                                                     >
-                                                        <Cell fill="#10b981" /> <Cell fill="#f59e0b" /> <Cell fill="#6366f1" /> <Cell fill="#f43f5e" />
+                                                        <Cell fill={CHART_MONO_COLORS.present} />
+                                                        <Cell fill={CHART_MONO_COLORS.late} />
+                                                        <Cell fill={CHART_MONO_COLORS.onLeave} />
+                                                        <Cell fill={CHART_MONO_COLORS.absent} />
                                                     </Pie>
                                                     <Tooltip 
                                                         formatter={(val: any) => [parseFloat(val).toFixed(2), 'Identity Count']}
@@ -606,10 +626,10 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="w-full md:w-1/2 grid grid-cols-2 lg:grid-cols-1 gap-4">
                                             {[
-                                                { label: 'Synchronized', val: adminAnalytics?.distribution?.presentPct, color: 'bg-emerald-500' },
-                                                { label: 'Late Entry', val: adminAnalytics?.distribution?.latePct, color: 'bg-amber-500' },
-                                                { label: 'Authorized Leave', val: adminAnalytics?.distribution?.leavePct, color: 'bg-indigo-500' },
-                                                { label: 'Missing', val: adminAnalytics?.distribution?.absentPct, color: 'bg-rose-500' }
+                                                { label: 'Synchronized', val: adminAnalytics?.distribution?.presentPct, color: 'bg-gray-900' },
+                                                { label: 'Late Entry', val: adminAnalytics?.distribution?.latePct, color: 'bg-gray-500' },
+                                                { label: 'Authorized Leave', val: adminAnalytics?.distribution?.leavePct, color: 'bg-gray-300' },
+                                                { label: 'Missing', val: adminAnalytics?.distribution?.absentPct, color: 'bg-gray-400' }
                                             ].map((item, i) => (
                                                 <div key={i} className="flex flex-col">
                                                     <div className="flex items-center gap-2 mb-1">

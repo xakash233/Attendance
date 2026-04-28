@@ -8,6 +8,7 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [selectedDateCell, setSelectedDateCell] = useState<any>(null);
 
     const fetchSummary = useCallback(async () => {
         try {
@@ -27,6 +28,10 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
     useEffect(() => {
         fetchSummary();
     }, [fetchSummary]);
+
+    useEffect(() => {
+        setSelectedDateCell(null);
+    }, [currentMonth, userId, summary]);
 
     const handlePrevMonth = () => {
         setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -151,6 +156,21 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
         return 'bg-slate-200';
     };
 
+    const formatWorkedHours = (hours: any) => {
+        const parsed = Number.parseFloat(String(hours ?? 0));
+        if (!Number.isFinite(parsed)) return '--';
+        return parsed.toFixed(2).replace(/\.?0+$/, '');
+    };
+
+    const formatPunchTime = (timeValue: any) => {
+        if (!timeValue) return '--:--';
+        return new Date(timeValue).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        });
+    };
+
     if (loading && !summary) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -162,41 +182,41 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
     if (!summary) return null;
 
     return (
-        <div className="space-y-4 animate-fade-in w-full max-w-4xl mx-auto">
+        <div className="space-y-3 animate-fade-in w-full max-w-3xl mx-auto">
 
             {/* Calendar UI - Compact & Technical */}
-            <div className="bg-white p-6 rounded-[24px] border border-[#f1f5f9] shadow-sm">
-                <div className="flex justify-between items-center mb-10">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center shadow-lg shadow-black/10">
-                            <CalendarIcon size={20} strokeWidth={2.5} />
+            <div className="bg-white p-4 rounded-[18px] border border-[#f1f5f9] shadow-sm">
+                <div className="flex justify-between items-center mb-5">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center shadow-lg shadow-black/10">
+                            <CalendarIcon size={16} strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h3 className="text-[22px] font-bold text-[#101828] leading-none tracking-tight">Frequency Matrix</h3>
-                            <p className="text-[14px] font-medium text-[#667085] mt-1.5 opacity-80">
+                            <h3 className="text-[18px] font-bold text-[#101828] leading-none tracking-tight">Frequency Matrix</h3>
+                            <p className="text-[12px] font-medium text-[#667085] mt-1 opacity-80">
                                 {currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })}
                             </p>
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handlePrevMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-100 transition-all active:scale-95 shadow-sm">
-                            <ChevronLeft size={18} strokeWidth={2.5} />
+                        <button onClick={handlePrevMonth} className="p-2 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-lg border border-slate-100 transition-all active:scale-95 shadow-sm">
+                            <ChevronLeft size={15} strokeWidth={2.5} />
                         </button>
-                        <button onClick={handleNextMonth} className="p-2.5 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-xl border border-slate-100 transition-all active:scale-95 shadow-sm">
-                            <ChevronRight size={18} strokeWidth={2.5} />
+                        <button onClick={handleNextMonth} className="p-2 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-lg border border-slate-100 transition-all active:scale-95 shadow-sm">
+                            <ChevronRight size={15} strokeWidth={2.5} />
                         </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-2 mb-4 px-2">
+                <div className="grid grid-cols-7 gap-1.5 mb-2.5 px-1">
                     {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(day => (
-                        <div key={day} className="text-center text-[12px] font-bold text-[#667085] uppercase tracking-[0.2em] opacity-60">
+                        <div key={day} className="text-center text-[10px] font-bold text-[#667085] uppercase tracking-[0.15em] opacity-60">
                             {day}
                         </div>
                     ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1.5">
                     {calendarGrid.map((cell, idx) => {
                         const dateObj = cell ? new Date(cell.dateStr) : null;
                         const dateLabel = dateObj ? dateObj.toLocaleDateString('en-GB', { 
@@ -210,12 +230,13 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                             <div 
                                 key={idx} 
                                 title={cell ? `${dateLabel}${statusLabel}` : ''}
-                                className={`aspect-square sm:aspect-auto sm:h-20 rounded-[20px] flex flex-col items-center justify-center border transition-all duration-300 group relative cursor-pointer ${cell ? getStatusColor(cell.log) : 'bg-transparent border-transparent'}`}
+                                onClick={() => cell && setSelectedDateCell(cell)}
+                                className={`aspect-square sm:aspect-auto sm:h-14 rounded-[12px] flex flex-col items-center justify-center border transition-all duration-300 group relative ${cell ? `cursor-pointer ${getStatusColor(cell.log)}` : 'bg-transparent border-transparent'}`}
                             >
                                 {cell && (
                                     <>
-                                        <span className="text-[15px] font-bold leading-none">{cell.day}</span>
-                                        <div className={`absolute bottom-2.5 w-1 h-1 rounded-full transition-all duration-300 ${getDotColor(cell.log)}`} />
+                                        <span className="text-[13px] font-bold leading-none">{cell.day}</span>
+                                        <div className={`absolute bottom-1.5 w-1 h-1 rounded-full transition-all duration-300 ${getDotColor(cell.log)}`} />
                                     </>
                                 )}
                             </div>
@@ -224,7 +245,7 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                 </div>
 
                 {/* Legend - Detailed & User-Centric */}
-                <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 mt-12 pt-8 border-t border-slate-50">
+                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 mt-5 pt-4 border-t border-slate-50">
                     {[
                         { color: 'bg-[#10b981]', label: 'Present' },
                         { color: 'bg-[#f59e0b]', label: 'Late / Partial' },
@@ -232,14 +253,47 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                         { color: 'bg-[#f87171] opacity-40', label: 'Absent' },
                         { color: 'bg-slate-200', label: 'Off / Holiday' }
                     ].map((item, i) => (
-                        <div key={i} className="flex items-center gap-2.5">
-                            <div className={`w-2.5 h-2.5 rounded-full ${item.color} shadow-sm`}></div>
-                            <span className="text-[10px] font-black text-[#667085] uppercase tracking-[0.2em]">
+                        <div key={i} className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${item.color} shadow-sm`}></div>
+                            <span className="text-[9px] font-black text-[#667085] uppercase tracking-[0.14em]">
                                 {item.label}
                             </span>
                         </div>
                     ))}
                 </div>
+
+                {selectedDateCell && (
+                    <div className="mt-4 p-3.5 rounded-xl border border-[#E6E8EC] bg-slate-50/50">
+                        <p className="text-[10px] font-black text-[#667085] uppercase tracking-[0.14em] mb-1.5">
+                            {new Date(`${selectedDateCell.dateStr}T00:00:00.000Z`).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                            })}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
+                                <p className="text-[14px] font-black text-[#101828]">
+                                    {(selectedDateCell.log?.status || 'NO DATA').toString().replace(/_/g, ' ')}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Worked Time</p>
+                                <p className="text-[14px] font-black text-[#101828]">
+                                    {formatWorkedHours(selectedDateCell.log?.workingHours)} HRS
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check In / Out</p>
+                                <p className="text-[14px] font-black text-[#101828]">
+                                    {formatPunchTime(selectedDateCell.log?.checkIn)} - {formatPunchTime(selectedDateCell.log?.checkOut)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

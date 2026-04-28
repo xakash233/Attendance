@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
     Plus, Check, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
-    CheckCircle2, XCircle, Database, AlertCircle
+    CheckCircle2, XCircle, Database, AlertCircle, Trash2
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 
 export default function LeavesPage() {
+    const LEAVE_REQUESTS_PER_PAGE = 10;
     const [leaves, setLeaves] = useState<any[]>([]);
     const [leaveTypes, setLeaveTypes] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -47,7 +48,9 @@ export default function LeavesPage() {
     }, []);
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
     const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
 
     const calculateDays = () => {
         if (!formData.startDate || !formData.endDate) return 0;
@@ -203,6 +206,17 @@ export default function LeavesPage() {
         }
     };
 
+    const handleDeleteLeaveRequest = async (id: string) => {
+        if (!window.confirm('Delete this leave request permanently?')) return;
+        try {
+            await api.delete(`/leaves/${id}`);
+            toast.success('Leave request deleted successfully');
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to delete leave request');
+        }
+    };
+
     const getStatusStyle = (status: string) => {
         switch (status) {
             case 'FINAL_APPROVED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -216,6 +230,74 @@ export default function LeavesPage() {
             default: return 'bg-slate-50 text-slate-500 border-slate-200';
         }
     };
+
+    const filteredLeaves = useMemo(() => {
+        const normalizedQuery = searchQuery.toLowerCase().trim();
+        return leaves.filter((leave: any) => {
+            const matchesSearch = !normalizedQuery
+                || leave.user.name.toLowerCase().includes(normalizedQuery)
+                || leave.user.employeeCode.toLowerCase().includes(normalizedQuery)
+                || leave.leaveType.name.toLowerCase().includes(normalizedQuery);
+
+            const matchesLeaveType = leaveTypeFilter === 'all'
+                || leave.leaveType.name === leaveTypeFilter;
+
+            return matchesSearch && matchesLeaveType;
+        });
+    }, [leaves, searchQuery, leaveTypeFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredLeaves.length / LEAVE_REQUESTS_PER_PAGE));
+    const paginatedLeaves = useMemo(() => {
+        const startIndex = (currentPage - 1) * LEAVE_REQUESTS_PER_PAGE;
+        return filteredLeaves.slice(startIndex, startIndex + LEAVE_REQUESTS_PER_PAGE);
+    }, [filteredLeaves, currentPage, LEAVE_REQUESTS_PER_PAGE]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, leaveTypeFilter, leaves.length]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const topSummaryStats = useMemo(() => {
+        const scopedLeaves = user?.role === 'EMPLOYEE'
+            ? leaves.filter((leave: any) => leave.userId === user?.id)
+            : leaves;
+        const totalRequests = scopedLeaves.length;
+        const totalApproved = scopedLeaves.filter((leave: any) =>
+            ['FINAL_APPROVED', 'HR_APPROVED', 'APPROVED', 'AUTO_APPROVED'].includes(leave.status)
+        ).length;
+        const totalPending = scopedLeaves.filter((leave: any) =>
+            String(leave.status || '').includes('PENDING')
+        ).length;
+
+        return { totalRequests, totalApproved, totalPending };
+    }, [leaves, user?.id, user?.role]);
+
+    const renderPaginationControls = () => (
+        <div className="flex items-center gap-2">
+            <button
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-[12px] font-semibold border border-[#D0D5DD] rounded-lg disabled:opacity-40"
+            >
+                Prev
+            </button>
+            <span className="text-[12px] text-[#667085] font-medium px-1">
+                {currentPage}/{totalPages}
+            </span>
+            <button
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-[12px] font-semibold border border-[#D0D5DD] rounded-lg disabled:opacity-40"
+            >
+                Next
+            </button>
+        </div>
+    );
 
     if (loading && leaves.length === 0) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
@@ -268,32 +350,57 @@ export default function LeavesPage() {
                     )}
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {[
+                        { label: 'Total Requests', value: topSummaryStats.totalRequests, icon: Database, color: 'slate' },
+                        { label: 'Total Approved', value: topSummaryStats.totalApproved, icon: CheckCircle2, color: 'emerald' },
+                        { label: 'Total Pending', value: topSummaryStats.totalPending, icon: Clock, color: 'amber' }
+                    ].map((stat, index) => (
+                        <div key={index} className="card p-5 flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
+                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                'bg-slate-50 text-slate-600'
+                            }`}>
+                                <stat.icon size={20} />
+                            </div>
+                            <div>
+                                <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
+                                <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
                 {user?.role !== 'SUPER_ADMIN' && (
                     <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         {(() => {
                             const used = leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).reduce((sum: number, l: any) => sum + l.totalDays, 0);
                             const pending = leaves.filter((l: any) => l.status.includes('PENDING') && l.userId === user?.id).length;
+                            const totalRequests = leaves.filter((l: any) => l.userId === user?.id).length;
                             const allocated = systemSettings?.totalLeaveAllocation || 18;
                             const remaining = allocated - used;
+                            const formatDayValue = (value: number) => `${value.toFixed(1).replace(/\.0$/, '')} Days`;
 
                             return [
-                                { label: 'Total Allocated', value: `${allocated} Days`, icon: Briefcase, color: 'blue' },
-                                { label: 'Leaves Used', value: `${used.toFixed(1)} Days`, icon: Calendar, color: 'rose' },
-                                { label: 'Leaves Remaining', value: `${remaining.toFixed(1)} Days`, icon: CheckCircle2, color: 'emerald' },
+                                { label: 'Total Requests', value: totalRequests, icon: Database, color: 'slate' },
+                                { label: 'Total Allocated', value: formatDayValue(allocated), icon: Briefcase, color: 'blue' },
+                                { label: 'Leaves Used', value: formatDayValue(used), icon: Calendar, color: 'rose' },
+                                { label: 'Leaves Remaining', value: formatDayValue(remaining), icon: CheckCircle2, color: 'emerald' },
                                 { label: 'Pending Requests', value: pending, icon: Clock, color: 'amber' }
                             ].map((stat, i) => (
-                                <div key={i} className="card p-5 flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                <div key={i} className="card p-4 flex items-center gap-3 min-h-[88px]">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
                                         stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
                                             stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
                                                 'bg-slate-50 text-slate-600'
                                         }`}>
-                                        <stat.icon size={20} />
+                                        <stat.icon size={17} />
                                     </div>
-                                    <div>
-                                        <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
-                                        <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                                    <div className="min-w-0 flex-1 space-y-1">
+                                        <p className="text-[12px] font-medium text-[#667085] leading-4 line-clamp-1">{stat.label}</p>
+                                        <h3 className="text-[20px] font-semibold text-[#101828] leading-6 tabular-nums">{stat.value}</h3>
                                     </div>
                                 </div>
                             ));
@@ -351,6 +458,19 @@ export default function LeavesPage() {
                             />
                         </div>
                         <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 px-3 py-2 border border-[#E6E8EC] rounded-xl bg-white">
+                                <Filter size={14} className="text-[#667085]" />
+                                <select
+                                    value={leaveTypeFilter}
+                                    onChange={(e) => setLeaveTypeFilter(e.target.value)}
+                                    className="bg-transparent text-[12px] font-semibold text-[#101828] outline-none cursor-pointer"
+                                >
+                                    <option value="all">All Leave Types</option>
+                                    {Array.from(new Set(leaves.map((leave: any) => leave.leaveType.name))).map((leaveTypeName) => (
+                                        <option key={leaveTypeName} value={leaveTypeName}>{leaveTypeName}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -410,13 +530,7 @@ export default function LeavesPage() {
                                         </tr>
                                     );
 
-                                    const filtered = leaves.filter((l: any) => 
-                                        l.user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        l.user.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                        l.leaveType.name.toLowerCase().includes(searchQuery.toLowerCase())
-                                    );
-                                    
-                                    if (filtered.length === 0) return (
+                                    if (filteredLeaves.length === 0) return (
                                         <tr>
                                             <td colSpan={5} className="px-6 py-24 text-center">
                                                 <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
@@ -440,7 +554,7 @@ export default function LeavesPage() {
                                         </tr>
                                     );
 
-                                    return filtered.map((leave: any) => (
+                                    return paginatedLeaves.map((leave: any) => (
                                         <tr key={leave.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
                                                 <div
@@ -535,6 +649,15 @@ export default function LeavesPage() {
                                                             <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
                                                         </>
                                                     )}
+                                                    {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && !leave.isWFH && (
+                                                        <button
+                                                            onClick={() => handleDeleteLeaveRequest(leave.id)}
+                                                            className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"
+                                                            title="Delete leave request"
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    )}
                                                     {user?.role === 'EMPLOYEE' && !leave.isWFH &&
                                                         !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
                                                             <button
@@ -552,6 +675,14 @@ export default function LeavesPage() {
                             </tbody>
                         </table>
                     </div>
+                    {filteredLeaves.length > 0 && (
+                        <div className="px-6 py-4 border-t border-[#E6E8EC] flex items-center justify-between">
+                            <p className="text-[12px] text-[#667085] font-medium">
+                                Page {currentPage} of {totalPages} ({filteredLeaves.length} requests)
+                            </p>
+                            {renderPaginationControls()}
+                        </div>
+                    )}
                 </div>
 
             </div>

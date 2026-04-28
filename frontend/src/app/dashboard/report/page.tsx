@@ -48,6 +48,17 @@ const formatStatus = (row: any) => {
     return 'Present';
 };
 
+const getPunchDisplay = (row: any, field: 'FirstPunch' | 'LastPunch') => {
+    const statusText = formatStatus(row).toUpperCase();
+    if (statusText === 'WEEKEND') return 'Weekend';
+    if (statusText.startsWith('HOLIDAY')) return 'Holiday';
+
+    const value = row[field];
+    if (!value || value === '---') return 'Absent';
+    if (String(value).toUpperCase() === 'LEAVE') return 'Leave';
+    return value;
+};
+
 export default function ReportPage() {
     const { user, loading: authLoading } = useAuth();
     const [reportData, setReportData] = useState<any[]>([]);
@@ -59,6 +70,8 @@ export default function ReportPage() {
         return istNow.substring(0, 7); // Returns YYYY-MM
     });
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+    const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+    const [currentPage, setCurrentPage] = useState(1);
     const [employees, setEmployees] = useState<any[]>([]);
     const monthRef = React.useRef<HTMLInputElement>(null);
 
@@ -82,6 +95,9 @@ export default function ReportPage() {
             const params: any = {};
             if (complianceMonth) params.month = complianceMonth;
             if (selectedEmployeeId && selectedEmployeeId !== 'all') params.userId = selectedEmployeeId;
+            if (selectedDepartment && selectedDepartment !== 'all' && (!selectedEmployeeId || selectedEmployeeId === 'all')) {
+                params.departmentId = selectedDepartment;
+            }
             
             const res = await api.get('/attendance/compliance-report', { params });
             const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
@@ -107,13 +123,14 @@ export default function ReportPage() {
 
             setReportData(filteredAndSorted);
             setMeta(res.data.meta);
+            setCurrentPage(1);
         } catch (err) {
             console.error('Failed to fetch report', err);
             toast.error('Failed to load report data');
         } finally {
             setLoading(false);
         }
-    }, [complianceMonth, selectedEmployeeId]);
+    }, [complianceMonth, selectedEmployeeId, selectedDepartment]);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -127,6 +144,9 @@ export default function ReportPage() {
             const params = new URLSearchParams();
             if (complianceMonth) params.append('month', complianceMonth);
             if (selectedEmployeeId && selectedEmployeeId !== 'all') params.append('userId', selectedEmployeeId);
+            if (selectedDepartment && selectedDepartment !== 'all' && (!selectedEmployeeId || selectedEmployeeId === 'all')) {
+                params.append('departmentId', selectedDepartment);
+            }
             
             const res = await api.get(`/attendance/export-compliance?${params.toString()}`, { 
                 responseType: 'blob' 
@@ -153,7 +173,7 @@ export default function ReportPage() {
         } finally {
             setExportLoading(false);
         }
-    }, [complianceMonth, selectedEmployeeId, reportData]);
+    }, [complianceMonth, selectedEmployeeId, selectedDepartment, reportData]);
 
     // Group by employee for summaries
     const groupSummaries = (data = reportData) => {
@@ -193,8 +213,6 @@ export default function ReportPage() {
         return Object.values(summaries).sort((a: any, b: any) => a.name.localeCompare(b.name));
     };
 
-    const summaries = groupSummaries();
-
     const weekMap = React.useMemo(() => {
         const map: any = {};
         reportData.forEach(r => {
@@ -223,6 +241,63 @@ export default function ReportPage() {
         return map;
     }, [reportData]);
 
+    const weeklyPages = React.useMemo(() => {
+        const pages: Array<{ key: string; label: string; rows: any[] }> = [];
+        const indexByKey = new Map<string, number>();
+
+        reportData.forEach((row) => {
+            const date = new Date(row.Date);
+            const weekNumber = Math.floor((date.getDate() - 1) / 7) + 1;
+            const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            const key = `${row.id}-${date.getFullYear()}-${date.getMonth()}-${weekNumber}`;
+            const label = `${row.Name} • Week ${weekNumber} (${monthLabel})`;
+
+            if (!indexByKey.has(key)) {
+                indexByKey.set(key, pages.length);
+                pages.push({ key, label, rows: [] });
+            }
+
+            const pageIndex = indexByKey.get(key)!;
+            pages[pageIndex].rows.push(row);
+        });
+
+        return pages;
+    }, [reportData]);
+
+    const totalPages = Math.max(1, weeklyPages.length);
+    const paginatedReportData = weeklyPages[currentPage - 1]?.rows || [];
+    const activeWeekLabel = weeklyPages[currentPage - 1]?.label || '';
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
+    const renderPagination = () => (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-4 border-t border-[#E6E8EC] bg-white">
+            <p className="text-[12px] font-medium text-slate-500">
+                Page {currentPage} of {totalPages} - {weeklyPages[currentPage - 1]?.label || 'No Week'}
+            </p>
+            <div className="flex items-center gap-2">
+                <button
+                    onClick={() => setCurrentPage((previousPage) => Math.max(1, previousPage - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-[12px] font-semibold rounded-md border border-[#D0D5DD] disabled:opacity-40"
+                >
+                    Prev
+                </button>
+                <button
+                    onClick={() => setCurrentPage((previousPage) => Math.min(totalPages, previousPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-[12px] font-semibold rounded-md border border-[#D0D5DD] disabled:opacity-40"
+                >
+                    Next
+                </button>
+            </div>
+        </div>
+    );
+
     if (authLoading || (loading && reportData.length === 0)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -235,66 +310,87 @@ export default function ReportPage() {
     return (
         <div className="max-w-full space-y-8 animate-fade-in pb-20 px-2 lg:px-4">
             {/* Minimal Filter Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-[#E6E8EC] flex flex-wrap items-center gap-6 sticky top-0 z-[100] shadow-sm">
+            <div className="bg-white p-4 rounded-2xl border border-[#E6E8EC] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-3 items-end shadow-sm">
                 {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-xl flex items-center justify-center border border-[#E6E8EC]">
-                            <Search size={18} />
-                        </div>
-                        <div className="min-w-[200px]">
-                            <label className="text-[10px] font-black pointer-events-none text-slate-400 uppercase tracking-widest block mb-0.5">Candidate</label>
+                    <div className="w-full xl:col-span-3">
+                        <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Employee</label>
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#D0D5DD] rounded-xl">
+                            <Search size={16} className="text-slate-500" />
                             <select 
                                 value={selectedEmployeeId || 'all'}
                                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="w-full bg-transparent text-[14px] font-bold text-[#101828] outline-none cursor-pointer"
+                                className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer"
                             >
                                 <option value="all">All Members</option>
-                                {employees.map(emp => (
-                                    <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                ))}
+                                {employees
+                                    .filter((emp) => selectedDepartment === 'all' || emp.department?.name === selectedDepartment)
+                                    .map(emp => (
+                                        <option key={emp.id} value={emp.id}>{emp.name}</option>
+                                    ))}
                             </select>
                         </div>
                     </div>
                 )}
 
-                <div 
-                    onClick={() => monthRef.current?.showPicker()}
-                    className="flex items-center gap-3 border-l border-[#E6E8EC]/50 pl-6 cursor-pointer group hover:bg-slate-50/50 transition-all rounded-xl py-1 pr-4"
-                >
-                    <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-xl flex items-center justify-center border border-[#E6E8EC] group-hover:border-indigo-200 group-hover:bg-indigo-50/20 group-hover:text-indigo-600 transition-all">
-                        <Calendar size={18} />
-                    </div>
-                    <div className="flex flex-col">
-                        <label className="text-[10px] font-black pointer-events-none text-slate-400 uppercase tracking-widest block mb-0.5 group-hover:text-indigo-500 transition-all">Timeframe</label>
-                        <div className="relative">
+                <div className="w-full xl:col-span-3">
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Timeframe</label>
+                    <div 
+                        onClick={() => monthRef.current?.showPicker()}
+                        className="flex items-center gap-2 px-3 py-2.5 border border-[#D0D5DD] rounded-xl cursor-pointer group"
+                    >
+                        <Calendar size={16} className="text-slate-500" />
+                        <div className="relative w-full">
                             <input 
                                 ref={monthRef}
                                 type="month" 
                                 value={complianceMonth}
                                 onChange={(e) => setComplianceMonth(e.target.value)}
-                                className="bg-transparent text-[14px] font-bold text-[#101828] outline-none cursor-pointer absolute inset-0 opacity-0 w-full h-full"
+                                className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
                             />
-                            <span className="text-[14px] font-bold text-[#101828] pointer-events-none">
+                            <span className="text-[14px] font-semibold text-[#101828] pointer-events-none">
                                 {complianceMonth ? new Date(`${complianceMonth}-01`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : 'Select Month'}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex-1 flex justify-end gap-3">
+                {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
+                    <div className="w-full xl:col-span-3">
+                        <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Department</label>
+                        <div className="flex items-center gap-2 px-3 py-2.5 border border-[#D0D5DD] rounded-xl">
+                            <Filter size={16} className="text-slate-500" />
+                            <select
+                                value={selectedDepartment}
+                                onChange={(e) => {
+                                    setSelectedDepartment(e.target.value);
+                                    setSelectedEmployeeId('all');
+                                }}
+                                className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer"
+                            >
+                                <option value="all">All Departments</option>
+                                {Array.from(new Set(employees.map((employee) => employee.department?.name).filter(Boolean))).map((departmentName) => (
+                                    <option key={departmentName} value={departmentName}>{departmentName}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
+
+                <div className="w-full sm:col-span-2 xl:col-span-3 flex flex-col sm:flex-row sm:justify-end gap-3">
+                    <button 
+                        onClick={() => fetchReport()}
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 border border-[#101828] text-[#101828] rounded-xl text-[13px] font-semibold transition-all active:scale-95"
+                    >
+                        <Filter size={16} />
+                        Filters
+                    </button>
                     <button 
                         onClick={handleExportExcel}
                         disabled={exportLoading || reportData.length === 0}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-[#101828] text-white rounded-xl text-[12px] font-bold transition-all disabled:opacity-50 active:scale-95"
+                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-[#101828] text-white rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50 active:scale-95"
                     >
                         {exportLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                        Excel
-                    </button>
-                    <button 
-                        onClick={() => fetchReport()}
-                        className="p-2.5 bg-slate-100 text-[#101828] rounded-xl hover:bg-slate-200 transition-all"
-                    >
-                        <Activity size={18} />
+                        Export Excel
                     </button>
                 </div>
             </div>
@@ -316,6 +412,13 @@ export default function ReportPage() {
                                     Daily Attendance Log
                                 </h2>
                             </div>
+                            {activeWeekLabel && (
+                                <div className="px-2">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100">
+                                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
+                                    </div>
+                                </div>
+                            )}
                             <div className="bg-white border border-[#E6E8EC] rounded-[24px] overflow-hidden shadow-sm">
                                 <div className="overflow-x-auto no-scrollbar">
                                     <table className="w-full text-left border-collapse">
@@ -328,52 +431,12 @@ export default function ReportPage() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#E6E8EC]">
-                                            {reportData.map((row, idx) => {
+                                            {paginatedReportData.map((row, idx) => {
                                                 const date = new Date(row.Date);
-                                                const currentWeekNum = Math.floor((date.getDate() - 1) / 7) + 1;
-                                                const prevRow = idx > 0 ? reportData[idx-1] : null;
-                                                const prevDate = prevRow ? new Date(prevRow.Date) : null;
-                                                const prevWeekNum = prevDate ? Math.floor((prevDate.getDate() - 1) / 7) + 1 : null;
-                                                const isNewWeek = currentWeekNum !== prevWeekNum;
-
-                                                const weekStats = weekMap[`${row.id}-${currentWeekNum}`] || { worked: 0, target: 0 };
-
-                                                const weekHeader = isNewWeek ? (
-                                                    <tr key={`week-header-${idx}`} className="bg-indigo-50/50 hover:bg-indigo-100/60 transition-all duration-300 group cursor-default">
-                                                        <td colSpan={4} className="px-6 py-5 border-y-2 border-indigo-100/40">
-                                                            <div className="flex items-center justify-between">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center shadow-sm border border-indigo-100 group-hover:scale-110 transition-transform">
-                                                                        <Activity size={16} className="text-indigo-600" />
-                                                                    </div>
-                                                                    <span className="text-[14px] font-black text-slate-800 uppercase tracking-widest">
-                                                                        Week {currentWeekNum} Summary
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex items-center gap-4 bg-white/80 px-4 py-1.5 rounded-xl border border-indigo-100/50 shadow-sm">
-                                                                    <div className="flex flex-col items-end">
-                                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Worked this week</span>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-[16px] font-black text-indigo-700 tabular-nums">
-                                                                                {formatDuration(weekStats.worked)}
-                                                                            </span>
-                                                                            <span className="text-[12px] font-bold text-slate-300">/</span>
-                                                                            <span className="text-[15px] font-black text-slate-500 tabular-nums">
-                                                                                {weekStats.target}h
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ) : null;
-
                                                 const displayDate = date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
                                                 const statusText = formatStatus(row);
                                                 return (
-                                                    <React.Fragment key={idx}>
-                                                        {weekHeader}
+                                                    <React.Fragment key={`${row.id}-${row.Date}-${idx}`}>
                                                         <tr className="hover:bg-slate-50/50 transition-colors">
                                                         <td className="px-6 py-4">
                                                             <div className="flex flex-col">
@@ -383,8 +446,8 @@ export default function ReportPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex flex-col items-center">
-                                                                <span className="text-[13px] font-black text-[#101828] tabular-nums">{row.FirstPunch || '--:--'}</span>
-                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">to {row.LastPunch || '--:--'}</span>
+                                                                <span className="text-[13px] font-black text-[#101828] tabular-nums">{getPunchDisplay(row, 'FirstPunch')}</span>
+                                                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">to {getPunchDisplay(row, 'LastPunch')}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
@@ -408,6 +471,7 @@ export default function ReportPage() {
                                         </tbody>
                                     </table>
                                 </div>
+                                {renderPagination()}
                             </div>
                         </div>
 
@@ -542,6 +606,13 @@ export default function ReportPage() {
                             <div className="flex items-center gap-3 mb-4">
                                 <h2 className="text-[18px] font-bold text-[#101828]">Weekly Attendance Report (Mon–Sat, 8 Hrs/Day)</h2>
                             </div>
+                            {activeWeekLabel && (
+                                <div className="mb-3">
+                                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100">
+                                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
+                                    </div>
+                                </div>
+                            )}
                             
                             <div className="bg-white border border-[#E6E8EC] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
                                 <table className="w-full text-left border-collapse min-w-[1000px]">
@@ -562,58 +633,13 @@ export default function ReportPage() {
                                                 <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No records found for the selected period</td>
                                             </tr>
                                         ) : (
-                                            reportData.map((row, idx) => {
+                                            paginatedReportData.map((row, idx) => {
                                                 const date = new Date(row.Date);
-                                                const dayOfMonth = date.getDate();
-                                                const currentWeek = Math.floor((dayOfMonth - 1) / 7) + 1;
-                                                
-                                                const prevRow = idx > 0 ? reportData[idx-1] : null;
-                                                const prevDate = prevRow ? new Date(prevRow.Date) : null;
-                                                const prevWeek = prevDate ? Math.floor((prevDate.getDate() - 1) / 7) + 1 : null;
-                                                
-                                                const isNewUser = prevRow ? row.id !== prevRow.id : true;
-                                                const isNewWeek = currentWeek !== prevWeek || isNewUser;
-        
-                                                const weekStats = weekMap[`${row.id}-${currentWeek}`] || { worked: 0, target: 0 };
-        
-                                                const weekHeader = isNewWeek ? (
-                                                    <tr key={`week-header-${idx}`} className="bg-indigo-50/50 hover:bg-indigo-100/60 transition-all duration-300 group cursor-default">
-                                                        <td colSpan={7} className="px-6 py-5 border-y-2 border-indigo-100/40">
-                                                            <div className="flex items-center justify-between gap-6">
-                                                                <div className="flex items-center gap-4">
-                                                                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-md border border-indigo-100 group-hover:rotate-12 transition-transform">
-                                                                        <Activity size={20} className="text-indigo-600" />
-                                                                    </div>
-                                                                    <span className="text-[15px] font-black text-slate-800 uppercase tracking-[0.2em] whitespace-nowrap">
-                                                                        {isNewUser ? `${row.Name} • ` : ''}Week {currentWeek}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="h-px flex-1 bg-indigo-200/50"></div>
-                                                                <div className="flex items-center gap-6 bg-white/90 px-6 py-2 rounded-2xl border border-indigo-100 shadow-sm">
-                                                                    <div className="flex flex-col items-end">
-                                                                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Weekly Performance</span>
-                                                                        <div className="flex items-center gap-3 whitespace-nowrap">
-                                                                            <span className="text-[18px] font-black text-indigo-700 tabular-nums">
-                                                                                {formatDuration(weekStats.worked)}
-                                                                            </span>
-                                                                            <span className="text-[14px] font-bold text-slate-300">/</span>
-                                                                            <span className="text-[17px] font-black text-slate-500 tabular-nums">
-                                                                                {weekStats.target}h
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ) : null;
-        
                                                 const displayDate = date.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' });
                                                 const statusText = formatStatus(row);
                                                 
                                                 return (
-                                                    <React.Fragment key={idx}>
-                                                        {weekHeader}
+                                                    <React.Fragment key={`${row.id}-${row.Date}-${idx}`}>
                                                         <tr className="hover:bg-slate-50/40 transition-colors">
                                                             <td className="px-6 py-4">
                                                                 <button 
@@ -624,8 +650,8 @@ export default function ReportPage() {
                                                                 </button>
                                                             </td>
                                                             <td className="px-6 py-4 text-[14px] text-[#667085]">{displayDate}</td>
-                                                            <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.FirstPunch || '-'}</td>
-                                                            <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{row.LastPunch || '-'}</td>
+                                                            <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{getPunchDisplay(row, 'FirstPunch')}</td>
+                                                            <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{getPunchDisplay(row, 'LastPunch')}</td>
                                                             <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
                                                             <td className="px-6 py-4 text-[14px] text-[#667085]">
                                                                 {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : '08:00'}
@@ -648,65 +674,9 @@ export default function ReportPage() {
                                     </tbody>
                                 </table>
                             </div>
+                            {renderPagination()}
                         </section>
         
-                        {/* Weekly Summary Section - Standard View */}
-                        <section>
-                            <div className="flex items-center gap-3 mb-4">
-                                <h2 className="text-[18px] font-bold text-[#101828]">Weekly Summary</h2>
-                            </div>
-                            
-                            <div className="bg-white border border-[#E6E8EC] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
-                                <table className="w-full text-left border-collapse min-w-[800px]">
-                                    <thead>
-                                        <tr className="bg-slate-50/80 border-b border-[#E6E8EC]">
-                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Employee Name</th>
-                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Total Worked Hours</th>
-                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Required Hours (8h/Day)</th>
-                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Difference</th>
-                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Final Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-[#E6E8EC]">
-                                        {summaries.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">No summaries available</td>
-                                            </tr>
-                                        ) : (
-                                            summaries.map((s: any, idx: number) => {
-                                                const diff = s.worked - s.target;
-                                                const absDiff = Math.abs(diff);
-                                                const diffText = diff >= 0 ? `+${formatDuration(diff)}` : `-${formatDuration(absDiff)}`;
-                                                const finalStatus = diff >= 0 ? 'Completed' : 'Not Completed';
-                                                
-                                                return (
-                                                    <tr key={idx} className="hover:bg-slate-50/40 transition-colors">
-                                                        <td className="px-6 py-4">
-                                                            <button 
-                                                                onClick={() => setSelectedEmployeeId(s.id)}
-                                                                className="text-[14px] font-semibold text-[#101828] hover:text-indigo-600 hover:underline transition-all"
-                                                            >
-                                                                {s.name}
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(s.worked)}</td>
-                                                        <td className="px-6 py-4 text-[14px] text-[#667085]">{s.target}:00</td>
-                                                        <td className={`px-6 py-4 text-[14px] font-black ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{diffText}</td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
-                                                                diff >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
-                                                            }`}>
-                                                                {finalStatus}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </section>
                     </>
                 )}
             </main>

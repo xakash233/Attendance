@@ -242,7 +242,7 @@ export const getSummary = async (req, res, next) => {
         });
 
         // Get all attendance records for this month
-        const [attendances, holidays] = await Promise.all([
+        const [attendances, holidays, wfhRequests] = await Promise.all([
             prisma.attendance.findMany({
                 where: {
                     userId: targetUserId,
@@ -253,8 +253,18 @@ export const getSummary = async (req, res, next) => {
                 where: {
                     date: { gte: startDate, lte: endDate }
                 }
+            }),
+            prisma.wfhRequest.findMany({
+                where: {
+                    userId: targetUserId,
+                    wfhDate: { gte: startDate, lte: endDate },
+                    status: { in: ['AUTO_APPROVED', 'APPROVED', 'FINAL_APPROVED'] }
+                }
             })
         ]);
+        const wfhDateSet = new Set(
+            wfhRequests.map((request) => new Date(request.wfhDate).toISOString().split('T')[0])
+        );
 
         let presentDays = 0;
         /** Legacy attendance row with status HALF_DAY (not approved leave). Do not treat as leave balance. */
@@ -278,6 +288,9 @@ export const getSummary = async (req, res, next) => {
                     } else if (att.status === 'HALF_DAY') {
                         partialAttendanceDays += 0.5;
                     }
+                } else if (wfhDateSet.has(dateStr)) {
+                    // Approved WFH day counts as presence even without biometric punches.
+                    presentDays++;
                 }
             }
             iterateDate.setDate(iterateDate.getDate() + 1);
@@ -363,7 +376,7 @@ export const getSummary = async (req, res, next) => {
             const isSaturday = dow === 6;
             const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
 
-            let dayStatus = isSunday ? 'SUNDAY' : (holiday ? 'HOLIDAY' : 'ABSENT');
+            let dayStatus = (isSunday || isSaturday) ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
             let leaveType = holiday ? holiday.name : null;
 
             // Check attendance memory
@@ -376,6 +389,9 @@ export const getSummary = async (req, res, next) => {
                 checkIn = att.checkIn;
                 checkOut = att.checkOut;
                 workingHours = att.workingHours || 0;
+            } else if (wfhDateSet.has(dateStr) && !holiday) {
+                dayStatus = 'WFH';
+                workingHours = Math.max(workingHours, 8);
             }
 
             // Map leaves from the pre-fetched list
@@ -866,7 +882,7 @@ export const getDashboardReport = async (req, res, next) => {
  */
 export const getComplianceReport = async (req, res, next) => {
     try {
-        const { month, userId, startDate, endDate } = req.query;
+        const { month, userId, startDate, endDate, departmentId } = req.query;
         let start, end;
 
         if (startDate && endDate) {
@@ -891,10 +907,12 @@ export const getComplianceReport = async (req, res, next) => {
         let userFilter = {};
         if (req.user.role === 'EMPLOYEE') {
             userFilter.id = req.user.id;
-        } else if (userId && userId !== 'all') {
-            userFilter.id = userId;
         } else if (req.user.role === 'HR') {
             userFilter.departmentId = req.user.departmentId;
+        } else if (userId && userId !== 'all') {
+            userFilter.id = userId;
+        } else if (departmentId && departmentId !== 'all') {
+            userFilter.departmentId = departmentId;
         }
 
         const users = await prisma.user.findMany({
@@ -907,13 +925,14 @@ export const getComplianceReport = async (req, res, next) => {
                 department: { select: { name: true } }
             }
         });
+        const scopedUserIds = users.map((user) => user.id);
 
         // Batch fetch all data for the month
         const [allAttendance, allLeaves, allHolidays, todayBiometric] = await Promise.all([
             prisma.attendance.findMany({
                 where: { 
                     date: { gte: start, lte: end }, 
-                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) 
+                    userId: { in: scopedUserIds }
                 }
             }),
             prisma.leaveRequest.findMany({
@@ -923,7 +942,7 @@ export const getComplianceReport = async (req, res, next) => {
                         { endDate: { gte: start, lte: end } },
                         { AND: [{ startDate: { lte: start } }, { endDate: { gte: end } }] }
                     ],
-                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                    userId: { in: scopedUserIds }
                 },
                 include: { leaveType: true }
             }),
@@ -1109,7 +1128,7 @@ import ExcelJS from 'exceljs';
 
 export const exportComplianceReport = async (req, res, next) => {
     try {
-        const { month, userId, startDate, endDate } = req.query;
+        const { month, userId, startDate, endDate, departmentId } = req.query;
         let start, end;
 
         if (startDate && endDate) {
@@ -1140,10 +1159,12 @@ export const exportComplianceReport = async (req, res, next) => {
         let userFilter = {};
         if (req.user.role === 'EMPLOYEE') {
             userFilter.id = req.user.id;
-        } else if (userId && userId !== 'all') {
-            userFilter.id = userId;
         } else if (req.user.role === 'HR') {
             userFilter.departmentId = req.user.departmentId;
+        } else if (userId && userId !== 'all') {
+            userFilter.id = userId;
+        } else if (departmentId && departmentId !== 'all') {
+            userFilter.departmentId = departmentId;
         }
 
         const users = await prisma.user.findMany({
@@ -1156,13 +1177,14 @@ export const exportComplianceReport = async (req, res, next) => {
                 department: { select: { name: true } }
             }
         });
+        const scopedUserIds = users.map((user) => user.id);
 
         // Batch fetch all data
         const [allAttendance, allLeaves, allHolidays] = await Promise.all([
             prisma.attendance.findMany({
                 where: { 
                     date: { gte: start, lte: end }, 
-                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined) 
+                    userId: { in: scopedUserIds }
                 }
             }),
             prisma.leaveRequest.findMany({
@@ -1171,7 +1193,7 @@ export const exportComplianceReport = async (req, res, next) => {
                         { startDate: { gte: start, lte: end } },
                         { endDate: { gte: start, lte: end } }
                     ],
-                    userId: (userId && userId !== 'all') ? userId : (req.user.role === 'HR' ? { in: users.map(u => u.id) } : undefined)
+                    userId: { in: scopedUserIds }
                 },
                 include: { leaveType: true }
             }),
@@ -1181,37 +1203,137 @@ export const exportComplianceReport = async (req, res, next) => {
         ]);
 
         const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Attendance Report');
+        workbook.creator = 'Attendance System';
+        workbook.created = new Date();
 
-        if (userId && userId !== 'all') {
-            const selectedUser = await prisma.user.findUnique({
-                where: { id: userId },
-                include: { department: true }
-            });
-            if (selectedUser) {
-                worksheet.addRow(['Employee Name:', selectedUser.name]);
-                worksheet.addRow(['Employee ID:', selectedUser.employeeCode]);
-                worksheet.addRow(['Department:', selectedUser.department?.name || 'N/A']);
-                worksheet.addRow(['Report Period:', month ? month : 'Last 30 Days']);
-                worksheet.addRow([]); // Empty spacing row
-            }
-        }
-
-        worksheet.columns = [
-            { header: 'Staff ID', key: 'id', width: 12 },
-            { header: 'Staff Name', key: 'name', width: 25 },
-            { header: 'Department', key: 'dept', width: 15 },
-            { header: 'Date', key: 'date', width: 15 },
-            { header: 'Check In', key: 'in', width: 15 },
-            { header: 'Check Out', key: 'out', width: 15 },
-            { header: 'Work Hours', key: 'daily', width: 12 },
-            { header: 'Total Weekly', key: 'weekly', width: 12 },
-            { header: 'Short/Extra', key: 'balance', width: 12 },
-            { header: 'Attendance Status', key: 'status', width: 20 },
-            { header: 'Notes/Remarks', key: 'remarks', width: 25 }
+        const configuredColumns = [
+            { key: 'id', width: 12 },
+            { key: 'name', width: 24 },
+            { key: 'dept', width: 18 },
+            { key: 'date', width: 14 },
+            { key: 'in', width: 14 },
+            { key: 'out', width: 14 },
+            { key: 'daily', width: 12 },
+            { key: 'weekly', width: 12 },
+            { key: 'balance', width: 12 },
+            { key: 'status', width: 20 },
+            { key: 'remarks', width: 28 }
         ];
 
+        const usedSheetNames = new Set();
+        const createUniqueSheetName = (userName, employeeCode) => {
+            const baseNameRaw = `${userName || 'Employee'}_${employeeCode || 'NA'}`
+                .replace(/[\\/*?:[\]]/g, '')
+                .trim();
+            const baseName = (baseNameRaw || 'Employee_Report').slice(0, 31);
+            if (!usedSheetNames.has(baseName)) {
+                usedSheetNames.add(baseName);
+                return baseName;
+            }
+            let index = 2;
+            while (index < 1000) {
+                const suffix = `_${index}`;
+                const candidate = `${baseName.slice(0, 31 - suffix.length)}${suffix}`;
+                if (!usedSheetNames.has(candidate)) {
+                    usedSheetNames.add(candidate);
+                    return candidate;
+                }
+                index += 1;
+            }
+            return `${Date.now()}`.slice(-31);
+        };
+
+        const styleWorksheet = (worksheet, headerRowIndex) => {
+            worksheet.getRow(headerRowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            worksheet.getRow(headerRowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
+            worksheet.getRow(headerRowIndex).height = 24;
+            worksheet.getRow(headerRowIndex).alignment = { vertical: 'middle', horizontal: 'center' };
+
+            const dataStartRow = headerRowIndex + 1;
+            const lastDataRow = worksheet.rowCount;
+            worksheet.views = [{ state: 'frozen', ySplit: headerRowIndex }];
+            if (lastDataRow >= dataStartRow) {
+                worksheet.autoFilter = {
+                    from: { row: headerRowIndex, column: 1 },
+                    to: { row: lastDataRow, column: 11 }
+                };
+            }
+
+            for (let rowIndex = dataStartRow; rowIndex <= lastDataRow; rowIndex += 1) {
+                const row = worksheet.getRow(rowIndex);
+                const statusText = String(row.getCell(10).value || '').toUpperCase();
+                const isEvenRow = rowIndex % 2 === 0;
+
+                for (let col = 1; col <= 11; col += 1) {
+                    row.getCell(col).border = {
+                        top: { style: 'thin', color: { argb: 'FFE4E7EC' } },
+                        left: { style: 'thin', color: { argb: 'FFE4E7EC' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE4E7EC' } },
+                        right: { style: 'thin', color: { argb: 'FFE4E7EC' } }
+                    };
+                    if (isEvenRow) {
+                        row.getCell(col).fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF9FAFB' }
+                        };
+                    }
+                }
+
+                const statusCell = row.getCell(10);
+                if (statusText.includes('PRESENT') || statusText.includes('ON SITE') || statusText.includes('ON-SITE')) {
+                    statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF3' } };
+                    statusCell.font = { bold: true, color: { argb: 'FF067647' } };
+                } else if (statusText.includes('LEAVE') || statusText.includes('SL') || statusText.includes('CL') || statusText.includes('PL')) {
+                    statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF4FF' } };
+                    statusCell.font = { bold: true, color: { argb: 'FF3538CD' } };
+                } else if (statusText.includes('WEEKEND') || statusText.includes('HOLIDAY')) {
+                    statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F4F7' } };
+                    statusCell.font = { bold: true, color: { argb: 'FF475467' } };
+                } else if (statusText.includes('ABSENT') || statusText.includes('LOP')) {
+                    statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3F2' } };
+                    statusCell.font = { bold: true, color: { argb: 'FFB42318' } };
+                }
+            }
+        };
+
         for (const user of users) {
+            const worksheet = workbook.addWorksheet(createUniqueSheetName(user.name, user.employeeCode), {
+                properties: { defaultRowHeight: 20 }
+            });
+            worksheet.columns = configuredColumns;
+
+            worksheet.mergeCells('A1:K1');
+            worksheet.getCell('A1').value = 'Attendance Compliance Report';
+            worksheet.getCell('A1').font = { size: 16, bold: true, color: { argb: 'FF101828' } };
+            worksheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+
+            worksheet.mergeCells('A2:K2');
+            worksheet.getCell('A2').value = `Period: ${month || 'Last 30 Days'}  |  Generated: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+            worksheet.getCell('A2').font = { size: 11, color: { argb: 'FF475467' } };
+            worksheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+
+            worksheet.mergeCells('A3:K3');
+            worksheet.getCell('A3').value = `Employee: ${user.name} (${user.employeeCode})  |  Department: ${user.department?.name || 'N/A'}`;
+            worksheet.getCell('A3').font = { size: 11, color: { argb: 'FF475467' } };
+            worksheet.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+
+            worksheet.addRow([]);
+            const headerRow = worksheet.addRow([
+                'Staff ID',
+                'Staff Name',
+                'Department',
+                'Date',
+                'Check In',
+                'Check Out',
+                'Work Hours',
+                'Total Weekly',
+                'Short/Extra',
+                'Attendance Status',
+                'Notes/Remarks'
+            ]);
+            const headerRowIndex = headerRow.number;
+
             let iter = new Date(start);
             let weeklyActualSum = 0;
             let weeklyTarget = 0;
@@ -1266,7 +1388,7 @@ export const exportComplianceReport = async (req, res, next) => {
 
                 weeklyActualSum += actualWorkedToday;
 
-                worksheet.addRow({
+                const excelRow = worksheet.addRow({
                     id: user.employeeCode,
                     name: user.name,
                     dept: user.department?.name || 'N/A',
@@ -1279,16 +1401,14 @@ export const exportComplianceReport = async (req, res, next) => {
                     status: status,
                     remarks: remarks
                 });
+                excelRow.alignment = { vertical: 'middle', horizontal: 'center' };
+                excelRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'left' };
+                excelRow.getCell(11).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
                 iter.setDate(iter.getDate() + 1);
             }
+            styleWorksheet(worksheet, headerRowIndex);
         }
-
-        const headerRowIndex = userId ? 6 : 1;
-        worksheet.getRow(headerRowIndex).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        worksheet.getRow(headerRowIndex).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101828' } };
-        worksheet.getRow(headerRowIndex).height = 25;
-        worksheet.getRow(headerRowIndex).alignment = { vertical: 'middle', horizontal: 'center' };
 
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=${reportFilename}.xlsx`);

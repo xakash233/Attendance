@@ -244,3 +244,24 @@ export const cancelLeave = async (req, res, next) => {
         next(error);
     }
 };
+
+export const deleteLeaveRequest = async (req, res, next) => {
+    try {
+        const leave = await prisma.leaveRequest.findUnique({
+            where: { id: req.params.id },
+            select: { id: true }
+        });
+
+        if (!leave) {
+            return res.status(404).json({ message: 'Leave request not found' });
+        }
+
+        await prisma.leaveRequest.delete({
+            where: { id: req.params.id }
+        });
+
+        res.json({ message: 'Leave request deleted successfully' });
+    } catch (error) {
+        next(error);
+    }
+};

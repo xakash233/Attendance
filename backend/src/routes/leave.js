@@ -5,7 +5,8 @@ import {
     finalDecision,
     getHistory,
     getLeaveTypes,
-    cancelLeave
+    cancelLeave,
+    deleteLeaveRequest
 } from '../controllers/leave.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -17,5 +18,6 @@ router.put('/:id/final-decision', protect, authorize('SUPER_ADMIN'), finalDecisi
 router.get('/history', protect, getHistory);
 router.get('/types', protect, getLeaveTypes);
 router.put('/:id/cancel', protect, cancelLeave);
+router.delete('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN'), deleteLeaveRequest);
 
 export default router;

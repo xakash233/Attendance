@@ -151,9 +151,9 @@ export default function EmployeeProfileView() {
         <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
             <button
                 onClick={() => router.back()}
-                className="flex items-center gap-2 text-[13px] font-medium text-[#667085] hover:text-[#101828] transition-all group w-fit"
+                className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-lg border border-[#D0D5DD] bg-white text-[14px] font-semibold text-[#101828] hover:bg-[#F8F9FB] hover:border-[#98A2B3] transition-all group w-fit shadow-sm"
             >
-                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                <ArrowLeft size={17} className="group-hover:-translate-x-1 transition-transform" />
                 {['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentUser?.role || '') ? 'Back to Users' : 'Go Back'}
             </button>
 
@@ -175,20 +175,20 @@ export default function EmployeeProfileView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Profile Card */}
-                <div className="lg:col-span-4 space-y-6">
-                    <div className="card p-6 flex flex-col items-center text-center border-[#E6E8EC] bg-white">
-                        <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md relative mb-4">
+                <div className="lg:col-span-4 space-y-4">
+                    <div className="card p-5 flex flex-col items-center text-center border-[#E6E8EC] bg-white">
+                        <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-md relative mb-3">
                             <Image src={userAvatarUrl} alt={employee.name} fill style={{ objectFit: 'cover' }} unoptimized />
                         </div>
 
-                        <h3 className="text-[18px] font-semibold text-[#101828] leading-tight mt-2">{employee.name}</h3>
+                        <h3 className="text-[17px] font-semibold text-[#101828] leading-tight mt-1">{employee.name}</h3>
 
-                        <div className="mt-2 inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100/80 text-[#344054] border border-[#E6E8EC] text-[12px] font-medium uppercase tracking-wider">
+                        <div className="mt-2 inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100/80 text-[#344054] border border-[#E6E8EC] text-[11px] font-medium uppercase tracking-wider">
                             <Shield size={14} className="mr-1.5" />
                             {employee.role.replace(/_/g, ' ')}
                         </div>
 
-                        <div className="mt-6 w-full pt-6 border-t border-[#E6E8EC] space-y-4 text-left">
+                        <div className="mt-4 w-full pt-4 border-t border-[#E6E8EC] space-y-3 text-left">
                             <div className="flex flex-col gap-1">
                                 <p className="text-[12px] font-medium text-[#667085]">Email Address</p>
                                 <p className="text-[14px] font-medium text-[#101828] truncate">{employee.email}</p>
@@ -200,7 +200,7 @@ export default function EmployeeProfileView() {
                         </div>
                     </div>
 
-                    <div className="card p-6 border-[#E6E8EC] bg-white flex items-center justify-between">
+                    <div className="card p-4 border-[#E6E8EC] bg-white flex items-center justify-between">
                         <div className="space-y-1">
                             <p className="text-[12px] font-medium text-[#667085]">Employee ID</p>
                             <p className="text-[16px] font-semibold text-[#101828]">{employee.employeeCode || 'N/A'}</p>
@@ -226,17 +226,32 @@ export default function EmployeeProfileView() {
                             </div>
 
                             {(() => {
-                                let SL = 0, CL = 0, PL = 0, HD = 0;
+                                let SL = 0;
+                                let CL = 0;
+                                let PL = 0;
+                                let HD = 0;
                                 leaves.forEach(l => {
+                                    const leaveDays = Number(l.totalDays) || 0;
                                     const dt = (l.durationType || '').toUpperCase();
-                                    if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += l.totalDays;
-                                    else if (l.leaveType?.name.includes('Sick')) SL += l.totalDays;
-                                    else if (l.leaveType?.name.includes('Casual')) CL += l.totalDays;
-                                    else if (l.leaveType?.name.includes('Paid')) PL += l.totalDays;
+                                    if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += leaveDays;
+                                    else if (l.leaveType?.name.includes('Sick')) SL += leaveDays;
+                                    else if (l.leaveType?.name.includes('Casual')) CL += leaveDays;
+                                    else if (l.leaveType?.name.includes('Paid')) PL += leaveDays;
                                 });
-                                const used = SL + CL + PL + HD;
-                                const allocated = systemSettings?.totalLeaveAllocation || 18;
-                                const remaining = allocated - used;
+
+                                const balanceEntries = Array.isArray(employee?.leaveBalances) ? employee.leaveBalances : [];
+                                const totalAllocatedFromBalance = balanceEntries.reduce(
+                                    (sum: number, entry: any) => sum + (Number(entry.totalDays) || 0),
+                                    0
+                                );
+                                const totalRemainingFromBalance = balanceEntries.reduce(
+                                    (sum: number, entry: any) => sum + (Number(entry.remainingDays) || 0),
+                                    0
+                                );
+
+                                const allocated = totalAllocatedFromBalance || Number(systemSettings?.totalLeaveAllocation) || 18;
+                                const used = Number((allocated - totalRemainingFromBalance).toFixed(1));
+                                const remaining = Number((allocated - used).toFixed(1));
 
                                 return (
                                     <div className="border border-[#E6E8EC] rounded-xl overflow-hidden shadow-sm">
