@@ -51,10 +51,10 @@ export default function SettingsPage() {
                 </p>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                 {/* Profile Card */}
-                <div className="card overflow-hidden h-full">
-                    <div className="p-6 border-b border-[#E6E8EC]">
+                <div className="card overflow-hidden">
+                    <div className="p-5 border-b border-[#E6E8EC]">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
                                 <UserIcon size={20} />
@@ -65,7 +65,7 @@ export default function SettingsPage() {
                             </div>
                         </div>
                     </div>
-                    <div className="p-2">
+                    <div className="p-2.5">
                         <SettingItem
                             title="Personal Information"
                             desc="View your public profile"
@@ -85,8 +85,8 @@ export default function SettingsPage() {
 
                 {/* Biometric Card (Admin Only) */}
                 {(user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') && (
-                    <div className="card overflow-hidden h-full">
-                        <div className="p-6 border-b border-[#E6E8EC]">
+                    <div className="card overflow-hidden">
+                        <div className="p-5 border-b border-[#E6E8EC]">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
                                     <Fingerprint size={20} />
@@ -97,7 +97,7 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="p-2">
+                        <div className="p-2.5">
                             <SettingItem
                                 title="Device Sync"
                                 desc="Connect and sync devices"
@@ -111,8 +111,8 @@ export default function SettingsPage() {
 
                 {/* System Rules Card (Super Admin Only) */}
                 {user?.role === 'SUPER_ADMIN' && (
-                    <div className="card overflow-hidden h-full">
-                        <div className="p-6 border-b border-[#E6E8EC]">
+                    <div className="card overflow-hidden">
+                        <div className="p-5 border-b border-[#E6E8EC]">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-slate-50 text-[#101828] rounded-lg flex items-center justify-center border border-[#E6E8EC]">
                                     <SettingsIcon size={20} />
@@ -123,7 +123,7 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         </div>
-                        <div className="p-2">
+                        <div className="p-2.5">
                             <SettingItem
                                 title="Leave Allocation"
                                 desc={`Current: ${settings?.totalLeaveAllocation || 18} Days`}
@@ -196,7 +196,7 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white max-w-md w-full rounded-2xl shadow-xl overflow-hidden border border-[#E6E8EC]"
+                className="bg-white max-w-md w-full rounded-md shadow-xl overflow-hidden border border-[#E6E8EC]"
             >
                 <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
                     <div>
@@ -286,15 +286,23 @@ const ChangePasswordModal = ({ onClose }: { onClose: () => void }) => {
 
 
 const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, onClose: () => void }) => {
+    const MIN_LEAVE_ALLOCATION = 1;
+    const MAX_LEAVE_ALLOCATION = 365;
     const [allowance, setAllowance] = useState(initialSettings?.totalLeaveAllocation || 18);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const numericAllowance = Number(allowance);
+        if (!Number.isFinite(numericAllowance) || numericAllowance < MIN_LEAVE_ALLOCATION || numericAllowance > MAX_LEAVE_ALLOCATION) {
+            toast.error(`Leave allocation must be between ${MIN_LEAVE_ALLOCATION} and ${MAX_LEAVE_ALLOCATION} days.`);
+            return;
+        }
+
         setLoading(true);
         try {
             await api.put('/system/settings', {
-                totalLeaveAllocation: parseInt(allowance.toString())
+                totalLeaveAllocation: Math.round(numericAllowance)
             });
             toast.success('Global Leave Allocation updated');
             onClose();
@@ -311,7 +319,7 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white max-w-md w-full rounded-2xl shadow-xl overflow-hidden border border-[#E6E8EC]"
+                className="bg-white max-w-md w-full rounded-md shadow-xl overflow-hidden border border-[#E6E8EC]"
             >
                 <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
                     <div>
@@ -327,10 +335,15 @@ const SystemRulesModal = ({ initialSettings, onClose }: { initialSettings: any, 
                             type="number"
                             className="input-field"
                             value={allowance}
-                            onChange={e => setAllowance(parseInt(e.target.value))}
+                            min={MIN_LEAVE_ALLOCATION}
+                            max={MAX_LEAVE_ALLOCATION}
+                            step={1}
+                            onChange={e => setAllowance(Number(e.target.value))}
                             required
                         />
-                        <p className="text-[11px] text-[#667085]">This value defines the base &quot;Allocated Leaves&quot; shown to all employees globally. Currently set to {allowance} days.</p>
+                        <p className="text-[11px] text-[#667085]">
+                            Allowed range: {MIN_LEAVE_ALLOCATION} to {MAX_LEAVE_ALLOCATION} days. This value defines the base &quot;Allocated Leaves&quot; shown to all employees globally.
+                        </p>
                     </div>
                     <div className="pt-4 flex gap-3">
                         <button type="button" onClick={onClose} className="btn-secondary w-full">Cancel</button>

@@ -60,7 +60,7 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
                 >
                     <ChevronLeft size={14} />
                 </button>
-                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-black">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-black">
                     {format(viewDate, 'MMMM yyyy')}
                 </span>
                 <button
@@ -79,7 +79,7 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
         return (
             <div className="grid grid-cols-7 mb-2 px-2">
                 {days.map((day) => (
-                    <div key={day} className="text-center text-[9px] font-black uppercase tracking-widest text-black/20 py-2">
+                    <div key={day} className="text-center text-[9px] font-semibold uppercase tracking-widest text-black/20 py-2">
                         {day}
                     </div>
                 ))}
@@ -120,7 +120,7 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
                                 !isCurrentMonth && "text-black/10",
                                 isCurrentMonth && "text-black hover:bg-neutral-50",
                                 isPast && "text-black/5 cursor-not-allowed hover:bg-transparent",
-                                isSelected && "bg-black text-white hover:bg-black font-black shadow-md scale-105 z-10",
+                                isSelected && "bg-black text-white hover:bg-black font-semibold shadow-md scale-105 z-10",
                                 isToday && !isSelected && "text-emerald-600 after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:bg-emerald-500 after:rounded-full"
                             )}
                         >
@@ -156,7 +156,7 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
                             {renderDays()}
                             {renderCells()}
                         </div>
-                        <div className="p-3 border-t border-black/5 flex justify-between items-center bg-neutral-50/50 text-[9px] font-black uppercase tracking-widest">
+                        <div className="p-3 border-t border-black/5 flex justify-between items-center bg-neutral-50/50 text-[9px] font-semibold uppercase tracking-widest">
                             <button
                                 type="button"
                                 onClick={() => {

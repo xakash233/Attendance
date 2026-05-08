@@ -18,6 +18,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 
+const ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES = new Set([
+    'YUVARAJ',
+    'SWETHA',
+    'E.GOKULAVASAN'
+]);
+
 const formatDuration = (decimalHours: any) => {
     const val = parseFloat(decimalHours);
     if (isNaN(val) || val === 0) return '00:00';
@@ -69,11 +75,69 @@ export default function ReportPage() {
         const istNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         return istNow.substring(0, 7); // Returns YYYY-MM
     });
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [employees, setEmployees] = useState<any[]>([]);
     const monthRef = React.useRef<HTMLInputElement>(null);
+    const canUseAdvancedFilters = ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '');
+    const isAccountant = user?.role === 'ACCOUNTANT';
+    const employeeRoleById = React.useMemo(() => {
+        const roleMap = new Map<string, string>();
+        employees.forEach((employee: any) => {
+            if (employee?.id) {
+                roleMap.set(employee.id, String(employee.role || '').toUpperCase());
+            }
+        });
+        return roleMap;
+    }, [employees]);
+    const shouldIncludeForAccountantSheet = React.useCallback(
+        (employeeId: string | undefined, employeeName: string | undefined) => {
+            const normalizedName = String(employeeName || '').trim().toUpperCase();
+            if (!normalizedName) return false;
+            if (ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES.has(normalizedName)) return false;
+
+            const role = employeeId ? employeeRoleById.get(employeeId) : undefined;
+            if (role && role !== 'EMPLOYEE') return false;
+            if (!role && ['TECTRA DEVV', 'ACCOUNTANT USER'].includes(normalizedName)) return false;
+
+            return true;
+        },
+        [employeeRoleById]
+    );
+    const employeeOptions = React.useMemo(() => {
+        const filteredEmployees = isAccountant
+            ? employees.filter((employee: any) =>
+                shouldIncludeForAccountantSheet(employee.id, employee.name)
+            )
+            : employees;
+
+        const fromEmployees = filteredEmployees.map((employee: any) => ({
+            id: employee.id,
+            name: employee.name,
+            department: employee.department?.name || 'Unassigned'
+        }));
+        if (fromEmployees.length > 0) return fromEmployees;
+
+        const seen = new Map<string, { id: string; name: string; department: string }>();
+        reportData.forEach((row: any) => {
+            const key = row.id || row.EmployeeID;
+            if (!key || seen.has(key)) return;
+            if (isAccountant && !shouldIncludeForAccountantSheet(key, row.Name || row.EmployeeID)) return;
+            seen.set(key, {
+                id: row.id || row.EmployeeID,
+                name: row.Name || row.EmployeeID,
+                department: row.Department || 'Unassigned'
+            });
+        });
+        return Array.from(seen.values());
+    }, [employees, isAccountant, reportData, shouldIncludeForAccountantSheet]);
+    const departmentOptions = React.useMemo(() => {
+        const fromEmployees = Array.from(
+            new Set(employeeOptions.map((employee) => employee.department).filter(Boolean))
+        );
+        return fromEmployees.sort((a, b) => a.localeCompare(b));
+    }, [employeeOptions]);
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -268,6 +332,162 @@ export default function ReportPage() {
     const paginatedReportData = weeklyPages[currentPage - 1]?.rows || [];
     const activeWeekLabel = weeklyPages[currentPage - 1]?.label || '';
 
+    const classifyAttendanceRow = React.useCallback((row: any) => {
+        const normalizedStatus = formatStatus(row).toUpperCase();
+        const rawStatus = String(row.Status || '').toUpperCase().replace(/_/g, ' ');
+        const workedHours = parseFloat(row.TotalWorkedHours || '0');
+        const isValidPunchValue = (value: any) => {
+            if (!value) return false;
+            const normalizedValue = String(value).trim().toUpperCase();
+            return !['---', 'ABSENT', 'N/A', 'LEAVE', 'WEEKEND', 'HOLIDAY'].includes(normalizedValue);
+        };
+        const hasPunch = isValidPunchValue(row.FirstPunch) || isValidPunchValue(row.LastPunch);
+
+        const isLeave =
+            normalizedStatus === 'LEAVE' ||
+            rawStatus.includes('LEAVE');
+        const isExplicitAbsent =
+            rawStatus === 'ABSENT' ||
+            normalizedStatus === 'ABSENT';
+
+        const isPresent =
+            workedHours > 0 ||
+            hasPunch ||
+            ['PRESENT', 'COMPENSATED', 'ON-SITE'].includes(normalizedStatus) ||
+            ['PRESENT', 'LATE', 'ON SITE', 'ON-SITE', 'PRESENT WFH', 'HALF DAY', 'OVERTIME'].includes(rawStatus);
+
+        if (isLeave) return 'LEAVE';
+        if (isPresent) return 'PRESENT';
+        if (isExplicitAbsent) return 'ABSENT';
+        return 'UNKNOWN';
+    }, []);
+
+    const accountantSummaryRows = React.useMemo(() => {
+        if (!isAccountant || selectedEmployeeId !== 'all') return [];
+
+        const groupedByEmployee = new Map<string, { name: string; rows: any[] }>();
+        const workingDates = new Set<string>();
+
+        reportData.forEach((row: any) => {
+            const employeeId = row.id || row.EmployeeID;
+            if (!employeeId) return;
+            const employeeName = row.Name || row.EmployeeID || 'Unknown';
+            if (!shouldIncludeForAccountantSheet(employeeId, employeeName)) return;
+
+            const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
+            if (!dateKey) return;
+
+            const dateObj = new Date(`${dateKey}T00:00:00.000Z`);
+            const isSunday = dateObj.getUTCDay() === 0;
+            const isHoliday = row.Status === 'HOLIDAY';
+            if (!isSunday && !isHoliday) {
+                workingDates.add(dateKey);
+            }
+
+            const employeeKey = String(employeeName).trim().toUpperCase();
+            if (!groupedByEmployee.has(employeeKey)) {
+                groupedByEmployee.set(employeeKey, {
+                    name: employeeName,
+                    rows: []
+                });
+            }
+            groupedByEmployee.get(employeeKey)!.rows.push(row);
+        });
+
+        const companyWorkingDays = workingDates.size;
+
+        return Array.from(groupedByEmployee.entries())
+            .map(([employeeKey, employeeData]) => {
+                let presentDays = 0;
+                let absentDays = 0;
+                let leaveDays = 0;
+                const perDayClassification = new Map<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN'>();
+
+                employeeData.rows.forEach((row: any) => {
+                    const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
+                    if (!dateKey) return;
+                    const dateObj = new Date(`${dateKey}T00:00:00.000Z`);
+                    const isSunday = dateObj.getUTCDay() === 0;
+                    const isHoliday = row.Status === 'HOLIDAY';
+                    if (isSunday || isHoliday) return;
+
+                    const rowClassification = classifyAttendanceRow(row) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
+                    const existingClassification = perDayClassification.get(dateKey);
+
+                    // Priority per day: PRESENT > LEAVE > ABSENT > UNKNOWN
+                    if (!existingClassification || existingClassification === 'UNKNOWN') {
+                        perDayClassification.set(dateKey, rowClassification);
+                    } else if (existingClassification === 'ABSENT' && ['PRESENT', 'LEAVE'].includes(rowClassification)) {
+                        perDayClassification.set(dateKey, rowClassification);
+                    } else if (existingClassification === 'LEAVE' && rowClassification === 'PRESENT') {
+                        perDayClassification.set(dateKey, 'PRESENT');
+                    }
+                });
+
+                perDayClassification.forEach((classification) => {
+                    if (classification === 'PRESENT') presentDays += 1;
+                    else if (classification === 'LEAVE') leaveDays += 1;
+                    else absentDays += 1;
+                });
+
+                return {
+                    employeeId: employeeKey,
+                    name: employeeData.name,
+                    companyWorkingDays,
+                    presentDays,
+                    absentDays
+                };
+            })
+            .sort((firstEmployee, secondEmployee) => firstEmployee.name.localeCompare(secondEmployee.name));
+    }, [classifyAttendanceRow, isAccountant, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+
+    const accountantTodayCounts = React.useMemo(() => {
+        if (!isAccountant || selectedEmployeeId !== 'all') {
+            return { totalEmployees: 0, presentToday: 0, absentToday: 0, leaveToday: 0 };
+        }
+
+        const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        const todayRows = reportData.filter((row: any) => {
+            const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
+            const employeeId = row.id || row.EmployeeID;
+            const employeeName = row.Name || row.EmployeeID || 'Unknown';
+            return dateKey === todayIstStr && shouldIncludeForAccountantSheet(employeeId, employeeName);
+        });
+
+        let presentToday = 0;
+        let absentToday = 0;
+        let leaveToday = 0;
+        const employeeTodayState = new Map<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN'>();
+
+        todayRows.forEach((row: any) => {
+            const employeeId = row.id || row.EmployeeID;
+            if (!employeeId) return;
+            const rowClassification = classifyAttendanceRow(row) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
+            const currentClassification = employeeTodayState.get(employeeId);
+
+            if (!currentClassification || currentClassification === 'UNKNOWN') {
+                employeeTodayState.set(employeeId, rowClassification);
+            } else if (currentClassification === 'ABSENT' && ['PRESENT', 'LEAVE'].includes(rowClassification)) {
+                employeeTodayState.set(employeeId, rowClassification);
+            } else if (currentClassification === 'LEAVE' && rowClassification === 'PRESENT') {
+                employeeTodayState.set(employeeId, 'PRESENT');
+            }
+        });
+
+        employeeTodayState.forEach((classification) => {
+            if (classification === 'PRESENT') presentToday += 1;
+            else if (classification === 'LEAVE') leaveToday += 1;
+            else if (classification === 'ABSENT') absentToday += 1;
+        });
+
+        return {
+            totalEmployees: employeeTodayState.size,
+            presentToday,
+            absentToday,
+            leaveToday
+        };
+    }, [classifyAttendanceRow, isAccountant, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+
     useEffect(() => {
         if (currentPage > totalPages) {
             setCurrentPage(totalPages);
@@ -310,27 +530,26 @@ export default function ReportPage() {
     return (
         <div className="max-w-full space-y-8 animate-fade-in pb-20 px-2 lg:px-4">
             {/* Minimal Filter Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-[#E6E8EC] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-3 items-end shadow-sm">
-                {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                    <div className="w-full xl:col-span-3">
-                        <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Employee</label>
-                        <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#D0D5DD] rounded-xl">
-                            <Search size={16} className="text-slate-500" />
-                            <select 
-                                value={selectedEmployeeId || 'all'}
-                                onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                                className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer"
-                            >
-                                <option value="all">All Members</option>
-                                {employees
-                                    .filter((emp) => selectedDepartment === 'all' || emp.department?.name === selectedDepartment)
-                                    .map(emp => (
-                                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                                    ))}
-                            </select>
-                        </div>
+            <div className="bg-white p-4 rounded-md border border-[#E6E8EC] grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-3 items-end shadow-sm">
+                <div className="w-full xl:col-span-3">
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Employee</label>
+                    <div className={`flex items-center gap-2 px-3 py-2.5 border border-[#D0D5DD] rounded-xl ${canUseAdvancedFilters ? 'bg-white' : 'bg-slate-50'}`}>
+                        <Search size={16} className="text-slate-500" />
+                        <select 
+                            value={selectedEmployeeId || 'all'}
+                            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                            className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer disabled:cursor-not-allowed"
+                            disabled={!canUseAdvancedFilters}
+                        >
+                            <option value="all">All Members</option>
+                            {employeeOptions
+                                .filter((employee) => selectedDepartment === 'all' || employee.department === selectedDepartment)
+                                .map((employee) => (
+                                    <option key={employee.id} value={employee.id}>{employee.name}</option>
+                                ))}
+                        </select>
                     </div>
-                )}
+                </div>
 
                 <div className="w-full xl:col-span-3">
                     <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Timeframe</label>
@@ -354,42 +573,41 @@ export default function ReportPage() {
                     </div>
                 </div>
 
-                {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
-                    <div className="w-full xl:col-span-3">
-                        <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Department</label>
-                        <div className="flex items-center gap-2 px-3 py-2.5 border border-[#D0D5DD] rounded-xl">
-                            <Filter size={16} className="text-slate-500" />
-                            <select
-                                value={selectedDepartment}
-                                onChange={(e) => {
-                                    setSelectedDepartment(e.target.value);
-                                    setSelectedEmployeeId('all');
-                                }}
-                                className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer"
-                            >
-                                <option value="all">All Departments</option>
-                                {Array.from(new Set(employees.map((employee) => employee.department?.name).filter(Boolean))).map((departmentName) => (
-                                    <option key={departmentName} value={departmentName}>{departmentName}</option>
-                                ))}
-                            </select>
-                        </div>
+                <div className="w-full xl:col-span-3">
+                    <label className="text-[11px] font-bold text-slate-500 block mb-1.5">Department</label>
+                    <div className={`flex items-center gap-2 px-3 py-2.5 border border-[#D0D5DD] rounded-xl ${canUseAdvancedFilters ? 'bg-white' : 'bg-slate-50'}`}>
+                        <Filter size={16} className="text-slate-500" />
+                        <select
+                            value={selectedDepartment}
+                            onChange={(e) => {
+                                setSelectedDepartment(e.target.value);
+                                setSelectedEmployeeId('all');
+                            }}
+                            className="w-full bg-transparent text-[14px] font-semibold text-[#101828] outline-none cursor-pointer disabled:cursor-not-allowed"
+                            disabled={!canUseAdvancedFilters}
+                        >
+                            <option value="all">All Departments</option>
+                            {departmentOptions.map((departmentName) => (
+                                <option key={departmentName} value={departmentName}>{departmentName}</option>
+                            ))}
+                        </select>
                     </div>
-                )}
+                </div>
 
                 <div className="w-full sm:col-span-2 xl:col-span-3 flex flex-col sm:flex-row sm:justify-end gap-3">
-                    <button 
+                    <button
                         onClick={() => fetchReport()}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 border border-[#101828] text-[#101828] rounded-xl text-[13px] font-semibold transition-all active:scale-95"
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 border border-[#101828] text-[#101828] rounded-xl text-[12px] font-semibold transition-all active:scale-95"
                     >
-                        <Filter size={16} />
+                        <Filter size={14} />
                         Filters
                     </button>
                     <button 
                         onClick={handleExportExcel}
                         disabled={exportLoading || reportData.length === 0}
-                        className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 bg-[#101828] text-white rounded-xl text-[13px] font-semibold transition-all disabled:opacity-50 active:scale-95"
+                        className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-[#101828] text-white rounded-xl text-[12px] font-semibold transition-all disabled:opacity-50 active:scale-95"
                     >
-                        {exportLoading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                        {exportLoading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                         Export Excel
                     </button>
                 </div>
@@ -401,7 +619,7 @@ export default function ReportPage() {
                         {/* LEFT SIDE: Detailed Logs */}
                         <div className="lg:col-span-8 space-y-4">
                             <div className="flex items-center justify-between gap-3 px-2">
-                                <h2 className="text-[16px] font-black text-[#101828] uppercase tracking-widest flex items-center gap-2">
+                                <h2 className="text-[16px] font-semibold text-[#101828] uppercase tracking-widest flex items-center gap-2">
                                     <button 
                                         onClick={() => setSelectedEmployeeId('all')}
                                         className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-[#101828]"
@@ -415,19 +633,19 @@ export default function ReportPage() {
                             {activeWeekLabel && (
                                 <div className="px-2">
                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100">
-                                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
+                                        <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
                                     </div>
                                 </div>
                             )}
-                            <div className="bg-white border border-[#E6E8EC] rounded-[24px] overflow-hidden shadow-sm">
+                            <div className="bg-white border border-[#E6E8EC] rounded-lg overflow-hidden shadow-sm">
                                 <div className="overflow-x-auto no-scrollbar">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="bg-slate-50/50 border-b border-[#E6E8EC]">
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Date Detail</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">In/Out</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Hours</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Date Detail</th>
+                                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-center">In/Out</th>
+                                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-right">Hours</th>
+                                                <th className="px-6 py-4 text-[10px] font-semibold text-slate-400 uppercase tracking-widest text-right">Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#E6E8EC]">
@@ -446,15 +664,15 @@ export default function ReportPage() {
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
                                                             <div className="flex flex-col items-center">
-                                                                <span className="text-[13px] font-black text-[#101828] tabular-nums">{getPunchDisplay(row, 'FirstPunch')}</span>
+                                                                <span className="text-[13px] font-semibold text-[#101828] tabular-nums">{getPunchDisplay(row, 'FirstPunch')}</span>
                                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">to {getPunchDisplay(row, 'LastPunch')}</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className="text-[13px] font-black text-[#101828] tabular-nums">{formatDuration(row.TotalWorkedHours)}</span>
+                                                            <span className="text-[13px] font-semibold text-[#101828] tabular-nums">{formatDuration(row.TotalWorkedHours)}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-widest ${
                                                                 statusText.toUpperCase().includes('SHORT') ? 'bg-rose-50 text-rose-500 border border-rose-100' :
                                                                 (statusText.toUpperCase().includes('PRESENT') || statusText.toUpperCase() === 'COMPENSATED' || statusText.toUpperCase() === 'ON-SITE') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                                                                 statusText.toUpperCase() === 'LEAVE' ? 'bg-indigo-50 text-indigo-500 border border-indigo-100' :
@@ -478,10 +696,10 @@ export default function ReportPage() {
                         {/* RIGHT SIDE: Statistics */}
                         <div className="lg:col-span-4 space-y-6 sticky top-[100px]">
                             {/* Weekly Performance */}
-                            <div className="bg-white border border-[#E6E8EC] rounded-[32px] p-8 shadow-sm">
+                            <div className="bg-white border border-[#E6E8EC] rounded-xl p-8 shadow-sm">
                                 <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-[13px] font-black text-slate-400 uppercase tracking-[0.2em]">Weekly Snapshot</h3>
-                                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-lg uppercase tracking-tight">This Week</span>
+                                    <h3 className="text-[13px] font-semibold text-slate-400 uppercase tracking-[0.2em]">Weekly Snapshot</h3>
+                                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-semibold rounded-lg uppercase tracking-tight">This Week</span>
                                 </div>
                                 {(() => {
                                     // Robust Date Sync (IST to UTC)
@@ -519,13 +737,13 @@ export default function ReportPage() {
                                             <div className="flex flex-col gap-4">
                                                 <div className="flex justify-between items-end">
                                                     <div>
-                                                        <h4 className="text-4xl font-black text-[#101828] tabular-nums">
+                                                        <h4 className="text-2xl font-semibold text-[#101828] tabular-nums">
                                                             {formatDuration(totalWorked)}
                                                             <span className="text-[14px] text-slate-400 font-bold ml-2">/ {weeklyGoal.toFixed(1)} Hrs</span>
                                                         </h4>
-                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Worked this week (Adj. Target)</p>
+                                                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">Worked this week (Adj. Target)</p>
                                                     </div>
-                                                    <span className={`px-3 py-1 rounded-lg text-[11px] font-black uppercase tracking-wider ${completion >= 90 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                                                    <span className={`px-3 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wider ${completion >= 90 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                                                         {completion}% Done
                                                     </span>
                                                 </div>
@@ -539,12 +757,12 @@ export default function ReportPage() {
                                                 </div>
                                             </div>
 
-                                            <div className={`p-5 rounded-2xl border flex items-center gap-4 ${completion >= 100 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
+                                            <div className={`p-5 rounded-md border flex items-center gap-4 ${completion >= 100 ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'}`}>
                                                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${completion >= 100 ? 'bg-emerald-500 text-white' : 'bg-white text-indigo-500 border border-indigo-100 shadow-sm'}`}>
                                                     {completion >= 100 ? <Activity size={20} /> : <Calendar size={20} />}
                                                 </div>
                                                 <div>
-                                                    <p className={`text-[13px] font-black uppercase tracking-tight ${completion >= 100 ? 'text-emerald-700' : 'text-[#101828]'}`}>
+                                                    <p className={`text-[13px] font-semibold uppercase tracking-tight ${completion >= 100 ? 'text-emerald-700' : 'text-[#101828]'}`}>
                                                         {completion >= 100 ? 'Weekly Goal Met' : `${Math.max(0, weeklyGoal - totalWorked).toFixed(1)} Hours to Goal`}
                                                     </p>
                                                     <p className="text-[10px] font-bold text-slate-500 mt-0.5">Adjusted for Govt. Holidays & Personal Leaves</p>
@@ -556,10 +774,10 @@ export default function ReportPage() {
                             </div>
 
                             {/* Monthly Performance */}
-                            <div className="bg-[#101828] rounded-[32px] p-8 shadow-xl text-white">
+                            <div className="bg-[#101828] rounded-xl p-8 shadow-xl text-white">
                                 <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-[13px] font-black text-slate-400 uppercase tracking-[0.2em]">Monthly Overview</h3>
-                                    <span className="px-2.5 py-1 bg-white/10 text-white text-[10px] font-black rounded-lg uppercase tracking-tight">{complianceMonth || 'Period Total'}</span>
+                                    <h3 className="text-[13px] font-semibold text-slate-400 uppercase tracking-[0.2em]">Monthly Overview</h3>
+                                    <span className="px-2.5 py-1 bg-white/10 text-white text-[10px] font-semibold rounded-lg uppercase tracking-tight">{complianceMonth || 'Period Total'}</span>
                                 </div>
                                 {(() => {
                                     const summary = (groupSummaries(reportData)[0] || { worked: 0, target: 0 }) as any;
@@ -570,24 +788,24 @@ export default function ReportPage() {
                                         <div className="space-y-10">
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1">
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calculated Work</p>
-                                                    <h4 className="text-2xl font-black">{formatDuration(summary.worked)}</h4>
+                                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Calculated Work</p>
+                                                    <h4 className="text-base font-semibold">{formatDuration(summary.worked)}</h4>
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Required Shift</p>
-                                                    <h4 className="text-2xl font-black text-slate-400">{summary.target}:00 <span className="text-[10px] block">Excl. Leaves/Holidays</span></h4>
+                                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Required Shift</p>
+                                                    <h4 className="text-base font-semibold text-slate-400">{summary.target}:00 <span className="text-[10px] block">Excl. Leaves/Holidays</span></h4>
                                                 </div>
                                             </div>
 
-                                            <div className="p-6 rounded-[24px] bg-white/5 border border-white/10">
+                                            <div className="p-6 rounded-lg bg-white/5 border border-white/10">
                                                 <div className="flex items-center justify-between mb-4">
-                                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Efficiency Status</p>
-                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                                                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Efficiency Status</p>
+                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-semibold uppercase tracking-widest ${isPositive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                                                         {isPositive ? 'Completed' : 'Deficit'}
                                                     </span>
                                                 </div>
                                                 <div className="flex items-end gap-2">
-                                                    <h3 className={`text-4xl font-black ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    <h3 className={`text-2xl font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                         {isPositive ? '+' : '-'}{formatDuration(Math.abs(diff))}
                                                     </h3>
                                                     <p className="text-[11px] font-bold text-slate-500 mb-1.5 uppercase">Hours {isPositive ? 'Overtime' : 'Shortage'}</p>
@@ -599,6 +817,62 @@ export default function ReportPage() {
                             </div>
                         </div>
                     </div>
+                ) : isAccountant ? (
+                    <section>
+                        <div className="flex items-center gap-3 mb-4">
+                            <h2 className="text-[18px] font-bold text-[#101828]">Accountant Attendance Sheet</h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+                            <div className="bg-white border border-[#E6E8EC] rounded-md px-5 py-4 shadow-sm">
+                                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Total Employees (Today)</p>
+                                <p className="text-[26px] font-bold text-[#101828] mt-1">{accountantTodayCounts.totalEmployees}</p>
+                            </div>
+                            <div className="bg-white border border-emerald-100 rounded-md px-5 py-4 shadow-sm">
+                                <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">Present Today</p>
+                                <p className="text-[26px] font-bold text-emerald-700 mt-1">{accountantTodayCounts.presentToday}</p>
+                            </div>
+                            <div className="bg-white border border-rose-100 rounded-md px-5 py-4 shadow-sm">
+                                <p className="text-[11px] font-semibold uppercase tracking-widest text-rose-700">Absent Today</p>
+                                <p className="text-[26px] font-bold text-rose-700 mt-1">{accountantTodayCounts.absentToday}</p>
+                            </div>
+                            <div className="bg-white border border-indigo-100 rounded-md px-5 py-4 shadow-sm">
+                                <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-700">Leave Today</p>
+                                <p className="text-[26px] font-bold text-indigo-700 mt-1">{accountantTodayCounts.leaveToday}</p>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-[#E6E8EC] rounded-md overflow-hidden shadow-sm overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[860px]">
+                                <thead>
+                                    <tr className="bg-slate-50/80 border-b border-[#E6E8EC]">
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Employee Name</th>
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Working Days (Company)</th>
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Present Days</th>
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Absent Days</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-[#E6E8EC]">
+                                    {accountantSummaryRows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                                No employee records found for the selected period
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        accountantSummaryRows.map((summaryRow) => (
+                                            <tr key={summaryRow.employeeId} className="hover:bg-slate-50/40 transition-colors">
+                                                <td className="px-6 py-4 text-[14px] font-semibold text-[#101828]">{summaryRow.name}</td>
+                                                <td className="px-6 py-4 text-[14px] text-[#101828] text-center font-semibold">{summaryRow.companyWorkingDays}</td>
+                                                <td className="px-6 py-4 text-[14px] text-emerald-700 text-center font-semibold">{summaryRow.presentDays}</td>
+                                                <td className="px-6 py-4 text-[14px] text-rose-700 text-center font-semibold">{summaryRow.absentDays}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
                 ) : (
                     <>
                         {/* Detailed Logs Section - Standard View */}
@@ -609,12 +883,12 @@ export default function ReportPage() {
                             {activeWeekLabel && (
                                 <div className="mb-3">
                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100">
-                                        <span className="text-[11px] font-black text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
+                                        <span className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wider">{activeWeekLabel}</span>
                                     </div>
                                 </div>
                             )}
                             
-                            <div className="bg-white border border-[#E6E8EC] rounded-2xl overflow-hidden shadow-sm overflow-x-auto">
+                            <div className="bg-white border border-[#E6E8EC] rounded-md overflow-hidden shadow-sm overflow-x-auto">
                                 <table className="w-full text-left border-collapse min-w-[1000px]">
                                     <thead>
                                         <tr className="bg-slate-50/80 border-b border-[#E6E8EC]">
@@ -657,7 +931,7 @@ export default function ReportPage() {
                                                                 {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : '08:00'}
                                                             </td>
                                                             <td className="px-6 py-4">
-                                                                <span className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                                                                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
                                                                     statusText.toUpperCase().includes('SHORT') ? 'bg-rose-50 text-rose-600' :
                                                                     (statusText.toUpperCase().includes('PRESENT') || statusText.toUpperCase() === 'COMPENSATED' || statusText.toUpperCase() === 'ON-SITE' || statusText.toUpperCase() === 'PRESENT WFH') ? 'bg-emerald-50 text-emerald-600' :
                                                                     statusText.toUpperCase() === 'LEAVE' ? 'bg-indigo-50 text-indigo-600' :

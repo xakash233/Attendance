@@ -303,6 +303,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   HR
+  ACCOUNTANT
   EMPLOYEE
 }
 

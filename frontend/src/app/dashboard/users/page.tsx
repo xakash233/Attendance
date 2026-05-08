@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
@@ -26,6 +26,7 @@ export default function UsersPage() {
     const [filterDepartment, setFilterDepartment] = useState('ALL');
     const [showFilters, setShowFilters] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -262,6 +263,36 @@ export default function UsersPage() {
         return false;
     };
 
+    const USERS_PER_PAGE = 10;
+    const filteredUsers = useMemo(() => {
+        return users.filter((u: any) => {
+            const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                u.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
+
+            const matchesRole = filterRole === 'ALL' || u.role === filterRole;
+            const matchesDept = filterDepartment === 'ALL' || u.departmentId === filterDepartment;
+
+            return matchesSearch && matchesRole && matchesDept;
+        });
+    }, [users, searchTerm, filterRole, filterDepartment]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+    const paginatedUsers = useMemo(() => {
+        const startIndex = (currentPage - 1) * USERS_PER_PAGE;
+        return filteredUsers.slice(startIndex, startIndex + USERS_PER_PAGE);
+    }, [filteredUsers, currentPage]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterRole, filterDepartment, users.length]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
+
     if (loading && users.length === 0) return (
         <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
             <Loader2 className="w-8 h-8 text-[#101828] animate-spin" />
@@ -350,7 +381,7 @@ export default function UsersPage() {
                         <div className="p-5 bg-slate-50/50 border-t border-[#E6E8EC] animate-in slide-in-from-top-2 duration-300">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-[#667085] uppercase tracking-widest ml-1">Role Hierarchy</label>
+                                    <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Role Hierarchy</label>
                                     <div className="relative">
                                         <select
                                             className="input-field py-2 text-[13px] pr-10 appearance-none bg-white font-medium"
@@ -368,7 +399,7 @@ export default function UsersPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <label className="text-[11px] font-black text-[#667085] uppercase tracking-widest ml-1">Department Unit</label>
+                                    <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Department Unit</label>
                                     <div className="relative">
                                         <select
                                             className="input-field py-2 text-[13px] pr-10 appearance-none bg-white font-medium"
@@ -392,50 +423,45 @@ export default function UsersPage() {
                             </div>
                         </div>
                     )}
+                    {filteredUsers.some((u: any) => !u.department?.name) && (
+                        <div className="px-5 py-3 border-t border-amber-100 bg-amber-50/60 flex items-center justify-between gap-3">
+                            <p className="text-[12px] font-semibold text-amber-800">
+                                {filteredUsers.filter((u: any) => !u.department?.name).length} user(s) are currently unassigned to a department.
+                            </p>
+                            <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider">
+                                Needs assignment
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Personnel Registry Table */}
                 <div className="card bg-white border-[#E6E8EC]">
                     <div className="overflow-x-auto no-scrollbar">
-                        <table className="w-full text-left">
+                        <table className="w-full text-left min-w-[1280px]">
                             <thead>
                                 <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">User</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee Code</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Weekly Hours</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Monthly Hours</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Role</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Department</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center w-28">Actions</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider min-w-[280px]">User</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider min-w-[150px]">Employee Code</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right min-w-[170px]">Weekly Hours</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right min-w-[180px]">Monthly Hours</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center min-w-[140px]">Role</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right min-w-[200px]">Department</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center min-w-[120px]">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#E6E8EC]">
-                                {(() => {
-                                    const filteredUsers = users.filter((u: any) => {
-                                        const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                            u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                            u.employeeCode.toLowerCase().includes(searchTerm.toLowerCase());
-
-                                        const matchesRole = filterRole === 'ALL' || u.role === filterRole;
-                                        const matchesDept = filterDepartment === 'ALL' || u.departmentId === filterDepartment;
-
-                                        return matchesSearch && matchesRole && matchesDept;
-                                    });
-
-                                    if (filteredUsers.length === 0) {
-                                        return (
-                                            <tr>
-                                                <td colSpan={7} className="px-6 py-12 text-center text-[#667085]">
-                                                    <div className="flex flex-col items-center gap-3">
-                                                        <UserIcon size={32} className="text-[#D0D5DD]" />
-                                                        <p className="text-[14px] font-medium text-[#667085]">No users found.</p>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    }
-
-                                    return filteredUsers.map((u: any, index: number) => (
+                                {filteredUsers.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-12 text-center text-[#667085]">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <UserIcon size={32} className="text-[#D0D5DD]" />
+                                                <p className="text-[14px] font-medium text-[#667085]">No users found.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    paginatedUsers.map((u: any, index: number) => (
                                         <tr key={u.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
                                                 <Link href={`/dashboard/users/${u.id}`} className="flex items-center gap-3">
@@ -464,19 +490,25 @@ export default function UsersPage() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="text-[13px] font-bold text-[#101828] tabular-nums">
-                                                    {(u.hours?.weekly?.worked ?? 0).toFixed(1)} / {(u.hours?.weekly?.target ?? 0).toFixed(0)}h
-                                                </div>
-                                                <div className={`text-[11px] font-bold tabular-nums ${(u.hours?.weekly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {(u.hours?.weekly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.weekly?.delta ?? 0).toFixed(1)}h
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <div className="text-[14px] font-semibold text-[#101828] tabular-nums leading-5">
+                                                        {(u.hours?.weekly?.worked ?? 0).toFixed(1)}h
+                                                        <span className="text-[12px] font-medium text-[#98A2B3]"> / {(u.hours?.weekly?.target ?? 0).toFixed(0)}h</span>
+                                                    </div>
+                                                    <div className={`text-[12px] font-semibold tabular-nums leading-4 ${(u.hours?.weekly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {(u.hours?.weekly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.weekly?.delta ?? 0).toFixed(1)}h
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="text-[13px] font-bold text-[#101828] tabular-nums">
-                                                    {(u.hours?.monthly?.worked ?? 0).toFixed(1)} / {(u.hours?.monthly?.target ?? 0).toFixed(0)}h
-                                                </div>
-                                                <div className={`text-[11px] font-bold tabular-nums ${(u.hours?.monthly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                                    {(u.hours?.monthly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.monthly?.delta ?? 0).toFixed(1)}h
+                                                <div className="flex flex-col items-end gap-0.5">
+                                                    <div className="text-[14px] font-semibold text-[#101828] tabular-nums leading-5">
+                                                        {(u.hours?.monthly?.worked ?? 0).toFixed(1)}h
+                                                        <span className="text-[12px] font-medium text-[#98A2B3]"> / {(u.hours?.monthly?.target ?? 0).toFixed(0)}h</span>
+                                                    </div>
+                                                    <div className={`text-[12px] font-semibold tabular-nums leading-4 ${(u.hours?.monthly?.delta ?? 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                                        {(u.hours?.monthly?.delta ?? 0) >= 0 ? '+' : ''}{(u.hours?.monthly?.delta ?? 0).toFixed(1)}h
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
@@ -486,9 +518,15 @@ export default function UsersPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex flex-col text-right">
-                                                    <span className="text-[14px] font-medium text-[#101828]">
-                                                        {u.department?.name || 'Unassigned'}
-                                                    </span>
+                                                    {u.department?.name ? (
+                                                        <span className="text-[14px] font-medium text-[#101828]">
+                                                            {u.department.name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center justify-end px-2.5 py-1 rounded-md text-[12px] font-semibold uppercase tracking-wide bg-amber-50 text-amber-800 border border-amber-200">
+                                                            Unassigned
+                                                        </span>
+                                                    )}
                                                     <Link href={`/dashboard/users/${u.id}`} className="text-[12px] font-medium text-[#101828] hover:text-[#1d2939] transition-colors mt-0.5">
                                                         View Details &rarr;
                                                     </Link>
@@ -514,7 +552,7 @@ export default function UsersPage() {
                                                                     onClick={() => setOpenMenuId(null)}
                                                                 />
                                                                 <div className={`absolute right-0 w-32 bg-white rounded-xl shadow-xl border border-[#E6E8EC] z-[20] overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${
-                                                                    index >= filteredUsers.length - 2 && filteredUsers.length > 3 ? 'bottom-full mb-1' : 'top-full mt-1'
+                                                                    index >= paginatedUsers.length - 2 && paginatedUsers.length > 3 ? 'bottom-full mb-1' : 'top-full mt-1'
                                                                 }`}>
                                                                     <button
                                                                         onClick={(e) => {
@@ -543,18 +581,44 @@ export default function UsersPage() {
                                                 )}
                                             </td>
                                         </tr>
-                                    ));
-                                })()}
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
+                    {filteredUsers.length > 0 && (
+                        <div className="px-6 py-4 border-t border-[#E6E8EC] flex items-center justify-between">
+                            <p className="text-[12px] text-[#667085] font-medium">
+                                Showing {paginatedUsers.length} of {filteredUsers.length} users
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 text-[12px] font-semibold border border-[#D0D5DD] rounded-lg disabled:opacity-40"
+                                >
+                                    Prev
+                                </button>
+                                <span className="text-[12px] text-[#667085] font-medium px-1">
+                                    {currentPage}/{totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1.5 text-[12px] font-semibold border border-[#D0D5DD] rounded-lg disabled:opacity-40"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Account Creation / Edit Modal */}
             {mounted && isModalOpen && createPortal(
                 <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
-                    <div className="bg-white max-w-xl w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+                    <div className="bg-white max-w-xl w-full rounded-md shadow-2xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
 
                         {/* Header */}
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
@@ -732,7 +796,7 @@ export default function UsersPage() {
                                     <input
                                         type="text"
                                         maxLength={6}
-                                        className="input-field text-center text-2xl tracking-widest py-4"
+                                        className="input-field text-center text-base tracking-widest py-4"
                                         placeholder="000000"
                                         value={otpInput}
                                         onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
@@ -768,7 +832,7 @@ export default function UsersPage() {
                                     <input
                                         type="text"
                                         maxLength={6}
-                                        className="input-field text-center text-2xl tracking-widest py-4"
+                                        className="input-field text-center text-base tracking-widest py-4"
                                         placeholder="000000"
                                         value={otpInput}
                                         onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
@@ -794,12 +858,12 @@ export default function UsersPage() {
             {/* Delete Confirmation Modal */}
             {mounted && isDeleteModalOpen && userToDelete && createPortal(
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-fade-in" style={{ marginLeft: 0 }}>
-                    <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 p-8 border border-[#E6E8EC]">
+                    <div className="bg-white max-w-md w-full rounded-md shadow-2xl scale-100 animate-in zoom-in-95 duration-200 p-8 border border-[#E6E8EC]">
                         <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
                             <Trash2 size={32} />
                         </div>
                         <div className="text-center space-y-3 mb-8">
-                            <h3 className="text-[20px] font-black text-[#101828] uppercase tracking-tighter">Are you sure?</h3>
+                            <h3 className="text-[20px] font-semibold text-[#101828] uppercase tracking-tighter">Are you sure?</h3>
                             <p className="text-[14px] font-medium text-[#667085] leading-relaxed">
                                 <span className="text-black font-bold">{userToDelete.name}</span> {(userToDelete.department?.name || 'Unassigned')} will be removed from the system registry. This operation cannot be reversed.
                             </p>

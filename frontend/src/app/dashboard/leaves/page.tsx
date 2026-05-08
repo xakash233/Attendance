@@ -22,9 +22,11 @@ export default function LeavesPage() {
     const { user } = useAuth();
     const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
     const [isWFHRequest, setIsWFHRequest] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [deleteTargetLeaveId, setDeleteTargetLeaveId] = useState<string | null>(null);
+    const [isDeletingLeave, setIsDeletingLeave] = useState(false);
 
     const [mounted, setMounted] = useState(false);
-    const [systemSettings, setSystemSettings] = useState<any>(null);
     const [formData, setFormData] = useState({
         leaveTypeId: '',
         startDate: '',
@@ -102,11 +104,10 @@ export default function LeavesPage() {
                 } catch (err) { return []; }
             };
 
-            const [history, types, balancesRes, settingsRes, wfhRes] = await Promise.all([
+            const [history, types, balancesRes, wfhRes] = await Promise.all([
                 api.get('/leaves/history').then(r => r.data).catch(() => []),
                 api.get('/leaves/types').then(r => r.data).catch(() => []),
                 api.get('/users/profile').then(r => r.data.leaveBalances || []).catch(() => []),
-                api.get('/system/settings').then(r => r.data.data).catch(() => []),
                 fetchWFH()
             ]);
 
@@ -120,7 +121,6 @@ export default function LeavesPage() {
             setLeaveTypes(filteredTypes.length > 0 ? filteredTypes : types);
             
             setBalances(balancesRes);
-            setSystemSettings(settingsRes);
         } catch (error) {
             console.error("General fetch error:", error);
         } finally {
@@ -207,13 +207,23 @@ export default function LeavesPage() {
     };
 
     const handleDeleteLeaveRequest = async (id: string) => {
-        if (!window.confirm('Delete this leave request permanently?')) return;
+        setDeleteTargetLeaveId(id);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteLeaveRequest = async () => {
+        if (!deleteTargetLeaveId) return;
+        setIsDeletingLeave(true);
         try {
-            await api.delete(`/leaves/${id}`);
+            await api.delete(`/leaves/${deleteTargetLeaveId}`);
             toast.success('Leave request deleted successfully');
+            setIsDeleteModalOpen(false);
+            setDeleteTargetLeaveId(null);
             fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to delete leave request');
+        } finally {
+            setIsDeletingLeave(false);
         }
     };
 
@@ -266,13 +276,15 @@ export default function LeavesPage() {
         const scopedLeaves = user?.role === 'EMPLOYEE'
             ? leaves.filter((leave: any) => leave.userId === user?.id)
             : leaves;
+        const isPendingStatus = (status: string) => {
+            const normalizedStatus = String(status || '').toUpperCase();
+            return normalizedStatus.includes('PENDING') || normalizedStatus === 'AUTO_APPROVED';
+        };
         const totalRequests = scopedLeaves.length;
         const totalApproved = scopedLeaves.filter((leave: any) =>
             ['FINAL_APPROVED', 'HR_APPROVED', 'APPROVED', 'AUTO_APPROVED'].includes(leave.status)
         ).length;
-        const totalPending = scopedLeaves.filter((leave: any) =>
-            String(leave.status || '').includes('PENDING')
-        ).length;
+        const totalPending = scopedLeaves.filter((leave: any) => isPendingStatus(leave.status)).length;
 
         return { totalRequests, totalApproved, totalPending };
     }, [leaves, user?.id, user?.role]);
@@ -350,36 +362,42 @@ export default function LeavesPage() {
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    {[
-                        { label: 'Total Requests', value: topSummaryStats.totalRequests, icon: Database, color: 'slate' },
-                        { label: 'Total Approved', value: topSummaryStats.totalApproved, icon: CheckCircle2, color: 'emerald' },
-                        { label: 'Total Pending', value: topSummaryStats.totalPending, icon: Clock, color: 'amber' }
-                    ].map((stat, index) => (
-                        <div key={index} className="card p-5 flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
-                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
-                                stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
-                                'bg-slate-50 text-slate-600'
-                            }`}>
-                                <stat.icon size={20} />
+                {user?.role !== 'EMPLOYEE' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {[
+                            { label: 'Total Requests', value: topSummaryStats.totalRequests, icon: Database, color: 'slate' },
+                            { label: 'Total Approved', value: topSummaryStats.totalApproved, icon: CheckCircle2, color: 'emerald' },
+                            { label: 'Total Pending', value: topSummaryStats.totalPending, icon: Clock, color: 'amber' }
+                        ].map((stat, index) => (
+                            <div key={index} className="card p-5 flex items-center gap-4">
+                                <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
+                                    stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                    stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                    'bg-slate-50 text-slate-600'
+                                }`}>
+                                    <stat.icon size={20} />
+                                </div>
+                                <div>
+                                    <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
+                                    <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
-                                <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
 
                 {user?.role !== 'SUPER_ADMIN' && (
                     <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         {(() => {
                             const used = leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).reduce((sum: number, l: any) => sum + l.totalDays, 0);
-                            const pending = leaves.filter((l: any) => l.status.includes('PENDING') && l.userId === user?.id).length;
+                            const pending = leaves.filter((l: any) => {
+                                const normalizedStatus = String(l.status || '').toUpperCase();
+                                const isPendingStatus = normalizedStatus.includes('PENDING') || normalizedStatus === 'AUTO_APPROVED';
+                                return isPendingStatus && l.userId === user?.id;
+                            }).length;
                             const totalRequests = leaves.filter((l: any) => l.userId === user?.id).length;
-                            const allocated = systemSettings?.totalLeaveAllocation || 18;
+                            const allocated = 18;
                             const remaining = allocated - used;
                             const formatDayValue = (value: number) => `${value.toFixed(1).replace(/\.0$/, '')} Days`;
 
@@ -422,19 +440,19 @@ export default function LeavesPage() {
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                                     <div className="px-4 py-3 border border-indigo-100 bg-indigo-50/30 rounded-xl flex items-center justify-between">
                                         <p className="text-[12px] font-bold text-indigo-500 uppercase tracking-wide">Sick Leave</p>
-                                        <p className="text-[18px] font-black text-indigo-700 tabular-nums">{SL.toFixed(1)}<span className="text-[10px] font-semibold text-indigo-400 ml-1">SL</span></p>
+                                        <p className="text-[18px] font-semibold text-indigo-700 tabular-nums">{SL.toFixed(1)}<span className="text-[10px] font-semibold text-indigo-400 ml-1">SL</span></p>
                                     </div>
                                     <div className="px-4 py-3 border border-amber-100 bg-amber-50/30 rounded-xl flex items-center justify-between">
                                         <p className="text-[12px] font-bold text-amber-500 uppercase tracking-wide">Casual Leave</p>
-                                        <p className="text-[18px] font-black text-amber-700 tabular-nums">{CL.toFixed(1)}<span className="text-[10px] font-semibold text-amber-400 ml-1">CL</span></p>
+                                        <p className="text-[18px] font-semibold text-amber-700 tabular-nums">{CL.toFixed(1)}<span className="text-[10px] font-semibold text-amber-400 ml-1">CL</span></p>
                                     </div>
                                     <div className="px-4 py-3 border border-rose-100 bg-rose-50/30 rounded-xl flex items-center justify-between">
                                         <p className="text-[12px] font-bold text-rose-500 uppercase tracking-wide">Paid Leave</p>
-                                        <p className="text-[18px] font-black text-rose-700 tabular-nums">{PL.toFixed(1)}<span className="text-[10px] font-semibold text-rose-400 ml-1">PL</span></p>
+                                        <p className="text-[18px] font-semibold text-rose-700 tabular-nums">{PL.toFixed(1)}<span className="text-[10px] font-semibold text-rose-400 ml-1">PL</span></p>
                                     </div>
                                     <div className="px-4 py-3 border border-blue-100 bg-blue-50/30 rounded-xl flex items-center justify-between">
                                         <p className="text-[12px] font-bold text-blue-500 uppercase tracking-wide">Half Day</p>
-                                        <p className="text-[18px] font-black text-blue-700 tabular-nums">{HD.toFixed(1)}<span className="text-[10px] font-semibold text-blue-400 ml-1">HD</span></p>
+                                        <p className="text-[18px] font-semibold text-blue-700 tabular-nums">{HD.toFixed(1)}<span className="text-[10px] font-semibold text-blue-400 ml-1">HD</span></p>
                                     </div>
                                 </div>
                             </div>
@@ -689,7 +707,7 @@ export default function LeavesPage() {
 
             {isApplyModalOpen && mounted && createPortal(
                 <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in shadow-2xl">
-                    <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+                    <div className="bg-white max-w-xl w-full rounded-md shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
                                 <h2 className="text-[18px] font-semibold text-[#101828] leading-none">
@@ -834,6 +852,47 @@ export default function LeavesPage() {
                                     </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {isDeleteModalOpen && mounted && createPortal(
+                <div className="fixed inset-0 z-[510] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white w-full max-w-md rounded-md shadow-xl border border-[#E6E8EC]">
+                        <div className="p-6 border-b border-[#E6E8EC]">
+                            <h3 className="text-[18px] font-semibold text-[#101828] leading-none">Delete leave request?</h3>
+                            <p className="text-[13px] font-medium text-[#667085] mt-2">
+                                This action permanently removes the selected leave request and cannot be undone.
+                            </p>
+                        </div>
+                        <div className="p-5 flex justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (isDeletingLeave) return;
+                                    setIsDeleteModalOpen(false);
+                                    setDeleteTargetLeaveId(null);
+                                }}
+                                className="btn-secondary"
+                                disabled={isDeletingLeave}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmDeleteLeaveRequest}
+                                className="px-4 py-2 rounded-xl bg-[#D92D20] text-white text-[13px] font-semibold hover:bg-[#B42318] transition-all disabled:opacity-50"
+                                disabled={isDeletingLeave}
+                            >
+                                {isDeletingLeave ? (
+                                    <span className="inline-flex items-center gap-2">
+                                        <Loader2 size={14} className="animate-spin" />
+                                        Deleting...
+                                    </span>
+                                ) : 'Delete'}
+                            </button>
                         </div>
                     </div>
                 </div>,

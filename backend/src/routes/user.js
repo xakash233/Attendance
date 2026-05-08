@@ -17,7 +17,7 @@ import { protect, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.get('/', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), getUsers);
+router.get('/', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT'), getUsers);
 router.post('/init-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), initUserCreation);
 router.post('/verify-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), verifyUserCreation);
 router.get('/profile', protect, getUserProfile);

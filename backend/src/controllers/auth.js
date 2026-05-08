@@ -61,6 +61,55 @@ export const login = async (req, res, next) => {
     }
 };
 
+// @desc    Magic Login with Token
+// @route   POST /api/auth/magic-login
+// @access  Public
+export const magicLogin = async (req, res, next) => {
+    const { token } = req.body;
+    if (!token) {
+        return res.status(401).json({ message: 'Token is required' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            include: { department: true }
+        });
+
+        if (!user) {
+            return res.status(401).json({ message: 'User account not found' });
+        }
+
+        const accessToken = generateToken(user.id);
+        const refreshToken = generateRefreshToken(user.id);
+
+        await prisma.refreshToken.create({
+            data: {
+                token: refreshToken,
+                userId: user.id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            }
+        });
+
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            profileImage: user.profileImage,
+            employeeCode: user.employeeCode,
+            needsPasswordChange: user.needsPasswordChange,
+            accessToken,
+            refreshToken
+        });
+    } catch (error) {
+        return res.status(401).json({ message: 'Invalid or expired magic token' });
+    }
+};
+
 // @desc    Refresh token
 // @route   POST /api/auth/refresh
 // @access  Public

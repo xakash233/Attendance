@@ -78,7 +78,7 @@ export default function WorkingHoursPage() {
                 className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
                 <div>
-                    <h1 className="text-[28px] font-black text-[#101828] tracking-tight leading-tight mb-1">
+                    <h1 className="text-[28px] font-semibold text-[#101828] tracking-tight leading-tight mb-1">
                         Working Hours Detail
                     </h1>
                     <p className="text-[14px] font-medium text-[#667085]">
@@ -100,15 +100,15 @@ export default function WorkingHoursPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 {/* Left: Monthly Progress & Filter */}
                 <div className="lg:col-span-4 space-y-6">
-                    <div className="bg-white p-7 rounded-[28px] border border-[#E6E8EC] shadow-sm">
-                        <h3 className="text-[11px] font-black text-[#101828] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                    <div className="bg-white p-7 rounded-lg border border-[#E6E8EC] shadow-sm">
+                        <h3 className="text-[11px] font-semibold text-[#101828] uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                             <Filter size={14} className="text-indigo-500" />
                             Filter Month
                         </h3>
                         
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Select Month</label>
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1.5 block">Select Month</label>
                                 <input 
                                     type="month" 
                                     value={selectedMonth}
@@ -118,15 +118,15 @@ export default function WorkingHoursPage() {
                             </div>
 
                             <div className="pt-4 border-t border-slate-50">
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Current Month Summary</p>
-                                <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
+                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Current Month Summary</p>
+                                <div className="bg-indigo-600 rounded-md p-6 text-white shadow-lg shadow-indigo-200">
                                     <p className="text-indigo-100 text-[12px] font-medium mb-1">Total Worked</p>
                                     <div className="flex items-end justify-between">
-                                        <h2 className="text-3xl font-black">{formatDuration(totalMonth)}</h2>
+                                        <h2 className="text-base font-semibold">{formatDuration(totalMonth)}</h2>
                                         <Activity size={24} className="opacity-40" />
                                     </div>
                                     <div className="mt-4 pt-4 border-t border-white/10">
-                                        <p className="text-[11px] font-black text-white/60 uppercase tracking-widest">Target Met</p>
+                                        <p className="text-[11px] font-semibold text-white/60 uppercase tracking-widest">Target Met</p>
                                         <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
                                             <div 
                                                 className="bg-white rounded-full h-full transition-all duration-1000" 
@@ -139,11 +139,11 @@ export default function WorkingHoursPage() {
                         </div>
                     </div>
 
-                    <div className="bg-[#101828] p-8 rounded-[32px] text-white overflow-hidden relative group">
+                    <div className="bg-[#101828] p-8 rounded-xl text-white overflow-hidden relative group">
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform">
                             <Target size={120} />
                         </div>
-                        <h4 className="text-[11px] font-black text-white/40 uppercase tracking-[0.25em] mb-4">Strategic Goal</h4>
+                        <h4 className="text-[11px] font-semibold text-white/40 uppercase tracking-[0.25em] mb-4">Strategic Goal</h4>
                         <p className="text-[14px] font-medium text-white/80 leading-relaxed mb-6">
                             Maintain a weekly steady state of 48 hours to ensure compliance with the operations policy.
                         </p>
@@ -152,7 +152,7 @@ export default function WorkingHoursPage() {
                                 <TrendingUp size={18} className="text-white" />
                             </div>
                             <div>
-                                <p className="text-[16px] font-black">48 Hours / Week</p>
+                                <p className="text-[16px] font-semibold">48 Hours / Week</p>
                                 <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Mon - Sat Policy</p>
                             </div>
                         </div>
@@ -172,12 +172,12 @@ export default function WorkingHoursPage() {
                                     initial={{ opacity: 0, x: 20 }}
                                     animate={{ opacity: 1, x: 0 }}
                                     transition={{ delay: idx * 0.1 }}
-                                    className="bg-white p-6 rounded-[28px] border border-[#E6E8EC] shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all group"
+                                    className="bg-white p-6 rounded-lg border border-[#E6E8EC] shadow-sm hover:shadow-xl hover:border-indigo-100 transition-all group"
                                 >
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{week.name}</p>
-                                            <h4 className="text-[14px] font-black text-[#101828]">{week.start}th - {week.end}th</h4>
+                                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">{week.name}</p>
+                                            <h4 className="text-[14px] font-semibold text-[#101828]">{week.start}th - {week.end}th</h4>
                                         </div>
                                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isMet ? 'bg-emerald-50 text-emerald-500' : 'bg-slate-50 text-slate-300'}`}>
                                             {isMet ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
@@ -187,13 +187,13 @@ export default function WorkingHoursPage() {
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-baseline">
                                             <div className="flex flex-col">
-                                                <span className="text-[28px] font-black text-[#101828] tracking-tighter tabular-nums leading-none">
+                                                <span className="text-[28px] font-semibold text-[#101828] tracking-tighter tabular-nums leading-none">
                                                     {formatDuration(week.hours)}
                                                 </span>
-                                                <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mt-2 px-2 py-0.5 bg-slate-50 rounded border border-slate-100 w-fit">Hours Logged</span>
+                                                <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest mt-2 px-2 py-0.5 bg-slate-50 rounded border border-slate-100 w-fit">Hours Logged</span>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[11px] font-black text-indigo-600 mb-0.5">Target: {week.target}h</p>
+                                                <p className="text-[11px] font-semibold text-indigo-600 mb-0.5">Target: {week.target}h</p>
                                                 {week.remaining > 0 ? (
                                                     <p className="text-[10px] font-bold text-rose-400">-{formatDuration(week.remaining)} Short</p>
                                                 ) : (
@@ -239,9 +239,9 @@ export default function WorkingHoursPage() {
                     </div>
                     
                     {/* Footnote */}
-                    <div className="p-8 bg-slate-50/50 rounded-[32px] border border-dashed border-slate-200">
+                    <div className="p-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
                         <div className="flex gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-[#101828] shadow-sm flex-shrink-0">
+                            <div className="w-12 h-12 rounded-md bg-white border border-slate-100 flex items-center justify-center text-[#101828] shadow-sm flex-shrink-0">
                                 <Activity size={20} />
                             </div>
                             <div>

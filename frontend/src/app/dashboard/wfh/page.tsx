@@ -63,17 +63,17 @@ export default function WFHAdminPage() {
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="card p-6 border-l-4 border-l-indigo-500">
-                    <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Total WFH Days</p>
+                    <p className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mb-1">Total WFH Days</p>
                     <h3 className="text-[28px] font-bold text-[#101828]">{wfhRecords.length}</h3>
                 </div>
                 <div className="card p-6 border-l-4 border-l-emerald-500">
-                    <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Active Today</p>
+                    <p className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mb-1">Active Today</p>
                     <h3 className="text-[28px] font-bold text-[#101828]">
                         {wfhRecords.filter(r => format(new Date(r.wfhDate), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).length}
                     </h3>
                 </div>
                 <div className="card p-6 border-l-4 border-l-amber-500">
-                    <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Pending Approval</p>
+                    <p className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mb-1">Pending Approval</p>
                     <h3 className="text-[28px] font-bold text-[#101828]">
                         {wfhRecords.filter(r => r.status === 'PENDING').length}
                     </h3>
@@ -94,10 +94,10 @@ export default function WFHAdminPage() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50/50 border-b border-[#E6E8EC]">
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Employee Details</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Remote Date</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Action</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Employee Details</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Remote Date</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
@@ -136,12 +136,12 @@ export default function WFHAdminPage() {
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             {r.status === 'PENDING' ? (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-[10px] font-semibold uppercase tracking-widest leading-none">
                                                     <Clock size={12} />
                                                     Pending
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-black uppercase tracking-widest leading-none">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[10px] font-semibold uppercase tracking-widest leading-none">
                                                     <CheckCircle2 size={12} />
                                                     Approved
                                                 </span>

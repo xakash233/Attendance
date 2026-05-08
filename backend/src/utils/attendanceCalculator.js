@@ -16,6 +16,20 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
             const [h, m] = kolkataStr.split(':').map(Number);
             return h * 60 + m;
         }
+        // Parse ISO/UTC datetime strings safely before falling back to HH:mm parsing.
+        if (typeof input === 'string') {
+            const parsedDate = new Date(input);
+            if (!Number.isNaN(parsedDate.getTime())) {
+                const kolkataStr = parsedDate.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Asia/Kolkata'
+                });
+                const [h, m] = kolkataStr.split(':').map(Number);
+                return h * 60 + m;
+            }
+        }
         // Handle HH:mm or HH:mm:ss or HH:mm AM/PM
         const timeStr = String(input).toUpperCase();
         const isPM = timeStr.includes('PM');
@@ -73,7 +87,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
             }
             return { mins, raw };
         })
-        .filter(l => l.mins !== null)
+        .filter(l => l.mins !== null && Number.isFinite(l.mins))
         .sort((a, b) => (a.raw || a.mins) - (b.raw || b.mins));
 
     // Minor deduplication (10 seconds) just to handle accidental hardware double-triggers
@@ -124,7 +138,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null) 
     if (cleanLogs.length % 2 !== 0 && currentTimeStr) {
         const currentMins = getMinutes(currentTimeStr);
         const lastIn = cleanLogs[cleanLogs.length - 1].mins;
-        if (currentMins > lastIn) {
+        if (Number.isFinite(currentMins) && currentMins > lastIn) {
             totalWorkMinutes += (currentMins - lastIn);
         }
     }

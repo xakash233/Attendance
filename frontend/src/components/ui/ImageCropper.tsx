@@ -46,7 +46,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
 
     return (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white max-w-xl w-full rounded-2xl shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
+            <div className="bg-white max-w-xl w-full rounded-md shadow-xl scale-100 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh] overflow-hidden border border-[#E6E8EC]">
                 {/* Header */}
                 <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                     <div>
@@ -85,7 +85,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
                             {/* Zoom Slider */}
                             <div className="space-y-1.5">
                                 <div className="flex justify-between items-center">
-                                    <label className="text-[11px] font-black text-[#667085] uppercase tracking-widest">Zoom Level</label>
+                                    <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest">Zoom Level</label>
                                     <span className="text-[11px] font-bold text-[#101828]">{Math.round(zoom * 100)}%</span>
                                 </div>
                                 <input
@@ -104,7 +104,7 @@ const ImageCropper: React.FC<ImageCropperProps> = ({
                             <div className="space-y-1.5">
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-2">
-                                        <label className="text-[11px] font-black text-[#667085] uppercase tracking-widest">Rotation</label>
+                                        <label className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest">Rotation</label>
                                         <button onClick={() => setRotation(0)} className="text-[#667085] hover:text-[#101828] transition-colors">
                                             <RotateCcw size={12} />
                                         </button>

@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
+const NISHANTH_USER_ID = 'c7c74ad0-581f-405d-b47a-7f83590e66a0';
+
 const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const { user, logout } = useAuth();
     const pathname = usePathname();
@@ -22,21 +24,30 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     };
 
     const links = [
-        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: 'Working Hours', href: '/dashboard/working-hours', icon: TrendingUp, roles: ['HR', 'EMPLOYEE'] },
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
-        { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: getLeaveLabel(), href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Work Logs', href: '/dashboard/work-logs', icon: Briefcase, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Work Logs', href: '/dashboard/work-logs', icon: Briefcase, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
-        { label: 'Company Policy', href: '/dashboard/policies/company-policy', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Leave & Attendance Rulebook', href: '/dashboard/policies/leave-attendance-rulebook', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
+        { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT'] },
+        { label: 'Company Policy', href: '/dashboard/policies/company-policy', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
+        { label: 'Leave & Attendance Rulebook', href: '/dashboard/policies/leave-attendance-rulebook', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
     ];
 
-    const filteredLinks = links.filter(link => link.roles.includes(user?.role || ''));
+    const filteredLinks = links.filter((link) => {
+        const hasRoleAccess = link.roles.includes(user?.role || '');
+        if (!hasRoleAccess) return false;
+
+        if (link.href === '/dashboard/work-logs') {
+            return user?.role === 'SUPER_ADMIN' || user?.id === NISHANTH_USER_ID;
+        }
+
+        return true;
+    });
 
     return (
         <aside className="h-full w-full bg-transparent flex flex-col pb-2 transition-all overflow-y-auto no-scrollbar pt-0">
@@ -80,7 +91,7 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
             <div className="px-6 py-6 mt-auto">
                 <h4 className="text-[20px] font-extrabold text-[#101828] leading-[1.1] tracking-tight">
                     Your Vision,<br />
-                    <span className="text-[#667085] font-black">Our Technology.</span>
+                    <span className="text-[#667085] font-semibold">Our Technology.</span>
                 </h4>
             </div>
         </aside>

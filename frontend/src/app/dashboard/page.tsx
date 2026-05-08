@@ -56,7 +56,7 @@ export default function DashboardPage() {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        if (user && ['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role)) {
+        if (user && ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user.role)) {
             api.get('/leaves').then(res => {
                 const pending = res.data.filter((l: any) =>
                     l.status === 'PENDING_HR' || l.status === 'PENDING_SUPERADMIN' || l.status === 'PENDING'
@@ -89,7 +89,7 @@ export default function DashboardPage() {
             const res = await api.get('/attendance/dashboard-report');
             setReport(res.data);
 
-            if (user && ['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user.role)) {
+            if (user && ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user.role)) {
                 const analyticsRes = await api.get('/attendance/admin-analytics');
                 setAdminAnalytics(analyticsRes.data);
             }
@@ -276,6 +276,12 @@ export default function DashboardPage() {
         return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     };
 
+    const weeklyChronological = useMemo(() => {
+        return [...(report?.weekly || [])].sort(
+            (firstDay: any, secondDay: any) => new Date(firstDay.date).getTime() - new Date(secondDay.date).getTime()
+        );
+    }, [report?.weekly]);
+
     const formatDuration = (decimalHours: any) => {
         if (typeof decimalHours === 'string' && decimalHours.includes('h+')) return decimalHours;
         const val = parseFloat(decimalHours);
@@ -320,11 +326,11 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
-                    {['SUPER_ADMIN', 'HR'].includes(user?.role || '') && (
+                    {['SUPER_ADMIN', 'HR', 'ACCOUNTANT'].includes(user?.role || '') && (
                         <div className="flex flex-col md:flex-row gap-3">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-4 px-10 py-5 bg-[#101828] text-white rounded-2xl text-[14px] font-black uppercase tracking-[0.2em] hover:bg-slate-800 transition-all hover:shadow-2xl shadow-[#101828]/20 active:scale-95 whitespace-nowrap group"
+                                className="flex items-center justify-center gap-4 px-10 py-5 bg-[#101828] text-white rounded-md text-[14px] font-semibold uppercase tracking-[0.2em] hover:bg-slate-800 transition-all hover:shadow-2xl shadow-[#101828]/20 active:scale-95 whitespace-nowrap group"
                             >
                                 <Activity size={18} className="group-hover:rotate-12 transition-transform" />
                                 Employee Reports
@@ -336,7 +342,7 @@ export default function DashboardPage() {
                         <div className="flex flex-col md:flex-row gap-3">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-800 transition-all"
+                                className="flex items-center justify-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-semibold uppercase tracking-[0.15em] hover:bg-slate-800 transition-all"
                             >
                                 <Activity size={16} />
                                 Employee Reports
@@ -347,7 +353,7 @@ export default function DashboardPage() {
                         <div className="flex flex-col md:flex-row gap-3">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-3 px-8 py-3 bg-white text-[#101828] border-2 border-[#E6E8EC] rounded-xl text-[13px] font-black uppercase tracking-[0.15em] hover:bg-slate-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                className="flex items-center justify-center gap-3 px-8 py-3 bg-white text-[#101828] border-2 border-[#E6E8EC] rounded-xl text-[13px] font-semibold uppercase tracking-[0.15em] hover:bg-slate-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
                             >
                                 <History size={16} />
                                 30 Days Report
@@ -362,11 +368,11 @@ export default function DashboardPage() {
                     {user?.role === 'EMPLOYEE' && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md">
-                                    <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-1">Weekly Efficiency (Mon-Fri)</p>
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-5 rounded-md border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md">
+                                    <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-widest mb-1">Weekly Efficiency (Mon-Fri)</p>
                                     <div className="flex items-end justify-between">
                                         <div>
-                                            <h4 className="text-2xl font-black text-[#101828]">
+                                            <h4 className="text-base font-semibold text-[#101828]">
                                                 {report?.weeklySummary?.totalWorked ? formatDuration(report.weeklySummary.totalWorked) : '0.00'}
                                                 <span className="text-[14px] text-slate-400 font-bold ml-1">/ {report?.weeklySummary?.target || 40}h</span>
                                             </h4>
@@ -375,16 +381,16 @@ export default function DashboardPage() {
                                     </div>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-5 rounded-md border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md hover:border-emerald-200">
                                     <div className="flex justify-between items-start mb-1">
-                                        <p className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Today Status</p>
+                                        <p className="text-[11px] font-semibold text-emerald-500 uppercase tracking-widest">Today Status</p>
                                         <div className="flex gap-2">
                                             {/* Manual Punch Buttons Disabled as per Requirement (Biometric Only) */}
                                         </div>
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div className="flex flex-col">
-                                            <h4 className={`text-2xl font-black ${liveData[0]?.currentStatus === 'ABSENT' ? 'text-rose-500' : (liveData[0]?.currentStatus === 'IN' ? 'text-emerald-500' : 'text-indigo-600')}`}>
+                                            <h4 className={`text-base font-semibold ${liveData[0]?.currentStatus === 'ABSENT' ? 'text-rose-500' : (liveData[0]?.currentStatus === 'IN' ? 'text-emerald-500' : 'text-indigo-600')}`}>
                                                 {liveData[0]?.currentStatus || report?.today?.currentStatus || 'ABSENT'}
                                                 {report?.today?.workHours > 0 && (
                                                     <span className="text-[14px] text-slate-400 font-bold ml-2 tracking-normal uppercase">
@@ -402,10 +408,10 @@ export default function DashboardPage() {
                                     </div>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md">
-                                    <p className="text-[11px] font-black text-amber-500 uppercase tracking-widest mb-1">Weekly Presence</p>
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-5 rounded-md border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md">
+                                    <p className="text-[11px] font-semibold text-amber-500 uppercase tracking-widest mb-1">Weekly Presence</p>
                                     <div className="flex items-end justify-between">
-                                        <h4 className="text-2xl font-black text-[#101828]">
+                                        <h4 className="text-base font-semibold text-[#101828]">
                                             {report?.weekly?.filter((d: any) => d.status === 'PRESENT' || d.hours > 0).length || 0}
                                             <span className="text-[14px] text-slate-400 font-bold ml-1">/ 5 Days</span>
                                         </h4>
@@ -413,11 +419,11 @@ export default function DashboardPage() {
                                     </div>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-white p-5 rounded-2xl border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
-                                    <p className="text-[11px] font-black text-indigo-500 uppercase tracking-widest mb-1">Efficiency Review</p>
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-white p-5 rounded-md border border-[#E6E8EC] shadow-sm transition-all hover:shadow-md hover:border-indigo-200">
+                                    <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-widest mb-1">Efficiency Review</p>
                                     <button
                                         onClick={handleDownload30Days}
-                                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
+                                        className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-50 text-indigo-600 rounded-xl text-[11px] font-semibold uppercase tracking-widest hover:bg-indigo-100 transition-all border border-indigo-100"
                                     >
                                         <Download size={14} />
                                         Download PDF
@@ -425,17 +431,17 @@ export default function DashboardPage() {
                                 </motion.div>
                             </div>
 
-                            <div className="bg-white p-8 rounded-[32px] border border-[#E6E8EC] shadow-sm">
+                            <div className="bg-white p-8 rounded-xl border border-[#E6E8EC] shadow-sm">
                                 <div className="flex justify-between items-center mb-8">
                                     <div>
-                                        <h3 className="text-xl font-bold text-[#101828] uppercase tracking-tight">Personal Efficiency Evolution</h3>
+                                        <h3 className="text-base font-bold text-[#101828] uppercase tracking-tight">Personal Efficiency Evolution</h3>
                                         <p className="text-slate-500 text-[13px] font-medium mt-1">Real-time daily working hours trend visualization.</p>
                                     </div>
                                     <LineIcon className="text-indigo-400" size={24} />
                                 </div>
                                 <div className="h-[300px] w-full min-h-[300px]">
                                     <ResponsiveContainer width="100%" height={300}>
-                                        <AreaChart data={report?.weekly || []}>
+                                        <AreaChart data={weeklyChronological}>
                                             <defs>
                                                 <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.1} />
@@ -460,19 +466,19 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-white border border-[#E6E8EC] rounded-[24px] shadow-sm overflow-hidden">
+                            <div className="bg-white border border-[#E6E8EC] rounded-lg shadow-sm overflow-hidden">
                                 <div className="px-8 py-6 border-b border-[#E6E8EC] bg-slate-50/50">
-                                    <h3 className="font-bold text-[14px] text-[#101828] flex items-center gap-2 uppercase tracking-widest font-black">Historical Identity Archive</h3>
+                                    <h3 className="font-bold text-[14px] text-[#101828] flex items-center gap-2 uppercase tracking-widest font-semibold">Historical Identity Archive</h3>
                                 </div>
                                 <div className="overflow-x-auto no-scrollbar">
                                     <table className="w-full text-left">
                                         <thead>
                                             <tr className="bg-slate-50/20 border-b border-[#E6E8EC]">
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Entry Date</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">First Sync</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Final Sync</th>
-                                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Metric</th>
+                                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Entry Date</th>
+                                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">First Sync</th>
+                                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Final Sync</th>
+                                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-right">Metric</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-[#E6E8EC]">
@@ -484,33 +490,33 @@ export default function DashboardPage() {
                                                                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
                                                                     <History size={14} className="text-[#101828]" />
                                                                 </div>
-                                                                <span className="text-[13px] font-black text-[#101828]">{formatDateShort(new Date(day.date))} Log</span>
+                                                                <span className="text-[13px] font-semibold text-[#101828]">{formatDateShort(new Date(day.date))} Log</span>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${['PRESENT', 'FULL DAY', 'FULL_DAY', 'SHORT DAY', 'SHORT_DAY', 'IN', 'OUT', 'ON LEAVE', 'ON_LEAVE', 'ON SITE', 'ON-SITE'].includes(day.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-widest ${['PRESENT', 'FULL DAY', 'FULL_DAY', 'SHORT DAY', 'SHORT_DAY', 'IN', 'OUT', 'ON LEAVE', 'ON_LEAVE', 'ON SITE', 'ON-SITE'].includes(day.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                                                                 {day.status}
                                                             </span>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className="text-[14px] font-black text-[#101828] tabular-nums">{day.checkIn ? formatTime(day.checkIn) : '--:--'}</span>
+                                                            <span className="text-[14px] font-semibold text-[#101828] tabular-nums">{day.checkIn ? formatTime(day.checkIn) : '--:--'}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className="text-[14px] font-black text-[#101828] tabular-nums">{day.checkOut ? formatTime(day.checkOut) : '--:--'}</span>
+                                                            <span className="text-[14px] font-semibold text-[#101828] tabular-nums">{day.checkOut ? formatTime(day.checkOut) : '--:--'}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className="text-[16px] font-black text-[#101828]">{formatDuration(day.hours)} <span className="text-xs font-bold text-slate-400">HRS</span></span>
+                                                            <span className="text-[16px] font-semibold text-[#101828]">{formatDuration(day.hours)} <span className="text-xs font-bold text-slate-400">HRS</span></span>
                                                         </td>
                                                     </tr>
                                                     {expandedRow === day.date && day.punches?.length > 0 && (
                                                         <tr className="bg-slate-50/50">
                                                             <td colSpan={5} className="px-8 py-4 border-t border-slate-100">
                                                                 <div className="flex items-center gap-3 flex-wrap">
-                                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Footprint Detail:</span>
+                                                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Digital Footprint Detail:</span>
                                                                     {day.punches.map((p: any, pi: number) => (
                                                                         <div key={pi} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl shadow-xs">
                                                                             <div className={`w-1.5 h-1.5 rounded-full ${pi % 2 === 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                                                                            <span className="text-[11px] font-black text-[#101828]">{formatTime(p.time)}</span>
+                                                                            <span className="text-[11px] font-semibold text-[#101828]">{formatTime(p.time)}</span>
                                                                             <span className="text-[10px] text-slate-300 font-bold uppercase">{p.label}</span>
                                                                         </div>
                                                                     ))}
@@ -527,48 +533,54 @@ export default function DashboardPage() {
                         </>
                     )}
 
-                    {/* 2. ADMIN DASHBOARD (SUPER_ADMIN, HR, ADMIN) */}
-                    {['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '') && (
+                    {/* 2. ADMIN DASHBOARD (SUPER_ADMIN, HR, ADMIN, ACCOUNTANT) */}
+                    {['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '') && (
                         <>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
                                     <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-900 flex items-center justify-center mb-2">
                                         <UserCheck size={24} />
                                     </div>
-                                    <h3 className="text-4xl font-black text-[#101828]">{stats.present}</h3>
+                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.present}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Present Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
                                     <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center mb-2">
                                         <UserMinus size={24} />
                                     </div>
-                                    <h3 className="text-4xl font-black text-[#101828]">{stats.absent}</h3>
+                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.absent}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Absent Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
+                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
                                     <div className="w-12 h-12 rounded-full bg-slate-300 text-slate-800 flex items-center justify-center mb-2">
                                         <Calendar size={24} />
                                     </div>
-                                    <h3 className="text-4xl font-black text-[#101828]">{pendingLeavesCount}</h3>
+                                    <h3 className="text-2xl font-semibold text-[#101828]">{pendingLeavesCount}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Admin Actions</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }} className="bg-white p-6 rounded-[24px] border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/users')}>
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer"
+                                    onClick={() => router.push('/dashboard/users')}
+                                >
                                     <div className="w-12 h-12 rounded-full bg-slate-50 text-slate-950 flex items-center justify-center mb-2">
                                         <Users size={24} />
                                     </div>
-                                    <h3 className="text-4xl font-black text-[#101828]">{stats.total}</h3>
+                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.total}</h3>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Employess</p>
                                 </motion.div>
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-[32px] border border-[#E6E8EC] shadow-sm">
+                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white p-8 rounded-xl border border-[#E6E8EC] shadow-sm">
                                     <div className="flex justify-between items-center mb-8">
                                         <div>
-                                            <h3 className="text-xl font-black text-[#101828] tracking-[1px]">System Presence Evolution</h3>
+                                            <h3 className="text-base font-semibold text-[#101828] tracking-[1px]">System Presence Evolution</h3>
                                             <p className="text-[13px] font-medium text-slate-500 mt-1">Weekly identity sync and presence lifecycle trend.</p>
                                         </div>
                                         <BarChart3 style={{ color: CHART_MONO_COLORS.icon }} size={24} />
@@ -591,10 +603,10 @@ export default function DashboardPage() {
                                     </div>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-8 rounded-[32px] border border-[#E6E8EC] shadow-sm">
+                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white p-8 rounded-xl border border-[#E6E8EC] shadow-sm">
                                     <div className="flex justify-between items-center mb-8">
                                         <div>
-                                            <h3 className="text-xl font-black text-[#101828] tracking-[1px]">Workforce Stratification</h3>
+                                            <h3 className="text-base font-semibold text-[#101828] tracking-[1px]">Workforce Stratification</h3>
                                             <p className="text-[13px] font-medium text-slate-500 mt-1">Real-time digital resource allocation.</p>
                                         </div>
                                         <PieIcon style={{ color: CHART_MONO_COLORS.icon }} size={24} />
@@ -634,9 +646,9 @@ export default function DashboardPage() {
                                                 <div key={i} className="flex flex-col">
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <div className={`w-2 h-2 rounded-full ${item.color}`} />
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.label}</span>
+                                                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">{item.label}</span>
                                                     </div>
-                                                    <span className="text-xl font-black text-[#101828] leading-none">{item.val || 0}%</span>
+                                                    <span className="text-base font-semibold text-[#101828] leading-none">{item.val || 0}%</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -661,11 +673,11 @@ export default function DashboardPage() {
                                 initial={{ scale: 0.9, opacity: 0, y: 20 }}
                                 animate={{ scale: 1, opacity: 1, y: 0 }}
                                 exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                                className="bg-white rounded-[32px] w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
+                                className="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col"
                             >
                                 <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-[#101828] text-white">
                                     <div>
-                                        <h2 className="text-2xl font-bold tracking-tight">Employee Attendance Report</h2>
+                                        <h2 className="text-base font-bold tracking-tight">Employee Attendance Report</h2>
                                         <p className="text-white/70 text-sm font-medium mt-1">
                                             {complianceMeta?.month || 'Loading...'} &bull; Monthly Attendance and Export
                                         </p>
@@ -679,11 +691,11 @@ export default function DashboardPage() {
                                     </button>
                                 </div>
 
-                                <div className="flex-grow overflow-hidden flex flex-row">
-                                    <div className="w-[300px] border-r border-slate-100 bg-slate-50/50 flex flex-col p-6 overflow-y-auto no-scrollbar">
+                                <div className="flex-grow overflow-hidden flex flex-col lg:flex-row">
+                                    <div className="w-full lg:w-[300px] lg:border-r border-b lg:border-b-0 border-slate-100 bg-slate-50/50 flex flex-col p-4 md:p-6 overflow-y-auto no-scrollbar max-h-[40vh] lg:max-h-full">
                                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Filters</p>
                                         <div className="mb-8 space-y-3">
-                                            <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all hover:border-indigo-200">
+                                            <div className="p-4 bg-white rounded-md border border-slate-100 shadow-sm transition-all hover:border-indigo-200">
                                                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-2">Select Month</p>
                                                 <input
                                                     type="month"
@@ -780,7 +792,7 @@ export default function DashboardPage() {
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 text-center">
-                                                                <p className={`text-[14px] font-black ${parseFloat(row.TotalWorkedHours) === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
+                                                                <p className={`text-[14px] font-semibold ${parseFloat(row.TotalWorkedHours) === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
                                                                     {row.TotalWorkedHours} h
                                                                     {parseFloat(row.TotalWorkedHours) === 0 && row.Status !== 'WEEKEND' && row.Status !== 'HOLIDAY' && (
                                                                         <span className="block text-[9px] font-bold text-rose-400 uppercase tracking-tighter mt-0.5">Missing Sync</span>
@@ -802,7 +814,7 @@ export default function DashboardPage() {
                                                                     className={`inline-flex flex-col items-center px-4 py-2 rounded-xl border ${parseFloat(row.WeeklyVariance) >= 0 ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm shadow-emerald-500/5' : 'bg-rose-50 border-rose-100 text-rose-700 shadow-sm shadow-rose-500/5'}`}
                                                                     title="Balance is calculated as Weekly Actual - Weekly Target (8.5h/day)"
                                                                 >
-                                                                    <div className="flex items-center gap-1.5 font-black text-[14px]">
+                                                                    <div className="flex items-center gap-1.5 font-semibold text-[14px]">
                                                                         {parseFloat(row.WeeklyVariance) > 0 ? <TrendingUp size={14} /> : (parseFloat(row.WeeklyVariance) < 0 ? <AlertCircle size={14} /> : null)}
                                                                         {parseFloat(row.WeeklyVariance) > 0 ? '+' : ''}{row.WeeklyVariance}h
                                                                     </div>

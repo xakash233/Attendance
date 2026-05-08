@@ -45,10 +45,14 @@ export default function DepartmentsPage() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newDept.trim()) return;
+        const normalizedName = newDept.trim();
+        if (!normalizedName) {
+            toast.error('Department name cannot be empty or spaces only.');
+            return;
+        }
         setIsCreating(true);
         try {
-            await api.post('/departments', { name: newDept });
+            await api.post('/departments', { name: normalizedName });
             toast.success(`Department created`);
             setNewDept('');
             setIsModalOpen(false);
@@ -62,10 +66,14 @@ export default function DepartmentsPage() {
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editName.trim() || !editingDept) return;
+        const normalizedName = editName.trim();
+        if (!normalizedName || !editingDept) {
+            toast.error('Department name cannot be empty or spaces only.');
+            return;
+        }
         setIsCreating(true);
         try {
-            await api.put(`/departments/${editingDept.id}`, { name: editName });
+            await api.put(`/departments/${editingDept.id}`, { name: normalizedName });
             toast.success('Department updated');
             setEditingDept(null);
             fetchDepts();
@@ -244,7 +252,7 @@ export default function DepartmentsPage() {
             {/* Department Creation Modal */}
             {mounted && isModalOpen && createPortal(
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
-                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
+                    <div className="bg-white max-w-lg w-full rounded-md shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
                             <div className="space-y-1">
                                 <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Create Department</h2>
@@ -289,7 +297,7 @@ export default function DepartmentsPage() {
             {/* Department Edit Modal */}
             {mounted && editingDept && createPortal(
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
-                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
+                    <div className="bg-white max-w-lg w-full rounded-md shadow-2xl scale-100 animate-in zoom-in-95 duration-200 overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center">
                             <div className="space-y-1">
                                 <h2 className="text-[18px] font-semibold text-[#101828] leading-none">Edit Department</h2>

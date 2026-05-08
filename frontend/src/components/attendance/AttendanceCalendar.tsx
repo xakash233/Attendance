@@ -185,7 +185,7 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
         <div className="space-y-3 animate-fade-in w-full max-w-3xl mx-auto">
 
             {/* Calendar UI - Compact & Technical */}
-            <div className="bg-white p-4 rounded-[18px] border border-[#f1f5f9] shadow-sm">
+            <div className="bg-white p-4 rounded-md border border-[#f1f5f9] shadow-sm">
                 <div className="flex justify-between items-center mb-5">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center shadow-lg shadow-black/10">
@@ -199,11 +199,19 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handlePrevMonth} className="p-2 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-lg border border-slate-100 transition-all active:scale-95 shadow-sm">
-                            <ChevronLeft size={15} strokeWidth={2.5} />
+                        <button
+                            onClick={handlePrevMonth}
+                            aria-label="Previous month"
+                            className="h-10 w-10 inline-flex items-center justify-center bg-white hover:bg-slate-50 text-[#475467] hover:text-[#101828] rounded-lg border border-[#D0D5DD] transition-all active:scale-95 shadow-sm"
+                        >
+                            <ChevronLeft size={18} strokeWidth={2.75} />
                         </button>
-                        <button onClick={handleNextMonth} className="p-2 bg-white hover:bg-slate-50 text-slate-300 hover:text-black rounded-lg border border-slate-100 transition-all active:scale-95 shadow-sm">
-                            <ChevronRight size={15} strokeWidth={2.5} />
+                        <button
+                            onClick={handleNextMonth}
+                            aria-label="Next month"
+                            className="h-10 w-10 inline-flex items-center justify-center bg-white hover:bg-slate-50 text-[#475467] hover:text-[#101828] rounded-lg border border-[#D0D5DD] transition-all active:scale-95 shadow-sm"
+                        >
+                            <ChevronRight size={18} strokeWidth={2.75} />
                         </button>
                     </div>
                 </div>
@@ -245,7 +253,7 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                 </div>
 
                 {/* Legend - Detailed & User-Centric */}
-                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 mt-5 pt-4 border-t border-slate-50">
+                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 mt-5 pt-4 border-t border-slate-50">
                     {[
                         { color: 'bg-[#10b981]', label: 'Present' },
                         { color: 'bg-[#f59e0b]', label: 'Late / Partial' },
@@ -253,9 +261,9 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                         { color: 'bg-[#f87171] opacity-40', label: 'Absent' },
                         { color: 'bg-slate-200', label: 'Off / Holiday' }
                     ].map((item, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${item.color} shadow-sm`}></div>
-                            <span className="text-[9px] font-black text-[#667085] uppercase tracking-[0.14em]">
+                        <div key={i} className="flex items-center gap-2.5">
+                            <div className={`w-2.5 h-2.5 rounded-full ${item.color} shadow-sm`}></div>
+                            <span className="text-[11px] font-semibold text-[#475467] uppercase tracking-[0.12em] leading-none">
                                 {item.label}
                             </span>
                         </div>
@@ -264,7 +272,7 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
 
                 {selectedDateCell && (
                     <div className="mt-4 p-3.5 rounded-xl border border-[#E6E8EC] bg-slate-50/50">
-                        <p className="text-[10px] font-black text-[#667085] uppercase tracking-[0.14em] mb-1.5">
+                        <p className="text-[10px] font-semibold text-[#667085] uppercase tracking-[0.14em] mb-1.5">
                             {new Date(`${selectedDateCell.dateStr}T00:00:00.000Z`).toLocaleDateString('en-US', {
                                 weekday: 'long',
                                 day: 'numeric',
@@ -275,19 +283,19 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
-                                <p className="text-[14px] font-black text-[#101828]">
+                                <p className="text-[14px] font-semibold text-[#101828]">
                                     {(selectedDateCell.log?.status || 'NO DATA').toString().replace(/_/g, ' ')}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Worked Time</p>
-                                <p className="text-[14px] font-black text-[#101828]">
+                                <p className="text-[14px] font-semibold text-[#101828]">
                                     {formatWorkedHours(selectedDateCell.log?.workingHours)} HRS
                                 </p>
                             </div>
                             <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check In / Out</p>
-                                <p className="text-[14px] font-black text-[#101828]">
+                                <p className="text-[14px] font-semibold text-[#101828]">
                                     {formatPunchTime(selectedDateCell.log?.checkIn)} - {formatPunchTime(selectedDateCell.log?.checkOut)}
                                 </p>
                             </div>

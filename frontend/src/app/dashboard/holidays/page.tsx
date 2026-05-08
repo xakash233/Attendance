@@ -103,7 +103,7 @@ export default function HolidaysPage() {
                 className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
                 <div>
-                    <h1 className="text-[28px] font-black text-[#101828] tracking-tight leading-tight mb-1">
+                    <h1 className="text-[28px] font-semibold text-[#101828] tracking-tight leading-tight mb-1">
                         Annual Holiday Calendar
                     </h1>
                     <p className="text-[14px] font-medium text-[#667085]">
@@ -140,15 +140,15 @@ export default function HolidaysPage() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mb-8 bg-white border border-[#E6E8EC] rounded-[24px] p-6 shadow-sm overflow-hidden"
+                        className="mb-8 bg-white border border-[#E6E8EC] rounded-lg p-6 shadow-sm overflow-hidden"
                     >
-                        <h3 className="text-sm font-black text-[#101828] uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-[#101828] uppercase tracking-widest mb-4 flex items-center gap-2">
                             <CalendarCheck size={16} className="text-indigo-500" />
                             Add New Official Holiday
                         </h3>
                         <form onSubmit={handleAddHoliday} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                             <div>
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">Date</label>
+                                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest block mb-2">Date</label>
                                 <input
                                     type="date"
                                     required
@@ -158,7 +158,7 @@ export default function HolidaysPage() {
                                 />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">Holiday Title</label>
+                                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest block mb-2">Holiday Title</label>
                                 <input
                                     type="text"
                                     required
@@ -186,11 +186,11 @@ export default function HolidaysPage() {
                     <Loader2 className="w-10 h-10 animate-spin text-slate-300" />
                 </div>
             ) : holidays.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-slate-200 rounded-[32px] p-20 text-center flex flex-col items-center">
+                <div className="bg-white border-2 border-dashed border-slate-200 rounded-xl p-20 text-center flex flex-col items-center">
                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                         <CalendarIcon size={32} className="text-slate-300" />
                     </div>
-                    <h2 className="text-xl font-black text-[#101828] mb-2">No Holidays Declared</h2>
+                    <h2 className="text-base font-semibold text-[#101828] mb-2">No Holidays Declared</h2>
                     <p className="text-slate-500 max-w-sm">No official holidays have been set for {selectedYear}. Adding holidays ensures proper tracking of working hours offsets.</p>
                 </div>
             ) : (
@@ -203,11 +203,11 @@ export default function HolidaysPage() {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: idx * 0.1 }}
-                                className="bg-white border border-[#E6E8EC] rounded-[24px] overflow-hidden shadow-sm"
+                                className="bg-white border border-[#E6E8EC] rounded-lg overflow-hidden shadow-sm"
                             >
                                 <div className="bg-[#101828] px-6 py-4 flex justify-between items-center">
-                                    <h3 className="text-base font-black text-white uppercase tracking-wider">{monthData.name}</h3>
-                                    <span className="bg-white/10 text-white text-[10px] font-black px-2.5 py-1 rounded-md uppercase tracking-widest">
+                                    <h3 className="text-base font-semibold text-white uppercase tracking-wider">{monthData.name}</h3>
+                                    <span className="bg-white/10 text-white text-[10px] font-semibold px-2.5 py-1 rounded-md uppercase tracking-widest">
                                         {monthData.days.length} Days
                                     </span>
                                 </div>
@@ -221,8 +221,8 @@ export default function HolidaysPage() {
                                             <div key={h.id} className="p-5 flex justify-between items-center hover:bg-slate-50 transition-colors group">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-xl bg-indigo-50 border border-indigo-100 flex flex-col items-center justify-center text-indigo-700">
-                                                        <span className="text-[10px] uppercase font-black tracking-widest">{weekday}</span>
-                                                        <span className="text-lg font-black leading-none mt-0.5">{day}</span>
+                                                        <span className="text-[10px] uppercase font-semibold tracking-widest">{weekday}</span>
+                                                        <span className="text-base font-semibold leading-none mt-0.5">{day}</span>
                                                     </div>
                                                     <div>
                                                         <h4 className="text-[14px] font-bold text-[#101828] mb-0.5">{h.name}</h4>

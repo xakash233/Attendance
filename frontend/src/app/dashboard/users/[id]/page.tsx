@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 export default function EmployeeProfileView() {
     const { id } = useParams();
     const router = useRouter();
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, setUser } = useAuth();
     const [employee, setEmployee] = useState<any>(null);
     const [departments, setDepartments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -42,6 +42,23 @@ export default function EmployeeProfileView() {
             }));
         }
     }, [employee]);
+
+    const syncAuthUserIfSelf = (updatedUser: any) => {
+        if (!updatedUser || !currentUser) return;
+        if (currentUser.id !== updatedUser.id) return;
+
+        setUser((prev) => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                name: updatedUser.name ?? prev.name,
+                email: updatedUser.email ?? prev.email,
+                employeeCode: updatedUser.employeeCode ?? prev.employeeCode,
+                department: updatedUser.department ?? prev.department,
+                profileImage: updatedUser.profileImage ?? prev.profileImage
+            };
+        });
+    };
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -99,6 +116,7 @@ export default function EmployeeProfileView() {
             // Refresh data
             const updated = await api.get(`/users/${id}`);
             setEmployee(updated.data);
+            syncAuthUserIfSelf(updated.data);
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Update failed');
         } finally {
@@ -117,6 +135,7 @@ export default function EmployeeProfileView() {
             setOtpInput('');
             const updated = await api.get(`/users/${id}`);
             setEmployee(updated.data);
+            syncAuthUserIfSelf(updated.data);
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Verification failed');
         } finally {
@@ -175,7 +194,7 @@ export default function EmployeeProfileView() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Profile Card */}
-                <div className="lg:col-span-4 space-y-4">
+                <div className="lg:col-span-5 xl:col-span-4 space-y-4">
                     <div className="card p-5 flex flex-col items-center text-center border-[#E6E8EC] bg-white">
                         <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-white shadow-md relative mb-3">
                             <Image src={userAvatarUrl} alt={employee.name} fill style={{ objectFit: 'cover' }} unoptimized />
@@ -197,22 +216,39 @@ export default function EmployeeProfileView() {
                                 <p className="text-[12px] font-medium text-[#667085]">Department</p>
                                 <p className="text-[14px] font-medium text-[#101828]">{employee.department?.name || 'Unassigned'}</p>
                             </div>
+                            <div className="pt-2 border-t border-[#E6E8EC] flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-[12px] font-medium text-[#667085]">Employee ID</p>
+                                    <p className="text-[15px] font-semibold text-[#101828]">{employee.employeeCode || 'N/A'}</p>
+                                </div>
+                                <div className="w-9 h-9 bg-[#F8F9FB] border border-[#E6E8EC] rounded-lg flex items-center justify-center text-[#667085]">
+                                    <Hash size={16} />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="card p-4 border-[#E6E8EC] bg-white flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-[12px] font-medium text-[#667085]">Employee ID</p>
-                            <p className="text-[16px] font-semibold text-[#101828]">{employee.employeeCode || 'N/A'}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
+                        <div className="card p-5 border-[#E6E8EC] bg-white flex items-center justify-between">
+                            <div>
+                                <h5 className="text-[12px] font-medium text-[#667085] mb-1">Status</h5>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm" />
+                                    <p className="text-[14px] font-semibold text-[#101828]">Active</p>
+                                </div>
+                            </div>
                         </div>
-                        <div className="w-10 h-10 bg-[#F8F9FB] border border-[#E6E8EC] rounded-lg flex items-center justify-center text-[#667085]">
-                            <Hash size={18} />
+                        <div className="card p-5 border-[#E6E8EC] bg-white flex items-center justify-between">
+                            <div>
+                                <h5 className="text-[12px] font-medium text-[#667085] mb-1">Last Active</h5>
+                                <p className="text-[14px] font-semibold text-[#101828]">Today</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Main Content */}
-                <div className="lg:col-span-8 space-y-6">
+                <div className="lg:col-span-7 xl:col-span-8 space-y-6">
                     {employee.role !== 'SUPER_ADMIN' && (
                         <div className="card p-6 border-[#E6E8EC] bg-white">
                             <div className="flex items-center gap-3 mb-6">
@@ -240,51 +276,49 @@ export default function EmployeeProfileView() {
                                 });
 
                                 const balanceEntries = Array.isArray(employee?.leaveBalances) ? employee.leaveBalances : [];
-                                const totalAllocatedFromBalance = balanceEntries.reduce(
-                                    (sum: number, entry: any) => sum + (Number(entry.totalDays) || 0),
-                                    0
-                                );
-                                const totalRemainingFromBalance = balanceEntries.reduce(
-                                    (sum: number, entry: any) => sum + (Number(entry.remainingDays) || 0),
+                                const usedFromBalanceRecords = balanceEntries.reduce(
+                                    (sum: number, entry: any) => sum + (Number(entry.used) || 0),
                                     0
                                 );
 
-                                const allocated = totalAllocatedFromBalance || Number(systemSettings?.totalLeaveAllocation) || 18;
-                                const used = Number((allocated - totalRemainingFromBalance).toFixed(1));
-                                const remaining = Number((allocated - used).toFixed(1));
+                                const usedFromApprovedLeaves = SL + CL + PL + HD;
+                                const allocated = Number(systemSettings?.totalLeaveAllocation) || 18;
+                                const usedSource = usedFromBalanceRecords > 0 ? usedFromBalanceRecords : usedFromApprovedLeaves;
+                                const used = Number(usedSource.toFixed(1));
+                                const remaining = Number(Math.max(0, allocated - used).toFixed(1));
 
                                 return (
                                     <div className="border border-[#E6E8EC] rounded-xl overflow-hidden shadow-sm">
                                         <div className="grid grid-cols-3 divide-x divide-[#E6E8EC] border-b border-[#E6E8EC]">
-                                            <div className="p-4 bg-[#F8F9FB] text-center">
-                                                <p className="text-[11px] font-black text-[#667085] uppercase tracking-widest mb-1">Total Allocated</p>
+                                            <div className="p-4 bg-slate-50 text-center">
+                                                <p className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mb-1">Total Allocated</p>
                                                 <p className="text-[20px] font-bold text-[#101828]">{allocated.toFixed(1)}</p>
                                             </div>
-                                            <div className="p-4 bg-rose-50/50 text-center">
-                                                <p className="text-[11px] font-black text-rose-500 uppercase tracking-widest mb-1">Leaves Used</p>
+                                            <div className="p-4 bg-rose-50 text-center">
+                                                <p className="text-[11px] font-semibold text-rose-500 uppercase tracking-widest mb-1">Leaves Used</p>
                                                 <p className="text-[20px] font-bold text-rose-600">{used.toFixed(1)}</p>
                                             </div>
-                                            <div className="p-4 bg-emerald-50/50 text-center">
-                                                <p className="text-[11px] font-black text-emerald-600 uppercase tracking-widest mb-1">Leaves Remaining</p>
+                                            <div className="p-4 bg-emerald-50 text-center">
+                                                <p className="text-[11px] font-semibold text-emerald-600 uppercase tracking-widest mb-1">Leaves Remaining</p>
                                                 <p className="text-[20px] font-bold text-emerald-700">{remaining.toFixed(1)}</p>
                                             </div>
                                         </div>
                                         <div className="bg-white p-4">
                                             <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown</p>
                                             <div className="grid grid-cols-4 gap-2">
-                                                <div className="p-3 border border-indigo-100 bg-indigo-50/50 rounded-lg text-center">
+                                                <div className="p-3 border border-indigo-100 bg-indigo-50 rounded-lg text-center">
                                                     <p className="text-[11px] font-bold text-indigo-500 uppercase">Sick (SL)</p>
                                                     <p className="text-[15px] font-semibold text-indigo-700 mt-0.5">{SL.toFixed(1)}</p>
                                                 </div>
-                                                <div className="p-3 border border-amber-100 bg-amber-50/50 rounded-lg text-center">
+                                                <div className="p-3 border border-amber-100 bg-amber-50 rounded-lg text-center">
                                                     <p className="text-[11px] font-bold text-amber-500 uppercase">Casual (CL)</p>
                                                     <p className="text-[15px] font-semibold text-amber-700 mt-0.5">{CL.toFixed(1)}</p>
                                                 </div>
-                                                <div className="p-3 border border-rose-100 bg-rose-50/50 rounded-lg text-center">
+                                                <div className="p-3 border border-rose-100 bg-rose-50 rounded-lg text-center">
                                                     <p className="text-[11px] font-bold text-rose-500 uppercase">Paid (PL)</p>
                                                     <p className="text-[15px] font-semibold text-rose-700 mt-0.5">{PL.toFixed(1)}</p>
                                                 </div>
-                                                <div className="p-3 border border-blue-100 bg-blue-50/50 rounded-lg text-center">
+                                                <div className="p-3 border border-blue-100 bg-blue-50 rounded-lg text-center">
                                                     <p className="text-[11px] font-bold text-blue-500 uppercase">Half D. (HD)</p>
                                                     <p className="text-[15px] font-semibold text-blue-700 mt-0.5">{HD.toFixed(1)}</p>
                                                 </div>
@@ -314,30 +348,13 @@ export default function EmployeeProfileView() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="card p-6 border-[#E6E8EC] bg-white flex items-center justify-between">
-                            <div>
-                                <h5 className="text-[12px] font-medium text-[#667085] mb-1">Status</h5>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-sm" />
-                                    <p className="text-[14px] font-semibold text-[#101828]">Active</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="card p-6 border-[#E6E8EC] bg-white flex items-center justify-between">
-                            <div>
-                                <h5 className="text-[12px] font-medium text-[#667085] mb-1">Last Active</h5>
-                                <p className="text-[14px] font-semibold text-[#101828]">Today</p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
             {/* Edit Modal */}
             {mounted && isEditModalOpen && createPortal(
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in" style={{ marginLeft: 0 }}>
-                    <div className="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-0 overflow-hidden border border-[#E6E8EC]">
+                    <div className="bg-white max-w-lg w-full rounded-md shadow-2xl p-0 overflow-hidden border border-[#E6E8EC]">
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
                                 <h3 className="text-[18px] font-semibold text-[#101828] leading-none">
@@ -355,7 +372,7 @@ export default function EmployeeProfileView() {
                         {editStep === 1 ? (
                             <form onSubmit={handleUpdate} className="p-6 space-y-5">
                                 <div className="space-y-1.5">
-                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Full Name</label>
+                                    <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Full Name</label>
                                     <input 
                                         type="text" 
                                         className="input-field" 
@@ -365,7 +382,7 @@ export default function EmployeeProfileView() {
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Email Address</label>
+                                    <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Email Address</label>
                                     <input 
                                         type="email" 
                                         className="input-field" 
@@ -376,7 +393,7 @@ export default function EmployeeProfileView() {
                                     <p className="text-[11px] text-slate-400 font-medium">* Changing email triggers a security OTP flow.</p>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-[12px] font-black text-[#667085] uppercase tracking-widest ml-1">Department Unit</label>
+                                    <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Department Unit</label>
                                     <div className="relative">
                                         <select 
                                             className="input-field appearance-none pr-10" 
@@ -411,7 +428,7 @@ export default function EmployeeProfileView() {
                                 </div>
                                 <input 
                                     type="text" 
-                                    className="input-field text-center text-3xl font-black tracking-widest py-4" 
+                                    className="input-field text-center text-base font-semibold tracking-widest py-4" 
                                     placeholder="000000"
                                     value={otpInput}
                                     onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}

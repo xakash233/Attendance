@@ -19,9 +19,13 @@ export const getDepartments = async (req, res, next) => {
 // @access  Private (SUPER_ADMIN)
 export const createDepartment = async (req, res, next) => {
     const { name } = req.body;
+    const normalizedName = String(name || '').trim();
+    if (!normalizedName) {
+        return res.status(400).json({ message: 'Department name cannot be empty or spaces only.' });
+    }
     try {
         const department = await prisma.department.create({
-            data: { name }
+            data: { name: normalizedName }
         });
         res.status(201).json(department);
     } catch (error) {
@@ -70,10 +74,14 @@ export const deleteDepartment = async (req, res, next) => {
 // @access  Private (SUPER_ADMIN, ADMIN)
 export const updateDepartment = async (req, res, next) => {
     const { name } = req.body;
+    const normalizedName = String(name || '').trim();
+    if (!normalizedName) {
+        return res.status(400).json({ message: 'Department name cannot be empty or spaces only.' });
+    }
     try {
         const department = await prisma.department.update({
             where: { id: req.params.id },
-            data: { name }
+            data: { name: normalizedName }
         });
         res.json(department);
     } catch (error) {

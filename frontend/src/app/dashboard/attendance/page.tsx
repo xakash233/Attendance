@@ -107,7 +107,7 @@ export default function AttendancePage() {
     if (!['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '')) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                <p className="text-[#101828] font-bold text-lg">Unauthorized Access.</p>
+                <p className="text-[#101828] font-bold text-base">Unauthorized Access.</p>
             </div>
         );
     }
@@ -131,12 +131,12 @@ export default function AttendancePage() {
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-100 bg-emerald-50">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">Live</span>
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Live</span>
                         </div>
-                        <span className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+                        <span className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
                             On-Site {liveStats.present}
                         </span>
-                        <span className="px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-100 text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                        <span className="px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-100 text-[10px] font-semibold text-slate-700 uppercase tracking-wider">
                             Checked Out {liveStats.checkedOut}
                         </span>
                     </div>
@@ -150,7 +150,7 @@ export default function AttendancePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="bg-white border border-[#E6E8EC] rounded-[24px] shadow-sm overflow-hidden"
+                className="bg-white border border-[#E6E8EC] rounded-lg shadow-sm overflow-hidden"
             >
                 <div className="px-6 md:px-8 py-4 border-b border-[#E6E8EC] bg-white">
                     <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
@@ -192,11 +192,11 @@ export default function AttendancePage() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50/20 border-b border-[#E6E8EC]">
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">Employee</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Check In</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-center">Last Out</th>
-                                <th className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Employee</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Check In</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Last Out</th>
+                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
@@ -232,39 +232,39 @@ export default function AttendancePage() {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex flex-col items-center gap-1">
                                                     {emp.currentStatus === 'IN' ? (
-                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-semibold uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
                                                             {emp.isWfh ? 'Working (WFH)' : 'Working (On-Site)'}
                                                         </span>
                                                     ) : emp.currentStatus === 'ABSENT' ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-50 text-neutral-400 rounded-full border border-neutral-100 text-[10px] font-black uppercase tracking-widest opacity-60">
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-50 text-neutral-400 rounded-full border border-neutral-100 text-[10px] font-semibold uppercase tracking-widest opacity-60">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" /> Not Checked In
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[10px] font-black uppercase tracking-widest">
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[10px] font-semibold uppercase tracking-widest">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-neutral-400" /> {emp.isWfh ? 'Checked Out (WFH)' : 'Checked Out'}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-[14px] font-black text-[#101828] tabular-nums tracking-tighter">
+                                                <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
                                                     {emp.firstPunch ? formatTime(emp.firstPunch).split(' ')[0] : '--:--'}
                                                     <span className="text-[10px] ml-1 uppercase opacity-40">{emp.firstPunch ? formatTime(emp.firstPunch).split(' ')[1] : ''}</span>
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
-                                                <span className="text-[14px] font-black text-[#101828] tabular-nums tracking-tighter">
+                                                <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
                                                     {emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[0] : '--:--'}
                                                     <span className="text-[10px] ml-1 uppercase opacity-40">{emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[1] : ''}</span>
                                                 </span>
                                             </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <span className="text-[18px] font-black text-[#101828]">
+                                                    <span className="text-[18px] font-semibold text-[#101828]">
                                                         {formatDuration(emp.totalHours)}
                                                     </span>
                                                     {emp.punchesCount % 2 !== 0 && (
-                                                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-tighter mt-1 animate-pulse">
+                                                        <p className="text-[9px] font-semibold text-amber-600 uppercase tracking-tighter mt-1 animate-pulse">
                                                             Ongoing Session
                                                         </p>
                                                     )}
@@ -282,9 +282,9 @@ export default function AttendancePage() {
                                                         <span className="font-semibold text-[#101828]">{getReadableStatus(emp)}</span>
                                                     </div>
                                                     <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-4 mt-2">
-                                                        <span className="text-[11px] font-black text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>
+                                                        <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>
                                                         {emp.punches?.map((punchIso: string, idx: number) => (
-                                                            <span key={idx} className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                                            <span key={idx} className={`text-[10px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                                                                 {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso).split(' ')[0]}
                                                             </span>
                                                         ))}

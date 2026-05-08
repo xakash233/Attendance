@@ -4,8 +4,97 @@ import auditService from '../audit/auditService.js';
 import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
 import calculateAttendance from '../../utils/attendanceCalculator.js';
+import bcrypt from 'bcryptjs';
 
 class BiometricService {
+    calculateWorkedHoursFromBounds(firstPunch, lastPunch, dateStr) {
+        if (!firstPunch || !lastPunch || lastPunch <= firstPunch) {
+            return 0;
+        }
+
+        const totalMs = lastPunch.getTime() - firstPunch.getTime();
+        const lunchStart = new Date(`${dateStr}T13:00:00.000+05:30`);
+        const lunchEnd = new Date(`${dateStr}T14:00:00.000+05:30`);
+
+        const overlapStart = Math.max(firstPunch.getTime(), lunchStart.getTime());
+        const overlapEnd = Math.min(lastPunch.getTime(), lunchEnd.getTime());
+        const lunchOverlapMs = Math.max(0, overlapEnd - overlapStart);
+
+        const netMs = Math.max(0, totalMs - lunchOverlapMs);
+        return netMs / (1000 * 60 * 60);
+    }
+
+    normalizeEmployeeCode(code) {
+        return String(code || '').trim();
+    }
+
+    sanitizeDisplayName(name, fallbackCode) {
+        const normalizedName = String(name || '').trim();
+        if (normalizedName) {
+            return normalizedName;
+        }
+        return `Employee ${fallbackCode}`;
+    }
+
+    buildDefaultEmail(employeeCode) {
+        return `${employeeCode}@essl.local`;
+    }
+
+    async ensureUsersExistFromRecords(records) {
+        const normalizedRecords = (records || [])
+            .map((record) => ({
+                employeeCode: this.normalizeEmployeeCode(record.employeeCode),
+                employeeName: this.sanitizeDisplayName(record.employeeName, this.normalizeEmployeeCode(record.employeeCode))
+            }))
+            .filter((record) => record.employeeCode);
+
+        const uniqueByCode = new Map();
+        for (const record of normalizedRecords) {
+            if (!uniqueByCode.has(record.employeeCode)) {
+                uniqueByCode.set(record.employeeCode, record);
+            }
+        }
+
+        const incomingCodes = [...uniqueByCode.keys()];
+        if (incomingCodes.length === 0) {
+            return 0;
+        }
+
+        const existingUsers = await prisma.user.findMany({
+            where: { employeeCode: { in: incomingCodes } },
+            select: { employeeCode: true }
+        });
+
+        const existingCodes = new Set(existingUsers.map((user) => user.employeeCode));
+        const usersToCreate = incomingCodes
+            .filter((employeeCode) => !existingCodes.has(employeeCode))
+            .map((employeeCode) => ({
+                employeeCode,
+                name: uniqueByCode.get(employeeCode).employeeName
+            }));
+
+        if (usersToCreate.length === 0) {
+            return 0;
+        }
+
+        const defaultPasswordHash = await bcrypt.hash('Password@123', 10);
+        const createPayload = usersToCreate.map((user) => ({
+            email: this.buildDefaultEmail(user.employeeCode),
+            password: defaultPasswordHash,
+            name: user.name,
+            employeeCode: user.employeeCode,
+            role: 'EMPLOYEE',
+            needsPasswordChange: true
+        }));
+
+        await prisma.user.createMany({
+            data: createPayload,
+            skipDuplicates: true
+        });
+
+        return usersToCreate.length;
+    }
+
     /**
      * Process biometric sync data from file upload or raw array
      * @param {Array} rawRecords Array of raw records (if using JSON payload direct)
@@ -48,8 +137,10 @@ class BiometricService {
         let failCount = 0;
         const processedSignatures = new Set(); // For idempotency in the current batch
 
+        const createdUsersCount = await this.ensureUsersExistFromRecords(recordsToProcess);
+
         // Optimization: Pre-fetch all relevant users in one query
-        const employeeCodes = [...new Set(recordsToProcess.map(r => r.employeeCode))];
+        const employeeCodes = [...new Set(recordsToProcess.map(r => this.normalizeEmployeeCode(r.employeeCode)).filter(Boolean))];
         const users = await prisma.user.findMany({
             where: { employeeCode: { in: employeeCodes } },
             select: { id: true, employeeCode: true }
@@ -168,7 +259,8 @@ class BiometricService {
             status: finalStatus,
             totalProcessed: successCount + failCount,
             successCount,
-            failCount
+            failCount,
+            createdUsersCount
         };
     }
 
@@ -188,30 +280,12 @@ class BiometricService {
 
             console.log(`[BiometricService] Found ${users.data.length} users on device. Syncing to DB...`);
 
-            let createdCount = 0;
-            for (const deviceUser of users.data) {
-                const employeeCode = deviceUser.uid.toString();
-                
-                // Check if user already exists
-                const existing = await prisma.user.findUnique({
-                    where: { employeeCode }
-                });
-
-                if (!existing) {
-                    // Create a placeholder user
-                    await prisma.user.create({
-                        data: {
-                            email: `${employeeCode}@tectratechnologies.com`,
-                            password: 'Password@123', // Default password
-                            name: deviceUser.name || `User ${employeeCode}`,
-                            employeeCode: employeeCode,
-                            role: 'EMPLOYEE',
-                            needsPasswordChange: true
-                        }
-                    });
-                    createdCount++;
-                }
-            }
+            const createdCount = await this.ensureUsersExistFromRecords(
+                users.data.map((deviceUser) => ({
+                    employeeCode: this.normalizeEmployeeCode(deviceUser.uid),
+                    employeeName: this.sanitizeDisplayName(deviceUser.name, this.normalizeEmployeeCode(deviceUser.uid))
+                }))
+            );
 
             return {
                 success: true,
@@ -245,10 +319,18 @@ class BiometricService {
 
             // 2. Fetch logs from device
             const logs = await zkInstance.getAttendances();
+            const users = await zkInstance.getUsers();
 
             if (!logs || !logs.data || !logs.data.length) {
                 return { success: false, message: 'No logs found on device or error fetching logs.' };
             }
+
+            const deviceUserMap = new Map(
+                ((users && users.data) || []).map((deviceUser) => [
+                    this.normalizeEmployeeCode(deviceUser.uid),
+                    this.sanitizeDisplayName(deviceUser.name, this.normalizeEmployeeCode(deviceUser.uid))
+                ])
+            );
 
             // 3. Format device logs for our processSync method
             // Device returns data in format like: { deviceUserId: '1', recordTime: '2024-03-18 10:00:00', ... }
@@ -258,7 +340,8 @@ class BiometricService {
                     ts = `${ts}+05:30`;
                 }
                 return {
-                    employeeCode: log.deviceUserId.toString(),
+                    employeeCode: this.normalizeEmployeeCode(log.deviceUserId),
+                    employeeName: deviceUserMap.get(this.normalizeEmployeeCode(log.deviceUserId)),
                     timestamp: new Date(ts).toISOString()
                 };
             });
@@ -425,11 +508,23 @@ class BiometricService {
             const currentTime = dateStr === todayStr ? new Date() : null;
             const result = calculateAttendance(formattedLogs, currentTime);
             
+            const firstPunchTime = punches[0].timestamp;
+            const lastPunchTime = punches[punches.length - 1].timestamp;
+            const isCurrentDay = dateStr === todayStr;
+            const hasOngoingSession = result.isOngoing && isCurrentDay;
+
             finalStatus = result.status;
-            workHrs = parseFloat(result.totalWorkHours);
+            if (hasOngoingSession || punches.length === 1) {
+                workHrs = parseFloat(result.totalWorkHours);
+            } else {
+                workHrs = this.calculateWorkedHoursFromBounds(firstPunchTime, lastPunchTime, dateStr);
+                if (finalStatus === 'ON-SITE') {
+                    finalStatus = 'PRESENT';
+                }
+            }
             deficit = parseFloat(result.deficit);
-            firstPunch = punches[0].timestamp;
-            lastPunch = punches[punches.length - 1].timestamp;
+            firstPunch = firstPunchTime;
+            lastPunch = lastPunchTime;
             shift = result.shift;
         }
 

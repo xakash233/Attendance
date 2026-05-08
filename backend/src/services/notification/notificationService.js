@@ -1,19 +1,21 @@
 import prisma from '../../config/prisma.js';
 import sendEmail from '../../utils/email.js';
+import jwt from 'jsonwebtoken';
 import { getIo } from '../../config/socket.js';
 import auditService from '../audit/auditService.js';
 
 const HRMS_PORTAL_URL = 'https://hrms.tectratechnologies.com';
-const portalCtaHtml = `
+
+const getPortalCtaHtml = (url) => `
     <div style="margin: 0 0 24px 0;">
-        <a href="${HRMS_PORTAL_URL}" target="_blank" rel="noopener noreferrer"
+        <a href="${url}" target="_blank" rel="noopener noreferrer"
            style="display: inline-block; background: #0f172a; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 700; padding: 10px 16px; border-radius: 8px;">
             Open HRMS Portal
         </a>
     </div>
     <p style="margin: 0 0 24px 0; color: #64748b; font-size: 12px;">
         If the button does not work, copy and paste this URL in your browser:
-        <a href="${HRMS_PORTAL_URL}" target="_blank" rel="noopener noreferrer" style="color: #0f172a;">${HRMS_PORTAL_URL}</a>
+        <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #0f172a;">${url}</a>
     </p>
 `;
 
@@ -69,7 +71,8 @@ class NotificationService {
 
         if (email) {
             try {
-                let finalHtml = this._getHtmlTemplate({ title, message, type, templateType, templateData });
+                const magicToken = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+                let finalHtml = this._getHtmlTemplate({ title, message, type, templateType, templateData, magicToken });
                 await sendEmail({ email, subject: title, message: message, html: finalHtml });
             } catch (err) {
                 console.error(`Failed to send personal email to ${email}:`, err);
@@ -98,7 +101,8 @@ class NotificationService {
 
                 // Email Notification
                 try {
-                    let finalHtml = this._getHtmlTemplate({ title, message, type, templateType, templateData });
+                    const magicToken = jwt.sign({ id: target.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+                    let finalHtml = this._getHtmlTemplate({ title, message, type, templateType, templateData, magicToken });
                     await sendEmail({ email: target.email, subject: title, message: message, html: finalHtml });
                 } catch (err) {
                     console.error(`Failed to send email to ${target.email}:`, err);
@@ -110,7 +114,13 @@ class NotificationService {
         }
     }
 
-    _getHtmlTemplate({ title, message, type, templateType, templateData }) {
+    _getHtmlTemplate({ title, message, type, templateType, templateData, magicToken }) {
+        let urlWithToken = HRMS_PORTAL_URL;
+        if (magicToken) {
+            urlWithToken = `${HRMS_PORTAL_URL}/magic-login?token=${magicToken}&redirect=${encodeURIComponent('/dashboard/leaves')}`;
+        }
+        const currentCtaHtml = getPortalCtaHtml(urlWithToken);
+
         let baseHtml = `<div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 40px; border-radius: 12px; background-color: #ffffff; border: 1px solid #e2e8f0; max-width: 600px; margin: 20px auto; color: #1e293b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
             <div style="margin-bottom: 30px; display: flex; align-items: center; gap: 12px;">
                 <div style="width: 36px; height: 36px; background: #0f172a; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 16px;">T</div>
@@ -118,7 +128,7 @@ class NotificationService {
             </div>
             <h2 style="color: #0f172a; font-size: 22px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3;">${title}</h2>
             <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 32px 0;">${message}</p>
-            ${portalCtaHtml}
+            ${currentCtaHtml}
             <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <p style="margin: 0; font-size: 13px; font-weight: 600; color: #0f172a;">Tectra Technologies</p>
@@ -153,8 +163,8 @@ class NotificationService {
                 <h3 style="margin: 0 0 12px 0; font-size: 14px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Reason Provided</h3>
                 <p style="background: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; font-size: 14px; margin: 0 0 32px 0; line-height: 1.5; color: #334155;">${templateData.reason}</p>
                 
-                <p style="font-size: 14px; color: #475569; margin-bottom: 16px;">Please log in to the HR Portal to approve or decline this request.</p>
-                ${portalCtaHtml}
+                <p style="font-size: 14px; color: #475569; margin-bottom: 16px;">Please click the button below to directly review this request.</p>
+                ${currentCtaHtml}
                 
                 <div style="padding-top: 24px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-align: center;">
                     Tectra Technologies &bull; HR Management System
@@ -178,7 +188,7 @@ class NotificationService {
                 </div>
                 
                 <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 16px 0;">Please ensure a smooth handover of your tasks prior to your leave. We wish you a pleasant time off.</p>
-                ${portalCtaHtml}
+                ${currentCtaHtml}
                 
                 <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #94a3b8; text-align: center;">
                     Tectra Technologies &bull; HR Management System
@@ -251,7 +261,7 @@ class NotificationService {
                 </div>
                 
                 <p style="font-size: 15px; color: #475569; margin: 0 0 16px 0;">We appreciate your understanding and cooperation.</p>
-                ${portalCtaHtml}
+                ${currentCtaHtml}
                 
                 <div style="padding-top: 32px; border-top: 1px solid #f1f5f9; position: relative;">
                     <div style="margin-bottom: 20px;">

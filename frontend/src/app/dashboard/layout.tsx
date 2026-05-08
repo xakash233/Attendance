@@ -158,6 +158,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             case 'SUPER_ADMIN': return 'Tectra SuperAdmin Portal';
             case 'ADMIN': return 'Tectra Admin Portal';
             case 'HR': return 'Tectra HR Portal';
+            case 'ACCOUNTANT': return 'Tectra Accountant Portal';
             case 'EMPLOYEE': return 'Tectra Employee Portal';
             default: return 'Tectra Technology';
         }

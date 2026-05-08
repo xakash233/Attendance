@@ -155,7 +155,7 @@ export default function LoginPage() {
             {view === 'UPDATE_PASSWORD' && (
                 <form onSubmit={handleFirstPasswordChange} className="space-y-6 lg:space-y-10 animate-slide-up w-full">
                     <header className={`space-y-2 lg:space-y-4 mb-4 lg:mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
-                        <h2 className="text-3xl lg:text-4xl font-black text-black tracking-tighter leading-none">Security Protocol</h2>
+                        <h2 className="text-base lg:text-2xl font-semibold text-black tracking-tighter leading-none">Security Protocol</h2>
                         <p className="text-[12px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Mandatory security update required for first-time access.</p>
                     </header>
                     <div className="space-y-4">
@@ -163,7 +163,7 @@ export default function LoginPage() {
                             <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">New Security Password</label>
                             <input
                                 type="password"
-                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
+                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-md px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
                                 placeholder="Enter secret key..."
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
@@ -174,7 +174,7 @@ export default function LoginPage() {
                             <label className="text-[9px] lg:text-[11px] font-bold text-black/40 ml-1 uppercase tracking-widest">Confirm Password</label>
                             <input
                                 type="password"
-                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-2xl px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
+                                className="w-full h-14 lg:h-16 rounded-xl block lg:rounded-md px-6 text-[14px] font-semibold text-black bg-neutral-50 border border-neutral-200 focus:border-black focus:ring-4 focus:ring-black/5 outline-none transition-all"
                                 placeholder="Re-enter secret key..."
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -182,7 +182,7 @@ export default function LoginPage() {
                             />
                         </div>
                     </div>
-                    <button type="submit" disabled={loading} className="w-full h-14 lg:h-16 bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase tracking-widest text-[11px] flex items-center justify-center transition-all hover:bg-neutral-900">
+                    <button type="submit" disabled={loading} className="w-full h-14 lg:h-16 bg-black text-white rounded-xl lg:rounded-md font-semibold uppercase tracking-widest text-[11px] flex items-center justify-center transition-all hover:bg-neutral-900">
                         {loading ? <Loader2 size={18} className="animate-spin" /> : 'Update & Access Hub'}
                     </button>
                     <button type="button" onClick={() => setView('LOGIN')} className="w-full h-12 text-[11px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
@@ -194,7 +194,7 @@ export default function LoginPage() {
             {view === 'LOGIN' && (
                 <form onSubmit={handleLogin} className="space-y-6 lg:space-y-10 animate-slide-up w-full">
                     <header className={`space-y-2 lg:space-y-4 mb-4 lg:mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
-                        <h2 className="text-3xl lg:text-5xl font-black text-black tracking-tighter leading-none">Sign in</h2>
+                        <h2 className="text-base lg:text-3xl font-semibold text-black tracking-tighter leading-none">Sign in</h2>
                         <p className="text-[12px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Access the registry hub.</p>
                     </header>
 
@@ -204,7 +204,7 @@ export default function LoginPage() {
                             <div className="relative">
                                 <input
                                     type="email"
-                                    className={`w-full h-12 lg:h-16 rounded-xl lg:rounded-2xl px-12 lg:px-14 text-[13px] lg:text-[15px] font-semibold text-black focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm 
+                                    className={`w-full h-12 lg:h-16 rounded-xl lg:rounded-md px-12 lg:px-14 text-[13px] lg:text-[15px] font-semibold text-black focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm 
                                         ${loginErrorState === 'EMAIL'
                                             ? 'bg-red-50/50 border-2 border-red-500 text-red-900 focus:bg-red-50/80 focus:ring-4 focus:ring-red-500/20'
                                             : 'bg-neutral-50/80 border border-neutral-200/50 hover:bg-neutral-100 hover:border-neutral-300 focus:bg-white focus:border-black focus:ring-4 focus:ring-black/5'
@@ -228,7 +228,7 @@ export default function LoginPage() {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
-                                    className={`w-full h-12 lg:h-16 rounded-xl lg:rounded-2xl px-12 lg:px-14 text-[13px] lg:text-[15px] font-semibold text-black tracking-widest focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm 
+                                    className={`w-full h-12 lg:h-16 rounded-xl lg:rounded-md px-12 lg:px-14 text-[13px] lg:text-[15px] font-semibold text-black tracking-widest focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm 
                                         ${loginErrorState === 'PASSWORD'
                                             ? 'bg-red-50/50 border-2 border-red-500 text-red-900 focus:bg-red-50/80 focus:ring-4 focus:ring-red-500/20'
                                             : 'bg-neutral-50/80 border border-neutral-200/50 hover:bg-neutral-100 hover:border-neutral-300 focus:bg-white focus:border-black focus:ring-4 focus:ring-black/5'
@@ -255,7 +255,7 @@ export default function LoginPage() {
                                 <button
                                     type="button"
                                     onClick={() => setView('FORGOT')}
-                                    className="text-[10px] lg:text-[11px] font-black text-black/20 hover:text-black transition-all uppercase tracking-widest hover:underline decoration-black/10 underline-offset-4"
+                                    className="text-[10px] lg:text-[11px] font-semibold text-black/20 hover:text-black transition-all uppercase tracking-widest hover:underline decoration-black/10 underline-offset-4"
                                 >
                                     Forgot password ?
                                 </button>
@@ -266,7 +266,7 @@ export default function LoginPage() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="group relative w-full h-12 lg:h-16 bg-black text-white rounded-xl lg:rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] lg:text-[12px] flex items-center justify-center overflow-hidden transition-all hover:bg-[#111] hover:shadow-[0_10px_40px_rgba(0,0,0,0.15)] active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
+                        className="group relative w-full h-12 lg:h-16 bg-black text-white rounded-xl lg:rounded-md font-semibold uppercase tracking-[0.2em] text-[10px] lg:text-[12px] flex items-center justify-center overflow-hidden transition-all hover:bg-[#111] hover:shadow-[0_10px_40px_rgba(0,0,0,0.15)] active:scale-[0.98] disabled:opacity-70 disabled:active:scale-100"
                     >
                         <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
                         <span className="flex items-center justify-center relative z-10 transition-transform duration-300">
@@ -286,7 +286,7 @@ export default function LoginPage() {
             {view === 'FORGOT' && (
                 <form onSubmit={handleForgot} className="space-y-10 animate-slide-up w-full">
                     <header className={`space-y-4 mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
-                        <h2 className="text-4xl lg:text-5xl font-black text-black tracking-tighter leading-none">Recover Your Account</h2>
+                        <h2 className="text-2xl lg:text-3xl font-semibold text-black tracking-tighter leading-none">Recover Your Account</h2>
                         <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter your Registered Email. The system will dispatch a temporary authorization Password.</p>
                     </header>
                     <div className="space-y-2.5 group">
@@ -294,7 +294,7 @@ export default function LoginPage() {
                         <div className="relative">
                             <input
                                 type="email"
-                                className="w-full h-14 lg:h-16 rounded-2xl px-12 lg:px-14 text-[14px] lg:text-[15px] font-semibold text-black focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm bg-neutral-50/80 border border-neutral-200/50 hover:bg-neutral-100 hover:border-neutral-300 focus:bg-white focus:border-black focus:ring-4 focus:ring-black/5"
+                                className="w-full h-14 lg:h-16 rounded-md px-12 lg:px-14 text-[14px] lg:text-[15px] font-semibold text-black focus:outline-none transition-all duration-300 placeholder:text-black/15 shadow-sm bg-neutral-50/80 border border-neutral-200/50 hover:bg-neutral-100 hover:border-neutral-300 focus:bg-white focus:border-black focus:ring-4 focus:ring-black/5"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -303,10 +303,10 @@ export default function LoginPage() {
                         </div>
                     </div>
                     <div className="flex flex-col gap-4">
-                        <button type="submit" disabled={loading} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
+                        <button type="submit" disabled={loading} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-md font-semibold uppercase tracking-[0.2em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
                             <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Get Code'}</span>
                         </button>
-                        <button type="button" onClick={() => setView('LOGIN')} className="h-14 lg:h-16 rounded-2xl text-[11px] lg:text-[12px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
+                        <button type="button" onClick={() => setView('LOGIN')} className="h-14 lg:h-16 rounded-md text-[11px] lg:text-[12px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
                             <ArrowLeft size={16} /> Back to Login
                         </button>
                     </div>
@@ -316,13 +316,13 @@ export default function LoginPage() {
             {view === 'RESET' && (
                 <form onSubmit={handleReset} className="space-y-10 animate-slide-up w-full">
                     <header className={`space-y-4 mb-10 ${isDesktop ? 'text-left' : 'text-center'}`}>
-                        <h2 className="text-4xl lg:text-5xl font-black text-black tracking-tighter leading-none">Verify</h2>
+                        <h2 className="text-2xl lg:text-3xl font-semibold text-black tracking-tighter leading-none">Verify</h2>
                         <p className="text-[13px] lg:text-[14px] font-medium text-black/40 leading-relaxed">Enter sequence.</p>
                     </header>
                     <div className="space-y-4">
                         <input
                             type="text"
-                            className="w-full bg-neutral-50/80 hover:bg-neutral-100 focus:bg-white h-16 lg:h-20 rounded-2xl text-center text-3xl lg:text-4xl font-black tracking-[0.5em] focus:outline-none focus:border-black focus:ring-4 focus:ring-black/5 transition-all duration-300 border border-neutral-200/50"
+                            className="w-full bg-neutral-50/80 hover:bg-neutral-100 focus:bg-white h-16 lg:h-20 rounded-md text-center text-base lg:text-2xl font-semibold tracking-[0.5em] focus:outline-none focus:border-black focus:ring-4 focus:ring-black/5 transition-all duration-300 border border-neutral-200/50"
                             placeholder="000000"
                             maxLength={6}
                             value={otp}
@@ -330,7 +330,7 @@ export default function LoginPage() {
                             required
                         />
                     </div>
-                    <button type="submit" disabled={loading || otp.length < 6} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-2xl font-black uppercase tracking-[0.15em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
+                    <button type="submit" disabled={loading || otp.length < 6} className="group relative w-full h-14 lg:h-16 bg-black text-white rounded-md font-semibold uppercase tracking-[0.15em] text-[11px] lg:text-[12px] flex items-center justify-center transition-all bg-black hover:bg-[#111]">
                         <span className="flex items-center justify-center relative z-10">{loading ? <Loader2 size={18} className="animate-spin" /> : 'Generate Password'}</span>
                     </button>
                     <button type="button" onClick={() => setView('LOGIN')} className="w-full h-14 text-[11px] lg:text-[12px] font-bold text-black/40 hover:text-black transition-all uppercase tracking-widest flex items-center justify-center gap-2">
@@ -359,12 +359,12 @@ export default function LoginPage() {
                         />
                     </div>
                     <div className="space-y-4 text-left mb-64">
-                        <h1 className="text-[50px] font-black text-white tracking-[-0.05em] leading-[0.75] flex flex-col gap-0.5">
+                        <h1 className="text-3xl font-semibold text-white tracking-[-0.05em] leading-[0.75] flex flex-col gap-0.5">
                             <span>Tectra Tech</span>
                             <span
                                 ref={textRef}
                                 onMouseMove={handleMouseMove}
-                                className="font-black transition-all duration-300 cursor-default interactive-shine-text"
+                                className="font-semibold transition-all duration-300 cursor-default interactive-shine-text"
                             >
                                 Employee Corner
                             </span>
@@ -399,7 +399,7 @@ export default function LoginPage() {
                         className="w-auto h-12 object-contain grayscale mb-10"
                         priority
                     />
-                    <div className="bg-white rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-[#E6E8EC] p-8 w-full">
+                    <div className="bg-white rounded-lg shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-[#E6E8EC] p-8 w-full">
                         {renderForm(false)}
                     </div>
                     <p className="mt-12 text-center text-[10px] text-[#667085] font-bold uppercase tracking-[0.4em]">

@@ -8,7 +8,7 @@ type User = {
     id: string;
     name: string;
     email: string;
-    role: 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'EMPLOYEE';
+    role: 'SUPER_ADMIN' | 'ADMIN' | 'HR' | 'ACCOUNTANT' | 'EMPLOYEE';
     department?: { id: string, name: string };
     phone?: string;
     bio?: string;
