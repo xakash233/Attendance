@@ -463,7 +463,7 @@ export default function LeavesPage() {
 
                 {/* Table Registry */}
                 <div className="card overflow-hidden">
-                    <div className="p-5 border-b border-[#E6E8EC] flex items-center justify-between bg-white">
+                    <div className="p-5 border-b border-[#E6E8EC] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white">
                         <div className="relative w-full max-w-sm">
                             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${leaves.length === 0 ? 'text-slate-300' : 'text-[#667085]'}`} size={16} />
                             <input
@@ -492,7 +492,8 @@ export default function LeavesPage() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto no-scrollbar">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
@@ -692,6 +693,116 @@ export default function LeavesPage() {
                                 })()}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y divide-[#E6E8EC]">
+                        {(() => {
+                            if (leaves.length === 0) return (
+                                <div className="px-6 py-20 text-center">
+                                    <div className="flex flex-col items-center gap-4 max-w-xs mx-auto">
+                                        <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
+                                            <Calendar size={32} strokeWidth={1.5} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[16px] font-bold text-[#101828]">No leaves found</p>
+                                            <p className="text-[13px] text-[#667085]">Start by submitting a new application.</p>
+                                        </div>
+                                        {user?.role === 'EMPLOYEE' && (
+                                            <button onClick={() => { setIsWFHRequest(false); resetLeaveForm(false); setIsApplyModalOpen(true); }} className="btn-primary w-full py-2.5">Apply Leave</button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+
+                            if (filteredLeaves.length === 0) return (
+                                <div className="px-6 py-16 text-center">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                            <Search size={20} />
+                                        </div>
+                                        <p className="text-[14px] font-bold text-[#101828]">No results found</p>
+                                        <button onClick={() => setSearchQuery('')} className="text-[12px] font-bold text-indigo-600">Clear filters</button>
+                                    </div>
+                                </div>
+                            );
+
+                            return paginatedLeaves.map((leave: any) => (
+                                <div key={leave.id} className="p-5 space-y-4 bg-white hover:bg-slate-50/50 transition-colors">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[14px] uppercase relative overflow-hidden border border-[#E6E8EC]">
+                                                {leave.user.profileImage ? (
+                                                    <Image src={leave.user.profileImage} alt={leave.user.name} layout="fill" objectFit="cover" unoptimized />
+                                                ) : (
+                                                    leave.user.name.substring(0, 2)
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-[14px] font-bold text-[#101828]">{leave.user.name}</h4>
+                                                <p className="text-[12px] text-[#667085]">{leave.user.employeeCode}</p>
+                                            </div>
+                                        </div>
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
+                                            {leave.status === 'AUTO_APPROVED' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
+                                        </span>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4 py-3 border-y border-[#E6E8EC]/50">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Leave Type</p>
+                                            <p className="text-[13px] font-semibold text-[#101828] leading-tight">{leave.leaveType.name}</p>
+                                            <p className="text-[11px] text-[#667085] mt-0.5">{leave.durationType.replace(/_/g, ' ')}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Duration</p>
+                                            <p className="text-[13px] font-semibold text-[#101828] leading-tight">
+                                                {(() => {
+                                                    const start = new Date(leave.startDate);
+                                                    const end = new Date(leave.endDate);
+                                                    const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
+                                                    return leave.totalDays <= 1 
+                                                        ? start.toLocaleDateString('en-GB', options)
+                                                        : `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
+                                                })()}
+                                            </p>
+                                            <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{leave.totalDays} Days</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100">
+                                        <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Reason for Leave</p>
+                                        <p className="text-[13px] text-[#344054] leading-relaxed italic font-medium">
+                                            &quot;{leave.reason?.trim() || 'No reason provided.'}&quot;
+                                        </p>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-1">
+                                        <Link href={`/dashboard/users/${leave.userId || leave.user.id}`} className="text-[12px] font-bold text-indigo-600 hover:underline underline-offset-4">View Profile</Link>
+                                        <div className="flex items-center gap-2">
+                                            {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                                <>
+                                                    <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="w-9 h-9 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shadow-sm"><Check size={18} /></button>
+                                                    <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 shadow-sm"><X size={18} /></button>
+                                                </>
+                                            )}
+                                            {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                                <>
+                                                    <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="w-9 h-9 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shadow-sm"><Check size={18} /></button>
+                                                    <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 shadow-sm"><X size={18} /></button>
+                                                </>
+                                            )}
+                                            {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && !leave.isWFH && (
+                                                <button onClick={() => handleDeleteLeaveRequest(leave.id)} className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg border border-rose-100 shadow-sm"><Trash2 size={16} /></button>
+                                            )}
+                                            {user?.role === 'EMPLOYEE' && !leave.isWFH && !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
+                                                <button onClick={() => handleCancel(leave.id)} className="px-4 py-2 text-[12px] font-bold text-rose-600 bg-rose-50 rounded-lg border border-rose-100">Cancel</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        })()}
                     </div>
                     {filteredLeaves.length > 0 && (
                         <div className="px-6 py-4 border-t border-[#E6E8EC] flex items-center justify-between">
