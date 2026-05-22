@@ -17,12 +17,28 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
+import AccountantEmployeeCalendar, {
+    type AccountantCalendarDay,
+    type AccountantDayClassification
+} from '@/components/attendance/AccountantEmployeeCalendar';
 
 const ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES = new Set([
     'YUVARAJ',
     'SWETHA',
     'E.GOKULAVASAN'
 ]);
+
+const MIN_FULL_DAY_HOURS = 7.5;
+const STANDARD_DAY_HOURS = 8;
+
+const getPayrollMonthLabel = (istDateStr: string) => {
+    const [y, m, d] = istDateStr.split('-').map(Number);
+    if (d > 25) {
+        if (m === 12) return `${y + 1}-01`;
+        return `${y}-${String(m + 1).padStart(2, '0')}`;
+    }
+    return istDateStr.substring(0, 7);
+};
 
 const formatDuration = (decimalHours: any) => {
     const val = parseFloat(decimalHours);
@@ -34,22 +50,26 @@ const formatDuration = (decimalHours: any) => {
 };
 
 const formatStatus = (row: any) => {
-    const worked = parseFloat(row.TotalWorkedHours || "0");
-    const diff = worked - 8;
-    
-    // 1. Weekend / Holiday
-    if (row.Status === 'WEEKEND' || row.Status === 'OVERTIME_SUNDAY' || new Date(row.Date).getDay() === 0) return 'Weekend';
+    const worked = parseFloat(row.TotalWorkedHours || '0');
+    const rawStatus = String(row.Status || '').toUpperCase().replace(/_/g, ' ');
+
+    if (row.DayCategory === 'SAT_LEAVE') return 'Leave';
+    if (row.DayCategory === 'SAT_WFH') return 'WFH';
+    if (rawStatus.includes('WFH') || String(row.Remarks || '').toUpperCase().includes('WFH')) return 'WFH';
+    if (row.DayCategory === 'SUNDAY' || row.Status === 'WEEKEND' || row.Status === 'OVERTIME_SUNDAY') return 'Weekend';
     if (row.Status === 'HOLIDAY') return `Holiday (${row.Remarks})`;
-    
-    // 2. Prioritize worked hours (Even if on leave, if they worked, show they were present)
-    if (worked > 0) {
-        if (row.Status === 'ON SITE' || row.Status === 'ON-SITE') return 'On-Site';
-        if (diff > 0.5) return 'Compensated';
-        return 'Present'; 
+
+    if (worked >= MIN_FULL_DAY_HOURS) {
+        if (rawStatus.includes('ON SITE') || rawStatus.includes('ON-SITE')) return 'On-Site';
+        if (worked > STANDARD_DAY_HOURS + 0.5) return 'Compensated';
+        return 'Present';
     }
 
-    // 3. Fallbacks
-    if (row.Status && String(row.Status).includes('LEAVE')) return 'Leave';
+    if (worked > 0 && worked < MIN_FULL_DAY_HOURS) {
+        return 'Short Day';
+    }
+
+    if (rawStatus.includes('LEAVE')) return 'Leave';
     if (worked === 0) return 'Absent';
     return 'Present';
 };
@@ -60,8 +80,12 @@ const getPunchDisplay = (row: any, field: 'FirstPunch' | 'LastPunch') => {
     if (statusText.startsWith('HOLIDAY')) return 'Holiday';
 
     const value = row[field];
-    if (!value || value === '---') return 'Absent';
+    if (!value || value === '---') {
+        if (statusText === 'WFH') return 'WFH';
+        return 'Absent';
+    }
     if (String(value).toUpperCase() === 'LEAVE') return 'Leave';
+    if (String(value).toUpperCase() === 'WFH') return 'WFH';
     return value;
 };
 
@@ -73,12 +97,20 @@ export default function ReportPage() {
     const [exportLoading, setExportLoading] = useState(false);
     const [complianceMonth, setComplianceMonth] = useState<string>(() => {
         const istNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-        return istNow.substring(0, 7); // Returns YYYY-MM
+        return getPayrollMonthLabel(istNow);
     });
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
     const [employees, setEmployees] = useState<any[]>([]);
+    const [selectedAccountantEmployee, setSelectedAccountantEmployee] = useState<{
+        employeeId: string;
+        name: string;
+        companyWorkingDays: number;
+        presentDays: number;
+        leaveDays: number;
+        absentDays: number;
+    } | null>(null);
     const monthRef = React.useRef<HTMLInputElement>(null);
     const canUseAdvancedFilters = ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '');
     const isAccountant = user?.role === 'ACCOUNTANT';
@@ -91,8 +123,12 @@ export default function ReportPage() {
         });
         return roleMap;
     }, [employees]);
+    const biometricEnrolledUserIds = React.useMemo(() => {
+        const ids = meta?.biometricEnrolledUserIds;
+        return new Set(Array.isArray(ids) ? ids : []);
+    }, [meta]);
     const shouldIncludeForAccountantSheet = React.useCallback(
-        (employeeId: string | undefined, employeeName: string | undefined) => {
+        (employeeId: string | undefined, employeeName: string | undefined, row?: any) => {
             const normalizedName = String(employeeName || '').trim().toUpperCase();
             if (!normalizedName) return false;
             if (ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES.has(normalizedName)) return false;
@@ -101,14 +137,21 @@ export default function ReportPage() {
             if (role && role !== 'EMPLOYEE') return false;
             if (!role && ['TECTRA DEVV', 'ACCOUNTANT USER'].includes(normalizedName)) return false;
 
+            const enrolledFromRow = row?.HasBiometricEnrollment;
+            const isBiometricEnrolled = enrolledFromRow === true
+                || (employeeId ? biometricEnrolledUserIds.has(employeeId) : false);
+            if (!isBiometricEnrolled) return false;
+
             return true;
         },
-        [employeeRoleById]
+        [biometricEnrolledUserIds, employeeRoleById]
     );
     const employeeOptions = React.useMemo(() => {
         const filteredEmployees = isAccountant
             ? employees.filter((employee: any) =>
-                shouldIncludeForAccountantSheet(employee.id, employee.name)
+                shouldIncludeForAccountantSheet(employee.id, employee.name, {
+                    HasBiometricEnrollment: biometricEnrolledUserIds.has(employee.id)
+                })
             )
             : employees;
 
@@ -123,7 +166,7 @@ export default function ReportPage() {
         reportData.forEach((row: any) => {
             const key = row.id || row.EmployeeID;
             if (!key || seen.has(key)) return;
-            if (isAccountant && !shouldIncludeForAccountantSheet(key, row.Name || row.EmployeeID)) return;
+            if (isAccountant && !shouldIncludeForAccountantSheet(key, row.Name || row.EmployeeID, row)) return;
             seen.set(key, {
                 id: row.id || row.EmployeeID,
                 name: row.Name || row.EmployeeID,
@@ -131,7 +174,7 @@ export default function ReportPage() {
             });
         });
         return Array.from(seen.values());
-    }, [employees, isAccountant, reportData, shouldIncludeForAccountantSheet]);
+    }, [biometricEnrolledUserIds, employees, isAccountant, reportData, shouldIncludeForAccountantSheet]);
     const departmentOptions = React.useMemo(() => {
         const fromEmployees = Array.from(
             new Set(employeeOptions.map((employee) => employee.department).filter(Boolean))
@@ -141,7 +184,7 @@ export default function ReportPage() {
 
     useEffect(() => {
         const fetchUsers = async () => {
-            if (['SUPER_ADMIN', 'HR', 'ADMIN'].includes(user?.role || '')) {
+            if (['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '')) {
                 try {
                     const res = await api.get('/users');
                     setEmployees(res.data);
@@ -332,7 +375,8 @@ export default function ReportPage() {
     const paginatedReportData = weeklyPages[currentPage - 1]?.rows || [];
     const activeWeekLabel = weeklyPages[currentPage - 1]?.label || '';
 
-    const classifyAttendanceRow = React.useCallback((row: any) => {
+    const classifyAttendanceRow = React.useCallback((row: any, options?: { accountantMode?: boolean }) => {
+        const accountantMode = options?.accountantMode === true;
         const normalizedStatus = formatStatus(row).toUpperCase();
         const rawStatus = String(row.Status || '').toUpperCase().replace(/_/g, ' ');
         const workedHours = parseFloat(row.TotalWorkedHours || '0');
@@ -342,47 +386,100 @@ export default function ReportPage() {
             return !['---', 'ABSENT', 'N/A', 'LEAVE', 'WEEKEND', 'HOLIDAY'].includes(normalizedValue);
         };
         const hasPunch = isValidPunchValue(row.FirstPunch) || isValidPunchValue(row.LastPunch);
+        const hasWorkedTime = workedHours > 0.1;
+
+        if (row.IsCompanyWorkingDay === false) return 'UNKNOWN';
+
+        if (accountantMode) {
+            const remarks = String(row.Remarks || '').toUpperCase();
+            const leaveApplied =
+                remarks.includes('APPROVED LEAVE')
+                || remarks.includes('CANCELLED LEAVE')
+                || remarks.includes('AWAITING APPROVAL')
+                || remarks.includes('HALF DAY LEAVE')
+                || (rawStatus.includes('PENDING') && rawStatus.includes('LEAVE'));
+
+            const remarksUpper = String(row.Remarks || '').toUpperCase();
+            const isApprovedWfh =
+                row.DayCategory === 'SAT_WFH' ||
+                normalizedStatus === 'WFH' ||
+                rawStatus.includes('WFH') ||
+                remarksUpper.includes('WFH') ||
+                (
+                    workedHours >= MIN_FULL_DAY_HOURS
+                    && !hasPunch
+                    && remarksUpper.includes('MANUAL')
+                );
+
+            if (leaveApplied && !hasPunch) return 'LEAVE';
+            if (isApprovedWfh || hasPunch) return 'PRESENT';
+            return 'ABSENT';
+        }
 
         const isLeave =
+            row.DayCategory === 'SAT_LEAVE' ||
             normalizedStatus === 'LEAVE' ||
             rawStatus.includes('LEAVE');
         const isExplicitAbsent =
             rawStatus === 'ABSENT' ||
             normalizedStatus === 'ABSENT';
 
+        const isShortDay =
+            normalizedStatus === 'SHORT DAY' ||
+            rawStatus.includes('SHORT') ||
+            (workedHours > 0 && workedHours < MIN_FULL_DAY_HOURS);
+
+        const isWfhDay =
+            row.DayCategory === 'SAT_WFH' ||
+            normalizedStatus === 'WFH' ||
+            rawStatus.includes('WFH');
+        const isWfhWorking = isWfhDay && (hasWorkedTime || hasPunch);
+
         const isPresent =
-            workedHours > 0 ||
-            hasPunch ||
+            isWfhWorking ||
+            workedHours >= MIN_FULL_DAY_HOURS ||
             ['PRESENT', 'COMPENSATED', 'ON-SITE'].includes(normalizedStatus) ||
             ['PRESENT', 'LATE', 'ON SITE', 'ON-SITE', 'PRESENT WFH', 'HALF DAY', 'OVERTIME'].includes(rawStatus);
 
         if (isLeave) return 'LEAVE';
+        if (isShortDay || (hasPunch && workedHours > 0)) return 'PRESENT';
         if (isPresent) return 'PRESENT';
-        if (isExplicitAbsent) return 'ABSENT';
+        if (isExplicitAbsent && workedHours <= 0 && !hasPunch) return 'ABSENT';
         return 'UNKNOWN';
     }, []);
 
     const accountantSummaryRows = React.useMemo(() => {
         if (!isAccountant || selectedEmployeeId !== 'all') return [];
 
+        const serverSummaries = meta?.accountantSummaries;
+        if (Array.isArray(serverSummaries) && serverSummaries.length > 0) {
+            return serverSummaries
+                .filter((summary: any) =>
+                    shouldIncludeForAccountantSheet(summary.userId, summary.name, {
+                        HasBiometricEnrollment: true
+                    })
+                )
+                .map((summary: any) => ({
+                    employeeId: summary.userId || summary.name,
+                    name: summary.name,
+                    companyWorkingDays: summary.companyWorkingDays ?? meta?.companyWorkingDays ?? 0,
+                    presentDays: summary.presentDays ?? 0,
+                    leaveDays: summary.leaveDays ?? 0,
+                    absentDays: summary.absentDays ?? 0
+                }));
+        }
+
         const groupedByEmployee = new Map<string, { name: string; rows: any[] }>();
-        const workingDates = new Set<string>();
+        const companyWorkingDays = meta?.companyWorkingDays ?? 0;
 
         reportData.forEach((row: any) => {
             const employeeId = row.id || row.EmployeeID;
             if (!employeeId) return;
             const employeeName = row.Name || row.EmployeeID || 'Unknown';
-            if (!shouldIncludeForAccountantSheet(employeeId, employeeName)) return;
+            if (!shouldIncludeForAccountantSheet(employeeId, employeeName, row)) return;
 
             const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
             if (!dateKey) return;
-
-            const dateObj = new Date(`${dateKey}T00:00:00.000Z`);
-            const isSunday = dateObj.getUTCDay() === 0;
-            const isHoliday = row.Status === 'HOLIDAY';
-            if (!isSunday && !isHoliday) {
-                workingDates.add(dateKey);
-            }
 
             const employeeKey = String(employeeName).trim().toUpperCase();
             if (!groupedByEmployee.has(employeeKey)) {
@@ -394,8 +491,6 @@ export default function ReportPage() {
             groupedByEmployee.get(employeeKey)!.rows.push(row);
         });
 
-        const companyWorkingDays = workingDates.size;
-
         return Array.from(groupedByEmployee.entries())
             .map(([employeeKey, employeeData]) => {
                 let presentDays = 0;
@@ -405,13 +500,10 @@ export default function ReportPage() {
 
                 employeeData.rows.forEach((row: any) => {
                     const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
-                    if (!dateKey) return;
-                    const dateObj = new Date(`${dateKey}T00:00:00.000Z`);
-                    const isSunday = dateObj.getUTCDay() === 0;
-                    const isHoliday = row.Status === 'HOLIDAY';
-                    if (isSunday || isHoliday) return;
+                    if (!dateKey || row.IsCompanyWorkingDay === false) return;
 
-                    const rowClassification = classifyAttendanceRow(row) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
+                    const rowClassification = classifyAttendanceRow(row, { accountantMode: true }) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
+                    if (rowClassification === 'UNKNOWN') return;
                     const existingClassification = perDayClassification.get(dateKey);
 
                     // Priority per day: PRESENT > LEAVE > ABSENT > UNKNOWN
@@ -435,11 +527,12 @@ export default function ReportPage() {
                     name: employeeData.name,
                     companyWorkingDays,
                     presentDays,
+                    leaveDays,
                     absentDays
                 };
             })
             .sort((firstEmployee, secondEmployee) => firstEmployee.name.localeCompare(secondEmployee.name));
-    }, [classifyAttendanceRow, isAccountant, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+    }, [classifyAttendanceRow, isAccountant, meta, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
 
     const accountantTodayCounts = React.useMemo(() => {
         if (!isAccountant || selectedEmployeeId !== 'all') {
@@ -451,7 +544,9 @@ export default function ReportPage() {
             const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
             const employeeId = row.id || row.EmployeeID;
             const employeeName = row.Name || row.EmployeeID || 'Unknown';
-            return dateKey === todayIstStr && shouldIncludeForAccountantSheet(employeeId, employeeName);
+            return dateKey === todayIstStr
+                && row.IsCompanyWorkingDay !== false
+                && shouldIncludeForAccountantSheet(employeeId, employeeName, row);
         });
 
         let presentToday = 0;
@@ -462,7 +557,7 @@ export default function ReportPage() {
         todayRows.forEach((row: any) => {
             const employeeId = row.id || row.EmployeeID;
             if (!employeeId) return;
-            const rowClassification = classifyAttendanceRow(row) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
+            const rowClassification = classifyAttendanceRow(row, { accountantMode: true }) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
             const currentClassification = employeeTodayState.get(employeeId);
 
             if (!currentClassification || currentClassification === 'UNKNOWN') {
@@ -487,6 +582,86 @@ export default function ReportPage() {
             leaveToday
         };
     }, [classifyAttendanceRow, isAccountant, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+
+    const resolveAccountantEmployeeRows = React.useCallback((employeeId: string, employeeName: string) => {
+        const normalizedName = String(employeeName || '').trim().toUpperCase();
+        return reportData.filter((row: any) => {
+            const rowId = row.id || row.EmployeeID;
+            const rowName = String(row.Name || row.EmployeeID || '').trim().toUpperCase();
+            return rowId === employeeId || rowName === normalizedName || rowName === String(employeeId).trim().toUpperCase();
+        });
+    }, [reportData]);
+
+    const selectedAccountantCalendarDays = React.useMemo((): AccountantCalendarDay[] => {
+        if (!selectedAccountantEmployee) return [];
+
+        const employeeRows = resolveAccountantEmployeeRows(
+            selectedAccountantEmployee.employeeId,
+            selectedAccountantEmployee.name
+        );
+        const perDay = new Map<string, { row: any; classification: AccountantDayClassification }>();
+
+        employeeRows.forEach((row: any) => {
+            const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
+            if (!dateKey) return;
+
+            let classification: AccountantDayClassification;
+            if (row.IsCompanyWorkingDay === false) {
+                classification = 'OFF';
+            } else {
+                const accountantClass = classifyAttendanceRow(row, { accountantMode: true });
+                classification = accountantClass === 'PRESENT' || accountantClass === 'ABSENT' || accountantClass === 'LEAVE'
+                    ? accountantClass
+                    : 'OFF';
+            }
+
+            const existing = perDay.get(dateKey);
+            if (!existing) {
+                perDay.set(dateKey, { row, classification });
+                return;
+            }
+            if (existing.classification === 'ABSENT' && ['PRESENT', 'LEAVE'].includes(classification)) {
+                perDay.set(dateKey, { row, classification });
+            } else if (existing.classification === 'LEAVE' && classification === 'PRESENT') {
+                perDay.set(dateKey, { row, classification });
+            }
+        });
+
+        return Array.from(perDay.entries())
+            .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+            .map(([date, entry]) => {
+                const dateObj = new Date(`${date}T12:00:00`);
+                const punchIn = getPunchDisplay(entry.row, 'FirstPunch');
+                const punchOut = getPunchDisplay(entry.row, 'LastPunch');
+                const remarksUpper = String(entry.row.Remarks || '').toUpperCase();
+                const statusUpper = String(entry.row.Status || '').toUpperCase();
+                const isWfh =
+                    entry.row.DayCategory === 'SAT_WFH' ||
+                    remarksUpper.includes('WFH') ||
+                    statusUpper.includes('WFH') ||
+                    (
+                        entry.classification === 'PRESENT'
+                        && remarksUpper.includes('MANUAL')
+                        && parseFloat(entry.row.TotalWorkedHours || '0') >= MIN_FULL_DAY_HOURS
+                    );
+
+                return {
+                    date,
+                    day: dateObj.getDate(),
+                    weekday: dateObj.toLocaleDateString('en-GB', { weekday: 'short' }),
+                    classification: entry.classification,
+                    isWfh,
+                    isCompanyWorkingDay: entry.row.IsCompanyWorkingDay !== false,
+                    dayCategory: entry.row.DayCategory || '—',
+                    saturdayOrdinal: entry.row.SaturdayOrdinal ?? null,
+                    statusLabel: formatStatus(entry.row),
+                    workedHours: parseFloat(entry.row.TotalWorkedHours || '0').toFixed(2),
+                    firstPunch: punchIn,
+                    lastPunch: punchOut,
+                    remarks: entry.row.Remarks || 'N/A'
+                };
+            });
+    }, [classifyAttendanceRow, resolveAccountantEmployeeRows, selectedAccountantEmployee]);
 
     useEffect(() => {
         if (currentPage > totalPages) {
@@ -819,8 +994,18 @@ export default function ReportPage() {
                     </div>
                 ) : isAccountant ? (
                     <section>
-                        <div className="flex items-center gap-3 mb-4">
+                        <div className="flex flex-col gap-1 mb-4">
                             <h2 className="text-[18px] font-bold text-[#101828]">Accountant Attendance Sheet</h2>
+                            <p className="text-[12px] font-medium text-slate-500">
+                                Payroll cycle: 26th → 25th
+                                {meta?.payrollPeriodStart && meta?.payrollPeriodEnd
+                                    ? ` (${meta.payrollPeriodStart} to ${meta.payrollPeriodEnd})`
+                                    : ''}
+                                {meta?.companyWorkingDays ? ` • ${meta.companyWorkingDays} company working days` : ''}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                                1st/3rd/5th Saturday = WFH (counts present without biometric punch) • 2nd/4th Saturday = scheduled leave • Sunday off
+                            </p>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -849,22 +1034,31 @@ export default function ReportPage() {
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Employee Name</th>
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Working Days (Company)</th>
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Present Days</th>
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Leave Days</th>
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Absent Days</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E6E8EC]">
                                     {accountantSummaryRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
                                                 No employee records found for the selected period
                                             </td>
                                         </tr>
                                     ) : (
                                         accountantSummaryRows.map((summaryRow) => (
-                                            <tr key={summaryRow.employeeId} className="hover:bg-slate-50/40 transition-colors">
-                                                <td className="px-6 py-4 text-[14px] font-semibold text-[#101828]">{summaryRow.name}</td>
+                                            <tr
+                                                key={summaryRow.employeeId}
+                                                onClick={() => setSelectedAccountantEmployee(summaryRow)}
+                                                className="hover:bg-indigo-50/50 transition-colors cursor-pointer group"
+                                            >
+                                                <td className="px-6 py-4 text-[14px] font-semibold text-[#101828] group-hover:text-indigo-700 flex items-center gap-1">
+                                                    {summaryRow.name}
+                                                    <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-500 shrink-0" />
+                                                </td>
                                                 <td className="px-6 py-4 text-[14px] text-[#101828] text-center font-semibold">{summaryRow.companyWorkingDays}</td>
                                                 <td className="px-6 py-4 text-[14px] text-emerald-700 text-center font-semibold">{summaryRow.presentDays}</td>
+                                                <td className="px-6 py-4 text-[14px] text-indigo-700 text-center font-semibold">{summaryRow.leaveDays}</td>
                                                 <td className="px-6 py-4 text-[14px] text-rose-700 text-center font-semibold">{summaryRow.absentDays}</td>
                                             </tr>
                                         ))
@@ -872,6 +1066,9 @@ export default function ReportPage() {
                                 </tbody>
                             </table>
                         </div>
+                        <p className="text-[11px] text-slate-400 mt-3">
+                            Click an employee name to open the payroll calendar with absent dates and day details.
+                        </p>
                     </section>
                 ) : (
                     <>
@@ -928,7 +1125,7 @@ export default function ReportPage() {
                                                             <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{getPunchDisplay(row, 'LastPunch')}</td>
                                                             <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
                                                             <td className="px-6 py-4 text-[14px] text-[#667085]">
-                                                                {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : '08:00'}
+                                                                {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : formatDuration(MIN_FULL_DAY_HOURS)}
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <span className={`px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider ${
@@ -954,6 +1151,20 @@ export default function ReportPage() {
                     </>
                 )}
             </main>
+
+            {selectedAccountantEmployee && (
+                <AccountantEmployeeCalendar
+                    employeeName={selectedAccountantEmployee.name}
+                    payrollPeriodStart={meta?.payrollPeriodStart}
+                    payrollPeriodEnd={meta?.payrollPeriodEnd}
+                    companyWorkingDays={selectedAccountantEmployee.companyWorkingDays}
+                    presentDays={selectedAccountantEmployee.presentDays}
+                    leaveDays={selectedAccountantEmployee.leaveDays}
+                    absentDays={selectedAccountantEmployee.absentDays}
+                    days={selectedAccountantCalendarDays}
+                    onClose={() => setSelectedAccountantEmployee(null)}
+                />
+            )}
         </div>
     );
 }

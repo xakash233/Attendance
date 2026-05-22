@@ -3,27 +3,10 @@ import prisma from '../../config/prisma.js';
 import auditService from '../audit/auditService.js';
 import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
-import calculateAttendance from '../../utils/attendanceCalculator.js';
+import calculateAttendance, { resolveDayStatusFromHours } from '../../utils/attendanceCalculator.js';
 import bcrypt from 'bcryptjs';
 
 class BiometricService {
-    calculateWorkedHoursFromBounds(firstPunch, lastPunch, dateStr) {
-        if (!firstPunch || !lastPunch || lastPunch <= firstPunch) {
-            return 0;
-        }
-
-        const totalMs = lastPunch.getTime() - firstPunch.getTime();
-        const lunchStart = new Date(`${dateStr}T13:00:00.000+05:30`);
-        const lunchEnd = new Date(`${dateStr}T14:00:00.000+05:30`);
-
-        const overlapStart = Math.max(firstPunch.getTime(), lunchStart.getTime());
-        const overlapEnd = Math.min(lastPunch.getTime(), lunchEnd.getTime());
-        const lunchOverlapMs = Math.max(0, overlapEnd - overlapStart);
-
-        const netMs = Math.max(0, totalMs - lunchOverlapMs);
-        return netMs / (1000 * 60 * 60);
-    }
-
     normalizeEmployeeCode(code) {
         return String(code || '').trim();
     }
@@ -506,22 +489,17 @@ class BiometricService {
             }));
             const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             const currentTime = dateStr === todayStr ? new Date() : null;
-            const result = calculateAttendance(formattedLogs, currentTime);
-            
+            const result = calculateAttendance(formattedLogs, currentTime, dateStr);
+
             const firstPunchTime = punches[0].timestamp;
             const lastPunchTime = punches[punches.length - 1].timestamp;
-            const isCurrentDay = dateStr === todayStr;
-            const hasOngoingSession = result.isOngoing && isCurrentDay;
 
-            finalStatus = result.status;
-            if (hasOngoingSession || punches.length === 1) {
-                workHrs = parseFloat(result.totalWorkHours);
-            } else {
-                workHrs = this.calculateWorkedHoursFromBounds(firstPunchTime, lastPunchTime, dateStr);
-                if (finalStatus === 'ON-SITE') {
-                    finalStatus = 'PRESENT';
-                }
-            }
+            workHrs = parseFloat(result.totalWorkHours);
+            const isCurrentDay = dateStr === todayStr;
+            finalStatus = resolveDayStatusFromHours(workHrs, {
+                isOngoing: result.isOngoing && isCurrentDay,
+                preserveStatus: result.status
+            }).replace(/ /g, '_');
             deficit = parseFloat(result.deficit);
             firstPunch = firstPunchTime;
             lastPunch = lastPunchTime;

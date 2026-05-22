@@ -1,5 +1,23 @@
 import prisma from '../config/prisma.js';
-import calculateAttendance from '../utils/attendanceCalculator.js';
+import calculateAttendance, {
+    calculateWorkedHoursFromBounds,
+    MIN_FULL_DAY_HOURS,
+    resolveDayStatusFromHours
+} from '../utils/attendanceCalculator.js';
+import {
+    countAccountantCountableDaysInRange,
+    countCompanyWorkingDaysInRange,
+    getCompanyDayCategory,
+    getSaturdayOrdinalInMonth,
+    getPayrollMonthLabel,
+    getPayrollPeriodBounds,
+    isAccountantCountableDay,
+    isCompanyWorkingDay
+} from '../utils/payrollCalendar.js';
+import { buildAccountantSummaries } from '../utils/accountantAttendance.js';
+
+const formatIstPunchTime = (timestamp) =>
+    timestamp.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' });
 
 // @desc    Manual Check-in
 // @route   POST /api/attendance/check-in
@@ -122,15 +140,11 @@ export const checkOut = async (req, res, next) => {
             workingHours -= 1;
         }
 
-        // MNC Grace Period Rule: 7h 45m to 8h is rounded to 8h
-        if (workingHours >= 7.75 && workingHours < 8) {
-            workingHours = 8;
-        }
+        // Store actual worked hours (no inflation to 8h).
 
-        // Manual-policy mode: do not auto-set FULL_DAY/SHORT_DAY from hours.
-        // Keep explicit attendance status unless no meaningful work is recorded.
-        let finalStatus = attendance.status || 'PRESENT';
-        if (workingHours <= 0.1) finalStatus = 'ABSENT';
+        let finalStatus = resolveDayStatusFromHours(workingHours, {
+            preserveStatus: attendance.status
+        }).replace(/ /g, '_');
 
         const updated = await prisma.attendance.update({
             where: { id: attendance.id },
@@ -283,10 +297,13 @@ export const getSummary = async (req, res, next) => {
             if (!isWeekend && !isHoliday) {
                 const att = attendances.find(a => a.date.toISOString().split('T')[0] === dateStr);
                 if (att) {
-                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE'].includes(att.status)) {
+                    const worked = att.workingHours || 0;
+                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE', 'SHORT_DAY', 'SHORT DAY'].includes(att.status)) {
                         presentDays++;
                     } else if (att.status === 'HALF_DAY') {
                         partialAttendanceDays += 0.5;
+                    } else if (worked > 0.1) {
+                        presentDays++;
                     }
                 } else if (wfhDateSet.has(dateStr)) {
                     // Approved WFH day counts as presence even without biometric punches.
@@ -442,6 +459,12 @@ export const getSummary = async (req, res, next) => {
                 }
             }
 
+            if (!isSunday && !isSaturday && !holiday) {
+                dayStatus = resolveDayStatusFromHours(workingHours, {
+                    preserveStatus: dayStatus
+                }).replace(/ /g, '_');
+            }
+
             dailyLog.push({
                 date: dateStr,
                 status: dayStatus,
@@ -570,7 +593,7 @@ export const getLiveAttendance = async (req, res, next) => {
                 }
             }
 
-            const calcResult = calculateAttendance(rawPunches, currentTimeStr);
+            const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
 
             return {
                 id: user.id,
@@ -637,7 +660,7 @@ export const getDashboardReport = async (req, res, next) => {
         const now = new Date();
         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
         const calcPunchesForSync = rawPunches.map(p => ({ timestamp: p.time }));
-        const calcResult = calculateAttendance(calcPunchesForSync, currentTimeStr);
+        const calcResult = calculateAttendance(calcPunchesForSync, currentTimeStr, dateStr);
 
         let workMs = calcResult.totalWorkMinutes * 60000;
         let breakMs = 0;
@@ -772,6 +795,19 @@ export const getDashboardReport = async (req, res, next) => {
 
             let worked = att ? (att.workingHours || 0) : 0;
             let dailyTarget = 8;
+            let dayCalc = null;
+
+            if (dayPunches.length > 0) {
+                const isTodaySession = d.toISOString().split('T')[0] === todayStart.toISOString().split('T')[0];
+                dayCalc = calculateAttendance(
+                    dayPunches.map((p) => ({ timestamp: p.time })),
+                    isTodaySession ? now : null,
+                    dStr
+                );
+                worked = parseFloat(dayCalc.totalWorkHours);
+            } else if (att?.checkIn && att?.checkOut && att.checkOut > att.checkIn) {
+                worked = calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dStr);
+            }
 
             if (holidayDay) {
                 dailyTarget = 0;
@@ -792,11 +828,16 @@ export const getDashboardReport = async (req, res, next) => {
                 const todayLiveHours = workMs / 3600000;
                 worked = Math.max(worked, todayLiveHours);
 
-                // Prioritize live status if not already set to something meaningful like LEAVE/HOLIDAY
                 if (status === 'ABSENT' || status === 'OUT') {
                     status = calcResult.status.replace(/_/g, ' ');
                 }
             }
+
+            const isTodaySession = d.toISOString().split('T')[0] === todayStart.toISOString().split('T')[0];
+            status = resolveDayStatusFromHours(worked, {
+                isOngoing: dayCalc?.isOngoing || (isTodaySession && calcResult?.isOngoing),
+                preserveStatus: status
+            });
 
             totalWeeklyWorked += worked;
 
@@ -885,23 +926,29 @@ export const getComplianceReport = async (req, res, next) => {
         const { month, userId, startDate, endDate, departmentId } = req.query;
         let start, end;
 
+        const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+        let payrollPeriodLabel = null;
+
         if (startDate && endDate) {
             start = new Date(startDate); start.setUTCHours(0, 0, 0, 0);
             end = new Date(endDate); end.setUTCHours(23, 59, 59, 999);
         } else if (month) {
-            const [y, m] = month.split('-');
-            start = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, 1));
-            end = new Date(Date.UTC(parseInt(y), parseInt(m), 0, 23, 59, 59, 999));
+            const payrollBounds = getPayrollPeriodBounds(month, dateStrNow);
+            start = payrollBounds.start;
+            end = payrollBounds.end;
+            payrollPeriodLabel = payrollBounds.label;
         } else {
             // ROBUST DEFAULT: Last 30 Days from today (IST aware, UTC stored)
-            const dateStrNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
             end = new Date(`${dateStrNow}T23:59:59.999Z`);
             start = new Date(`${dateStrNow}T00:00:00.000Z`);
-            start.setUTCDate(end.getUTCDate() - 29); // Total 30 days including today
+            start.setUTCDate(end.getUTCDate() - 29);
         }
 
-        const reportTitle = month ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' }) :
-            (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : "Last 30 Days (IST Reference)");
+        const reportTitle = payrollPeriodLabel
+            ? `Payroll Period (${payrollPeriodLabel})`
+            : month
+                ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+                : (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : 'Last 30 Days (IST Reference)');
 
         // Fetch all relevant users
         let userFilter = {};
@@ -927,8 +974,19 @@ export const getComplianceReport = async (req, res, next) => {
         });
         const scopedUserIds = users.map((user) => user.id);
 
+        const biometricEnrolledGroups = scopedUserIds.length
+            ? await prisma.biometricAttendance.groupBy({
+                by: ['userId'],
+                where: { userId: { in: scopedUserIds } }
+            })
+            : [];
+        const biometricEnrolledUserIds = biometricEnrolledGroups.map((group) => group.userId);
+
+        const rangeStartIst = new Date(`${start.toISOString().split('T')[0]}T00:00:00.000+05:30`);
+        const rangeEndIst = new Date(`${end.toISOString().split('T')[0]}T23:59:59.999+05:30`);
+
         // Batch fetch all data for the month
-        const [allAttendance, allLeaves, allHolidays, todayBiometric] = await Promise.all([
+        const [allAttendance, allLeaves, allHolidays, allWfh, rangeBiometric] = await Promise.all([
             prisma.attendance.findMany({
                 where: { 
                     date: { gte: start, lte: end }, 
@@ -949,16 +1007,41 @@ export const getComplianceReport = async (req, res, next) => {
             prisma.holiday.findMany({
                 where: { date: { gte: start, lte: end } }
             }),
-            // Fetch live data for today if within range
+            prisma.wfhRequest.findMany({
+                where: {
+                    userId: { in: scopedUserIds },
+                    wfhDate: { gte: start, lte: end }
+                }
+            }),
             prisma.biometricAttendance.findMany({
                 where: {
-                    timestamp: {
-                        gte: new Date(new Date().setHours(0, 0, 0, 0)),
-                        lte: new Date(new Date().setHours(23, 59, 59, 999))
-                    }
-                }
+                    userId: { in: scopedUserIds },
+                    timestamp: { gte: rangeStartIst, lte: rangeEndIst }
+                },
+                orderBy: { timestamp: 'asc' }
             })
         ]);
+
+        const holidayDateSet = new Set(
+            allHolidays.map((holiday) => holiday.date.toISOString().split('T')[0])
+        );
+        const companyWorkingDaysTotal = countCompanyWorkingDaysInRange(start, end, holidayDateSet);
+        const accountantCountableDaysTotal = countAccountantCountableDaysInRange(
+            start,
+            end,
+            holidayDateSet,
+            dateStrNow
+        );
+
+        const biometricByUserDate = new Map();
+        for (const punch of rangeBiometric) {
+            const punchDateStr = punch.timestamp.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            const key = `${punch.userId}_${punchDateStr}`;
+            if (!biometricByUserDate.has(key)) {
+                biometricByUserDate.set(key, []);
+            }
+            biometricByUserDate.get(key).push(punch.timestamp);
+        }
 
         const formattedOutput = [];
 
@@ -972,10 +1055,20 @@ export const getComplianceReport = async (req, res, next) => {
 
             while (iter <= end) {
                 const dateStr = iter.toISOString().split('T')[0];
-                const dayOfWeek = iter.getDay(); // 0 is Sunday
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const dayOfWeek = iter.getDay();
+                const dayCategory = getCompanyDayCategory(dateStr);
+                const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
+                const isHoliday = Boolean(holiday);
+                const isCompanyWorkday = isCompanyWorkingDay(dateStr, { isHoliday });
+                const isAccountantCountable = isAccountantCountableDay(dateStr, { isHoliday });
+                const wfh = allWfh.find((request) => {
+                    const requestStatus = String(request.status || '').toUpperCase();
+                    const isApprovedWfh = !requestStatus.includes('PENDING') && !requestStatus.includes('REJECTED');
+                    return request.userId === user.id
+                        && request.wfhDate.toISOString().split('T')[0] === dateStr
+                        && isApprovedWfh;
+                });
 
-                // Reset weekly total on Monday (assuming Mon-Sat week)
                 if (dayOfWeek === 1) {
                     weeklyHoursToDate = 0;
                     weeklyActualSum = 0;
@@ -983,7 +1076,6 @@ export const getComplianceReport = async (req, res, next) => {
                     weeklyTarget = 0;
                 }
 
-                const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
                 const att = allAttendance.find(a => a.userId === user.id && a.date.toISOString().split('T')[0] === dateStr);
                 const leave = allLeaves.find(l => {
                     const ls = new Date(l.startDate); ls.setUTCHours(0, 0, 0, 0);
@@ -996,78 +1088,150 @@ export const getComplianceReport = async (req, res, next) => {
                 todayRef.setUTCHours(0, 0, 0, 0);
                 const isFuture = new Date(iter) > todayRef;
 
-                let status = isWeekend ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (isFuture ? 'SCHEDULED' : 'ABSENT'));
+                let status = isFuture ? 'SCHEDULED' : 'ABSENT';
                 let hours = att ? (att.workingHours || 0) : 0;
                 let remarks = 'N/A';
 
-                if (att) {
+                if (isHoliday) {
+                    status = 'HOLIDAY';
+                    remarks = holiday.name;
+                } else if (dayCategory === 'SUNDAY') {
+                    status = 'WEEKEND';
+                } else if (dayCategory === 'SAT_LEAVE') {
+                    status = 'LEAVE';
+                    remarks = '2nd/4th Saturday (Scheduled Leave)';
+                } else if (dayCategory === 'SAT_WFH' || wfh) {
+                    status = 'WFH';
+                    remarks = wfh ? 'WFH (Approved)' : '1st/3rd/5th Saturday (WFH)';
+                }
+
+                if (att && dayCategory !== 'SAT_LEAVE' && dayCategory !== 'SUNDAY' && !isHoliday && !wfh && dayCategory !== 'SAT_WFH') {
                     status = att.status.replace(/_/g, ' ');
                 }
 
                 if (leave) {
                     const lType = (leave.leaveType?.name || 'LEAVE').toUpperCase();
+                    const isWfhSaturday = dayCategory === 'SAT_WFH';
+                    const workedOnDay = att ? (att.workingHours || 0) : 0;
+                    const noWorkRecorded = workedOnDay < 1;
+
                     if (leave.status.includes('REJECTED')) {
-                        // Priority: Work > Rejected Leave
                         if (!att) {
                             status = `REJECTED (${lType})`;
                             remarks = leave.comments || 'Rejected by Admin';
                         }
                     } else if (leave.status.includes('PENDING')) {
-                        // Priority: Work > Pending Leave
-                        if (!att) {
+                        if (noWorkRecorded) {
                             status = `PENDING (${lType})`;
                             remarks = 'Awaiting Approval';
                         }
-                    } else {
-                        // Approved Leave: Credit hours if they exceed actual work
-                        if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
-                            status = hours > 0 ? 'PRESENT' : `HALF DAY ${lType}`;
-                            hours = Math.max(hours, 4.0);
-                            remarks = 'HALF DAY LEAVE';
-                        } else {
-                            status = hours > 0 ? 'PRESENT' : lType;
-                            hours = Math.max(hours, 8.0);
-                            remarks = 'APPROVED LEAVE';
+                    } else if (leave.status.includes('CANCELLED')) {
+                        if (noWorkRecorded) {
+                            status = `CANCELLED (${lType})`;
+                            remarks = 'CANCELLED LEAVE';
                         }
+                    } else if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
+                        if (noWorkRecorded || isWfhSaturday) {
+                            status = `HALF DAY ${lType}`;
+                            hours = Math.max(hours, isWfhSaturday ? 0 : 4.0);
+                            remarks = 'HALF DAY LEAVE';
+                        }
+                    } else if (leave.durationType === 'WORK_FROM_HOME' && (isWfhSaturday || noWorkRecorded)) {
+                        status = 'WFH';
+                        hours = Math.max(hours, 8.0);
+                        remarks = 'WFH (Approved)';
+                    } else if (isWfhSaturday || noWorkRecorded) {
+                        status = lType;
+                        if (!isWfhSaturday) {
+                            hours = Math.max(hours, 8.0);
+                        }
+                        remarks = 'APPROVED LEAVE';
                     }
                 }
 
-                if (holiday) {
-                    remarks = holiday.name;
-                    hours = Math.max(hours, 8.0); // Credit 8 hours for holiday
+                if (isHoliday) {
+                    hours = Math.max(hours, 8.0);
                 }
 
-                if (isWeekend) {
-                    hours = Math.max(hours, (att ? att.workingHours : 0));
-                } else if (!leave && !holiday && new Date(iter) < todayRef) {
-                    // Regular working day: add to target (Passed days only)
+                if (!isCompanyWorkday) {
+                    hours = Math.max(hours, att ? att.workingHours : 0);
+                } else if (!leave && !isHoliday && new Date(iter) < todayRef) {
                     weeklyTarget += 8.0;
+                }
+
+                if (dayCategory === 'SAT_LEAVE' && !isFuture && !(leave && leave.status.includes('REJECTED'))) {
+                    status = 'LEAVE';
+                    remarks = '2nd/4th Saturday (Scheduled Leave)';
+                }
+                if (dayCategory === 'SAT_WFH' && !isFuture && !isHoliday) {
+                    const remarksUpper = String(remarks).toUpperCase();
+                    const leaveMarkedForPayroll =
+                        remarksUpper.includes('APPROVED LEAVE')
+                        || remarksUpper.includes('AWAITING APPROVAL')
+                        || remarksUpper.includes('CANCELLED LEAVE')
+                        || remarksUpper.includes('HALF DAY LEAVE');
+                    if (!leaveMarkedForPayroll) {
+                        status = 'WFH';
+                        remarks = wfh ? 'WFH (Approved)' : '1st/3rd/5th Saturday (WFH)';
+                    }
                 }
 
                 let actualWorkedToday = att ? (att.workingHours || 0) : 0;
 
-                // Live data overlay for Today (Asia/Kolkata)
                 const dateStrToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-                if (dateStr === dateStrToday) {
-                    const userTodayPunches = todayBiometric.filter(b => b.userId === user.id);
-                    if (userTodayPunches.length > 0) {
-                        const now = new Date();
-                        const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
-                        const calcResult = calculateAttendance(userTodayPunches.map(p => ({ timestamp: p.timestamp })), currentTimeStr);
+                const dayPunchTimestamps = biometricByUserDate.get(`${user.id}_${dateStr}`);
+                let dayCalcResult = null;
 
-                        actualWorkedToday = Math.max(actualWorkedToday, parseFloat(calcResult.totalWorkHours));
+                if (dayPunchTimestamps && dayPunchTimestamps.length > 0) {
+                    const isToday = dateStr === dateStrToday;
+                    dayCalcResult = calculateAttendance(
+                        dayPunchTimestamps.map((timestamp) => ({ timestamp })),
+                        isToday ? new Date() : null,
+                        dateStr
+                    );
 
-                        if (status === 'ABSENT' || status === 'OUT') {
-                            status = calcResult.status.replace(/_/g, ' ');
-                        }
+                    const punchHours = parseFloat(dayCalcResult.totalWorkHours);
+                    const storedHours = att ? (att.workingHours || 0) : 0;
+                    actualWorkedToday = Math.max(punchHours, storedHours);
+
+                    if (status === 'ABSENT' || status === 'OUT') {
+                        status = dayCalcResult.status.replace(/_/g, ' ');
                     }
+                } else if (att?.checkIn && att?.checkOut && att.checkOut > att.checkIn) {
+                    actualWorkedToday = Math.max(
+                        actualWorkedToday,
+                        calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dateStr)
+                    );
+                }
+
+                if (!isFuture && isCompanyWorkday) {
+                    status = resolveDayStatusFromHours(actualWorkedToday, {
+                        isOngoing: dateStr === dateStrToday && dayCalcResult?.isOngoing,
+                        preserveStatus: status
+                    });
+                }
+
+                const hasBiometricPunchToday = Boolean(dayPunchTimestamps && dayPunchTimestamps.length > 0);
+                const isManualWfhDay =
+                    att?.isManual
+                    && isCompanyWorkday
+                    && dayCategory === 'WEEKDAY'
+                    && !hasBiometricPunchToday
+                    && actualWorkedToday >= MIN_FULL_DAY_HOURS;
+
+                if (isManualWfhDay) {
+                    status = 'WFH';
+                    remarks = 'WFH (Manual attendance)';
+                    hours = Math.max(hours, actualWorkedToday);
                 }
 
                 // Use credited hours for weekly sums to ensure variance and totals include approved leaves/holidays
                 weeklyActualSum += hours;
                 weeklyHoursToDate += hours;
 
-                let dayIcon = actualWorkedToday > 0 ? actualWorkedToday.toFixed(1) : (leave ? 'L' : (holiday ? 'H' : (isWeekend ? 'W' : '0')));
+                let dayIcon = actualWorkedToday > 0
+                    ? actualWorkedToday.toFixed(1)
+                    : (leave ? 'L' : (isHoliday ? 'H' : (dayCategory === 'SUNDAY' ? 'W' : (dayCategory === 'SAT_LEAVE' ? 'L' : '0'))));
                 weeklySeries.push(dayIcon);
 
                 const weeklyVariance = weeklyActualSum - weeklyTarget;
@@ -1078,14 +1242,29 @@ export const getComplianceReport = async (req, res, next) => {
                     weeklySummaryStatus = (weeklyActualSum >= 40) ? "Weekly requirement met" : "Weekly hours incomplete";
                 }
 
+                let firstPunchDisplay = leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : (wfh || status === 'WFH' ? 'WFH' : '---'));
+                let lastPunchDisplay = firstPunchDisplay;
+                if (dayPunchTimestamps && dayPunchTimestamps.length > 0) {
+                    firstPunchDisplay = formatIstPunchTime(dayPunchTimestamps[0]);
+                    lastPunchDisplay = formatIstPunchTime(dayPunchTimestamps[dayPunchTimestamps.length - 1]);
+                } else if (att?.checkIn) {
+                    firstPunchDisplay = formatIstPunchTime(att.checkIn);
+                    lastPunchDisplay = att.checkOut ? formatIstPunchTime(att.checkOut) : '---';
+                }
+
                 formattedOutput.push({
                     id: user.id,
                     EmployeeID: user.employeeCode,
+                    HasBiometricEnrollment: biometricEnrolledUserIds.includes(user.id),
                     Name: user.name,
                     Date: dateStr,
                     ShiftType: user.shift || 'B',
-                    FirstPunch: (att && att.checkIn) ? att.checkIn.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '---')),
-                    LastPunch: (att && att.checkOut) ? att.checkOut.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' }) : (leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : '---')),
+                    DayCategory: dayCategory,
+                    SaturdayOrdinal: getSaturdayOrdinalInMonth(dateStr),
+                    IsCompanyWorkingDay: isCompanyWorkday,
+                    IsAccountantCountableDay: isAccountantCountable,
+                    FirstPunch: firstPunchDisplay,
+                    LastPunch: lastPunchDisplay,
                     TotalWorkedHours: actualWorkedToday.toFixed(2),
                     PreviousDayHours: previousDayHours.toFixed(2),
                     WeeklyCumulative: weeklyHoursToDate.toFixed(2),
@@ -1094,6 +1273,11 @@ export const getComplianceReport = async (req, res, next) => {
                     WeeklySummary: weeklySummaryStatus,
                     WeekHistory: weeklySeries.join(' + '),
                     Status: status,
+                    IsOngoingToday: Boolean(
+                        dateStr === dateStrToday
+                        && dayCalcResult?.isOngoing
+                        && isCompanyWorkday
+                    ),
                     LeaveDeducted: att?.leaveDeducted ?? 0,
                     Remarks: remarks
                 });
@@ -1111,9 +1295,21 @@ export const getComplianceReport = async (req, res, next) => {
             return a.Name.localeCompare(b.Name);
         });
 
+        const accountantSummaries = buildAccountantSummaries(sortedReport, {
+            companyWorkingDays: companyWorkingDaysTotal,
+            enrolledUserIds: biometricEnrolledUserIds
+        });
+
         res.json({
             meta: {
                 month: reportTitle,
+                payrollMonth: month || getPayrollMonthLabel(dateStrNow),
+                payrollPeriodStart: start.toISOString().split('T')[0],
+                payrollPeriodEnd: end.toISOString().split('T')[0],
+                companyWorkingDays: companyWorkingDaysTotal,
+                accountantCountableDays: accountantCountableDaysTotal,
+                biometricEnrolledUserIds,
+                accountantSummaries,
                 totalRecords: sortedReport.length
             },
             report: sortedReport
@@ -1605,9 +1801,13 @@ export const getAdminAnalytics = async (req, res, next) => {
             });
             const present = dayAtt.filter(a => {
                 const s = normalizeStatus(a.status);
-                return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'HALF DAY', 'LATE', 'OVERTIME', 'ON SITE', 'ON-SITE'].includes(s);
+                return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'HALF DAY', 'SHORT DAY', 'LATE', 'OVERTIME', 'ON SITE', 'ON-SITE'].includes(s)
+                    || (a.workingHours || 0) > 0.1;
             }).length;
-            const absent = dayAtt.filter(a => normalizeStatus(a.status) === 'ABSENT').length;
+            const absent = dayAtt.filter(a => {
+                const s = normalizeStatus(a.status);
+                return s === 'ABSENT' && (a.workingHours || 0) <= 0.1;
+            }).length;
 
             weeklyTrends.push({ day: dayMap[ds.getDay()], present, absent });
         }
@@ -1621,7 +1821,8 @@ export const getAdminAnalytics = async (req, res, next) => {
 
         const onTimePresent = attToday.filter(a => {
             const s = normalizeStatus(a.status);
-            return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'OVERTIME', 'HALF DAY', 'ON SITE', 'ON-SITE'].includes(s);
+            return ['PRESENT', 'FULL DAY', 'PRESENT WFH', 'OVERTIME', 'HALF DAY', 'SHORT DAY', 'ON SITE', 'ON-SITE'].includes(s)
+                || (a.workingHours || 0) > 0.1;
         }).length;
 
         const lateArrivals = attToday.filter(a => normalizeStatus(a.status) === 'LATE');

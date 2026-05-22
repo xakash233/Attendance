@@ -282,20 +282,15 @@ export default function DashboardPage() {
         );
     }, [report?.weekly]);
 
+    /** Decimal hours → HH:MM (60 minutes = 1 hour). */
     const formatDuration = (decimalHours: any) => {
         if (typeof decimalHours === 'string' && decimalHours.includes('h+')) return decimalHours;
         const val = parseFloat(decimalHours);
-        if (isNaN(val)) return '--.--';
+        if (isNaN(val) || val <= 0) return '00:00';
         const totalMinutes = Math.round(val * 60);
         const hours = Math.floor(totalMinutes / 60);
         const minutes = totalMinutes % 60;
-        return `${hours}.${minutes.toString().padStart(2, '0')}`;
-    };
-
-    const formatCompactHours = (value: any) => {
-        const parsed = Number.parseFloat(String(value));
-        if (!Number.isFinite(parsed)) return '--';
-        return parsed.toFixed(2).replace(/\.?0+$/, '');
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     };
 
     if (loading && !report) {
@@ -373,7 +368,7 @@ export default function DashboardPage() {
                                     <div className="flex items-end justify-between">
                                         <div>
                                             <h4 className="text-base font-semibold text-[#101828]">
-                                                {report?.weeklySummary?.totalWorked ? formatDuration(report.weeklySummary.totalWorked) : '0.00'}
+                                                {report?.weeklySummary?.totalWorked ? formatDuration(report.weeklySummary.totalWorked) : '00:00'}
                                                 <span className="text-[14px] text-slate-400 font-bold ml-1">/ {report?.weeklySummary?.target || 40}h</span>
                                             </h4>
                                         </div>
@@ -394,7 +389,7 @@ export default function DashboardPage() {
                                                 {liveData[0]?.currentStatus || report?.today?.currentStatus || 'ABSENT'}
                                                 {report?.today?.workHours > 0 && (
                                                     <span className="text-[14px] text-slate-400 font-bold ml-2 tracking-normal uppercase">
-                                                        • {formatDuration(report.today.workHours)}h
+                                                        • {formatDuration(report.today.workHours)}
                                                     </span>
                                                 )}
                                             </h4>
@@ -454,10 +449,15 @@ export default function DashboardPage() {
                                                 tickFormatter={(str) => formatDateShort(new Date(str))}
                                                 axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
                                             />
-                                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }} />
+                                            <YAxis
+                                                axisLine={false}
+                                                tickLine={false}
+                                                tick={{ fontSize: 10, fontWeight: 700, fill: '#64748b' }}
+                                                tickFormatter={(val) => formatDuration(val)}
+                                            />
                                             <Tooltip 
                                                 labelFormatter={(label) => formatDate(new Date(String(label)))}
-                                                formatter={(val: any) => [`${formatCompactHours(val)} HRS`, 'Work Duration']}
+                                                formatter={(val: any) => [formatDuration(val), 'Work Duration']}
                                                 contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} 
                                             />
                                             <Area type="monotone" dataKey="hours" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorHours)" />
@@ -494,7 +494,13 @@ export default function DashboardPage() {
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-widest ${['PRESENT', 'FULL DAY', 'FULL_DAY', 'SHORT DAY', 'SHORT_DAY', 'IN', 'OUT', 'ON LEAVE', 'ON_LEAVE', 'ON SITE', 'ON-SITE'].includes(day.status) ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-widest ${
+                                                                ['SHORT DAY', 'SHORT_DAY'].includes(day.status)
+                                                                    ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                                                                    : ['PRESENT', 'FULL DAY', 'FULL_DAY', 'IN', 'OUT', 'ON LEAVE', 'ON_LEAVE', 'ON SITE', 'ON-SITE'].includes(day.status)
+                                                                        ? 'bg-emerald-50 text-emerald-600'
+                                                                        : 'bg-rose-50 text-rose-600'
+                                                            }`}>
                                                                 {day.status}
                                                             </span>
                                                         </td>
@@ -505,7 +511,7 @@ export default function DashboardPage() {
                                                             <span className="text-[14px] font-semibold text-[#101828] tabular-nums">{day.checkOut ? formatTime(day.checkOut) : '--:--'}</span>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <span className="text-[16px] font-semibold text-[#101828]">{formatDuration(day.hours)} <span className="text-xs font-bold text-slate-400">HRS</span></span>
+                                                            <span className="text-[16px] font-semibold text-[#101828] tabular-nums">{formatDuration(day.hours)}</span>
                                                         </td>
                                                     </tr>
                                                     {expandedRow === day.date && day.punches?.length > 0 && (

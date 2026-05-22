@@ -117,31 +117,31 @@ export default function AttendancePage() {
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 flex justify-between items-center"
+                className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
             >
-                <div>
-                    <h1 className="text-[24px] font-bold text-[#101828] tracking-tight leading-none mb-1">
-                        Live Attendance Directory
+                <div className="space-y-1">
+                    <h1 className="text-[26px] md:text-[28px] font-black text-[#101828] tracking-tight leading-tight">
+                        Live Presence Directory
                     </h1>
                     <p className="text-[13px] font-medium text-[#667085]">
                         Real-time visualization of site presence and tracking.
                     </p>
                 </div>
-                <div className="flex flex-col items-end">
-                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                <div className="flex flex-col items-start md:items-end w-full md:w-auto">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-100 bg-emerald-50">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Live</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Live Updates</span>
                         </div>
-                        <span className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
+                        <span className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[10px] font-bold text-emerald-700 uppercase tracking-wider shadow-sm">
                             On-Site {liveStats.present}
                         </span>
-                        <span className="px-2.5 py-1 rounded-lg border border-slate-300 bg-slate-100 text-[10px] font-semibold text-slate-700 uppercase tracking-wider">
-                            Checked Out {liveStats.checkedOut}
+                        <span className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 uppercase tracking-wider shadow-sm">
+                            Away {liveStats.checkedOut}
                         </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1.5">
-                        Last updated: <span className="font-semibold text-[#101828]">{formatLastUpdated(lastUpdatedAt)}</span>
+                    <p className="text-[11px] font-medium text-slate-400 mt-2">
+                        Last sync: <span className="font-bold text-[#101828]">{formatLastUpdated(lastUpdatedAt)}</span>
                     </p>
                 </div>
             </motion.div>
@@ -188,7 +188,8 @@ export default function AttendancePage() {
                         Live Tracking
                     </h3>
                 </div>
-                <div className="overflow-x-auto no-scrollbar">
+                {/* Desktop View */}
+                <div className="hidden md:block overflow-x-auto no-scrollbar">
                     <table className="w-full text-left">
                         <thead>
                             <tr className="bg-slate-50/20 border-b border-[#E6E8EC]">
@@ -297,6 +298,88 @@ export default function AttendancePage() {
                             )}
                         </tbody>
                     </table>
+                </div>
+
+                {/* Mobile Card View */}
+                <div className="md:hidden divide-y divide-slate-100">
+                    {filteredLiveData.length === 0 ? (
+                        <div className="px-6 py-12 text-center text-[#667085] font-medium italic text-[13px]">No matching records found.</div>
+                    ) : (
+                        filteredLiveData.map((emp) => (
+                            <div key={emp.id} className={`p-5 space-y-4 bg-white hover:bg-slate-50 transition-all ${emp.id === user?.id ? 'bg-indigo-50/20 border-l-4 border-indigo-500' : ''}`}>
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px]">
+                                            {emp.name.substring(0, 2).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h4 
+                                                className="text-[15px] font-bold text-[#101828] hover:text-indigo-600 active:text-indigo-700 transition-colors"
+                                                onClick={() => router.push(`/dashboard/users/${emp.id}`)}
+                                            >
+                                                {emp.name}
+                                            </h4>
+                                            <p className="text-[12px] font-medium text-slate-500">{emp.employeeCode || 'Emp ID not set'}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    {emp.currentStatus === 'IN' ? (
+                                        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
+                                            {emp.isWfh ? 'WFH' : 'On-Site'}
+                                        </span>
+                                    ) : (
+                                        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${emp.currentStatus === 'ABSENT' ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                            {emp.currentStatus === 'ABSENT' ? 'Offline' : (emp.isWfh ? 'Out (WFH)' : 'Checked Out')}
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
+                                    <div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">First Punch In</p>
+                                        <p className="text-[15px] font-bold text-[#101828] tabular-nums tracking-tight">
+                                            {emp.firstPunch ? formatTime(emp.firstPunch) : '--:-- --'}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Duration</p>
+                                        <p className="text-[18px] font-black text-[#101828] tabular-nums leading-none">{formatDuration(emp.totalHours)}</p>
+                                        {emp.punchesCount % 2 !== 0 && (
+                                            <span className="inline-block text-[9px] font-black text-amber-600 uppercase tracking-tighter animate-pulse mt-1">Ongoing Session</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Telemetry Log</p>
+                                        <span className="text-[10px] font-bold text-[#101828] bg-slate-100 px-2 py-0.5 rounded-md">{emp.punchesCount} Punches</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {emp.punches?.length > 0 ? (
+                                            emp.punches.map((punchIso: string, idx: number) => (
+                                                <span key={idx} className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50/50 text-emerald-700 border-emerald-100' : 'bg-rose-50/50 text-rose-700 border-rose-100'}`}>
+                                                    {idx % 2 === 0 ? 'In' : 'Out'}: {formatTime(punchIso).split(' ')[0]}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <p className="text-[11px] text-slate-400 italic">No biometric logs available for today.</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="pt-2">
+                                    <button 
+                                        onClick={() => router.push(`/dashboard/users/${emp.id}`)}
+                                        className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-[12px] font-bold shadow-lg shadow-black/10 active:scale-[0.98] transition-all"
+                                    >
+                                        View Employee Profile
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </motion.div>
         </div>

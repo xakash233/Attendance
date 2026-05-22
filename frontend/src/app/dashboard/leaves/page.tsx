@@ -77,7 +77,7 @@ export default function LeavesPage() {
     };
 
     const totalDays = calculateDays();
-    const isLOP = totalDays > 2;
+    // const isLOP = totalDays > 2; // Removed as per request to stop flagging "more leave"
 
     const [balances, setBalances] = useState<any[]>([]);
     const fetchData = useCallback(async () => {
@@ -927,19 +927,7 @@ export default function LeavesPage() {
                                     ></textarea>
                                 </div>
 
-                                {isLOP && (
-                                    <div className="p-4 bg-amber-50 rounded-lg flex items-start gap-4 border border-amber-200">
-                                        <div className="shrink-0 mt-0.5">
-                                            <AlertCircle size={18} className="text-amber-600" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[13px] font-medium text-amber-800">Note on extended leave</p>
-                                            <p className="text-[12px] text-amber-700 mt-1">
-                                                Your request spans {totalDays} days, which may require additional approval or result in Loss of Pay (LOP) based on your balance.
-                                            </p>
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
                                     <button

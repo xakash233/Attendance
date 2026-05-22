@@ -12,10 +12,9 @@ export const applyLeave = async (req, res, next) => {
         });
 
         // Notify authorities (Both HR and Super Admin)
-        const isCritical = leaveRequest.isFrequentLeaver || leaveRequest.totalDays > 2;
         const notificationPayload = {
-            title: isCritical ? 'Critical Leave Review (High Frequency)' : 'New Leave Request',
-            message: `${req.user.name} requested ${leaveRequest.totalDays} days. ${isCritical ? 'Note: This employee has taken multiple leaves this month.' : ''} Immediate review requested.`,
+            title: 'New Leave Request',
+            message: `${req.user.name} requested ${leaveRequest.totalDays} days. Immediate review requested.`,
             type: 'LEAVE_REQUEST',
             departmentId: req.user.departmentId,
             templateType: 'LEAVE_REQUEST',
@@ -26,9 +25,7 @@ export const applyLeave = async (req, res, next) => {
                 startDate: new Date(leaveRequest.startDate).toLocaleDateString('en-GB'),
                 endDate: new Date(leaveRequest.endDate).toLocaleDateString('en-GB'),
                 totalDays: leaveRequest.totalDays,
-                reason: leaveRequest.reason,
-                isFrequentLeaver: leaveRequest.isFrequentLeaver,
-                totalLeavesThisMonth: leaveRequest.totalLeavesThisMonth
+                reason: leaveRequest.reason
             }
         };
 

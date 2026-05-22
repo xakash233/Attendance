@@ -116,29 +116,13 @@ class LeaveService {
                 include: { user: { include: { department: true } } }
             });
 
-            // 4. Monthly Check for Frequent Leaves
-            const startOfMonth = new Date(start.getFullYear(), start.getMonth(), 1);
-            const endOfMonth = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59);
-
-            const leavesThisMonth = await tx.leaveRequest.aggregate({
-                _sum: { totalDays: true },
-                where: {
-                    userId,
-                    status: { notIn: ['REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'CANCELLED'] },
-                    startDate: { gte: startOfMonth, lte: endOfMonth }
-                }
-            });
-            const totalLeavesThisMonth = (leavesThisMonth._sum.totalDays || 0) + totalDays;
-            leaveRequest.isFrequentLeaver = totalLeavesThisMonth > 2;
-            leaveRequest.totalLeavesThisMonth = totalLeavesThisMonth;
-
-            // 5. Audit Log
+            // 4. Audit Log
             await auditService.logAction({
                 userId,
                 action: 'LEAVE_APPLIED',
                 entity: 'LeaveRequest',
                 entityId: leaveRequest.id,
-                details: { durationType: mappedDuration, startDate, endDate, totalDays, reason, isFrequentLeaver: leaveRequest.isFrequentLeaver }
+                details: { durationType: mappedDuration, startDate, endDate, totalDays, reason }
             }, tx);
 
             return leaveRequest;
