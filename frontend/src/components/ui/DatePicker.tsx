@@ -15,7 +15,7 @@ import { eachDayOfInterval } from 'date-fns/eachDayOfInterval';
 import { parseISO } from 'date-fns/parseISO';
 import { isValid } from 'date-fns/isValid';
 import { isBefore } from 'date-fns/isBefore';
-import { startOfToday } from 'date-fns/startOfToday';
+import { startOfDay } from 'date-fns/startOfDay';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -33,7 +33,7 @@ interface DatePickerProps {
     disablePast?: boolean;
 }
 
-export default function DatePicker({ date, onChange, label, placeholder = "Select date", required, disablePast = true }: DatePickerProps) {
+export default function DatePicker({ date, onChange, label, placeholder = "Select date", required, disablePast = false }: DatePickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const containerRef = useRef<HTMLDivElement>(null);
@@ -51,10 +51,12 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
     }, []);
 
     useEffect(() => {
-        if (!isOpen || !date) return;
-        const parsed = parseISO(date);
-        if (isValid(parsed)) {
-            setViewDate(parsed);
+        if (!isOpen) return;
+        if (date) {
+            const parsed = parseISO(date);
+            if (isValid(parsed)) {
+                setViewDate(parsed);
+            }
         }
     }, [isOpen, date]);
 
@@ -112,22 +114,22 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
                     const isSelected = selectedDate && isSameDay(day, selectedDate);
                     const isCurrentMonth = isSameMonth(day, monthStart);
                     const isToday = isSameDay(day, new Date());
-                    const isPast = disablePast && isBefore(day, startOfToday());
+                    const isPastDay = disablePast && isBefore(startOfDay(day), startOfDay(new Date()));
 
                     return (
                         <button
                             key={idx}
                             type="button"
-                            disabled={isPast}
+                            disabled={isPastDay}
                             onClick={() => {
                                 onChange(format(day, 'yyyy-MM-dd'));
                                 setIsOpen(false);
                             }}
                             className={cn(
-                                "h-7.5 w-7.5 flex items-center justify-center rounded-lg text-[10px] font-bold transition-all relative",
-                                !isCurrentMonth && "text-black/10",
-                                isCurrentMonth && "text-black hover:bg-neutral-50",
-                                isPast && "text-black/5 cursor-not-allowed hover:bg-transparent",
+                                "h-8 w-8 flex items-center justify-center rounded-lg text-[10px] font-bold transition-all relative",
+                                !isCurrentMonth && !isPastDay && "text-black/40 hover:bg-neutral-50",
+                                isCurrentMonth && !isPastDay && "text-black hover:bg-neutral-50",
+                                isPastDay && "text-black/20 cursor-not-allowed hover:bg-transparent",
                                 isSelected && "bg-black text-white hover:bg-black font-semibold shadow-md scale-105 z-10",
                                 isToday && !isSelected && "text-emerald-600 after:content-[''] after:absolute after:bottom-1 after:w-1 after:h-1 after:bg-emerald-500 after:rounded-full"
                             )}

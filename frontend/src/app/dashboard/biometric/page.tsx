@@ -49,8 +49,9 @@ export default function BiometricPage() {
 
         // Listen for real-time updates
         socket.connect();
-        socket.on('biometricSyncUpdate', (data) => {
-            toast.success(`Sync ${data.status}: ${data.success} records updated`);
+        socket.on('biometricSyncUpdate', (payload: unknown) => {
+            const data = payload as { status?: string; success?: number };
+            toast.success(`Sync ${data.status ?? 'done'}: ${data.success ?? 0} records updated`);
             fetchLogs();
             fetchRecords();
         });

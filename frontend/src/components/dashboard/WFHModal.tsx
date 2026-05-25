@@ -1,13 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar as CalendarIcon, X, Loader2, CheckCircle2, Info } from 'lucide-react';
 import { DayPicker } from 'react-day-picker';
 import { format } from 'date-fns/format';
-import { isPast } from 'date-fns/isPast';
-import { isToday } from 'date-fns/isToday';
-import { startOfDay } from 'date-fns/startOfDay';
 import api from '@/lib/axios';
 import { toast } from 'react-hot-toast';
 import 'react-day-picker/dist/style.css';
@@ -130,9 +127,7 @@ export default function WFHModal({ isOpen, onClose, onSuccess, existingWfhDates 
                                 onSelect={(dates: Date[] | undefined) => setSelectedDates(dates || [])}
                                 modifiers={{ applied: existingWfhDates }}
                                 modifiersClassNames={{ applied: 'rdp-day_applied' }}
-                                disabled={[
-                                    { before: startOfDay(new Date()) }
-                                ]}
+                                disabled={existingWfhDates}
                                 className="border-none"
                             />
                         </div>
@@ -140,7 +135,7 @@ export default function WFHModal({ isOpen, onClose, onSuccess, existingWfhDates 
                         <div className="mt-4 flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-xl">
                             <Info size={16} className="text-amber-600 mt-0.5" />
                             <p className="text-[11px] text-amber-800 leading-normal">
-                                Past dates and currently registered WFH days are disabled. Note: WFH status skips biometric validation but still tracks against your usage limit.
+                                Already registered WFH days are highlighted. You can select past dates for backdated requests. Note: WFH status skips biometric validation but still tracks against your usage limit.
                             </p>
                         </div>
                     </div>
