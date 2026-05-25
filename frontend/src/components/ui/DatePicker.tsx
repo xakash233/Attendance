@@ -50,6 +50,14 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!isOpen || !date) return;
+        const parsed = parseISO(date);
+        if (isValid(parsed)) {
+            setViewDate(parsed);
+        }
+    }, [isOpen, date]);
+
     const renderHeader = () => {
         return (
             <div className="flex items-center justify-between px-3 py-2 border-b border-black/5 bg-neutral-50/30">

@@ -25,7 +25,9 @@ import AccountantEmployeeCalendar, {
 const ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES = new Set([
     'YUVARAJ',
     'SWETHA',
-    'E.GOKULAVASAN'
+    'E.GOKULAVASAN',
+    'A V NISHANTH',
+    'NIRANJAN PURUSHOTHAMAN'
 ]);
 
 const MIN_FULL_DAY_HOURS = 7.5;
@@ -106,6 +108,9 @@ export default function ReportPage() {
     const [selectedAccountantEmployee, setSelectedAccountantEmployee] = useState<{
         employeeId: string;
         name: string;
+        joiningDate?: string | null;
+        firstBiometricDate?: string | null;
+        effectiveAttendanceStart?: string | null;
         companyWorkingDays: number;
         presentDays: number;
         leaveDays: number;
@@ -388,7 +393,7 @@ export default function ReportPage() {
         const hasPunch = isValidPunchValue(row.FirstPunch) || isValidPunchValue(row.LastPunch);
         const hasWorkedTime = workedHours > 0.1;
 
-        if (row.IsCompanyWorkingDay === false) return 'UNKNOWN';
+        if (row.IsBeforeEffectiveStart || row.IsCompanyWorkingDay === false) return 'UNKNOWN';
 
         if (accountantMode) {
             const remarks = String(row.Remarks || '').toUpperCase();
@@ -462,6 +467,9 @@ export default function ReportPage() {
                 .map((summary: any) => ({
                     employeeId: summary.userId || summary.name,
                     name: summary.name,
+                    joiningDate: summary.joiningDate ?? null,
+                    firstBiometricDate: summary.firstBiometricDate ?? null,
+                    effectiveAttendanceStart: summary.effectiveAttendanceStart ?? null,
                     companyWorkingDays: summary.companyWorkingDays ?? meta?.companyWorkingDays ?? 0,
                     presentDays: summary.presentDays ?? 0,
                     leaveDays: summary.leaveDays ?? 0,
@@ -606,7 +614,9 @@ export default function ReportPage() {
             if (!dateKey) return;
 
             let classification: AccountantDayClassification;
-            if (row.IsCompanyWorkingDay === false) {
+            if (row.IsBeforeEffectiveStart) {
+                classification = 'OFF';
+            } else if (row.IsCompanyWorkingDay === false) {
                 classification = 'OFF';
             } else {
                 const accountantClass = classifyAttendanceRow(row, { accountantMode: true });
@@ -651,6 +661,7 @@ export default function ReportPage() {
                     weekday: dateObj.toLocaleDateString('en-GB', { weekday: 'short' }),
                     classification: entry.classification,
                     isWfh,
+                    isBeforeEffectiveStart: entry.row.IsBeforeEffectiveStart === true,
                     isCompanyWorkingDay: entry.row.IsCompanyWorkingDay !== false,
                     dayCategory: entry.row.DayCategory || '—',
                     saturdayOrdinal: entry.row.SaturdayOrdinal ?? null,
@@ -1157,6 +1168,9 @@ export default function ReportPage() {
                     employeeName={selectedAccountantEmployee.name}
                     payrollPeriodStart={meta?.payrollPeriodStart}
                     payrollPeriodEnd={meta?.payrollPeriodEnd}
+                    joiningDate={selectedAccountantEmployee.joiningDate}
+                    firstBiometricDate={selectedAccountantEmployee.firstBiometricDate}
+                    effectiveAttendanceStart={selectedAccountantEmployee.effectiveAttendanceStart}
                     companyWorkingDays={selectedAccountantEmployee.companyWorkingDays}
                     presentDays={selectedAccountantEmployee.presentDays}
                     leaveDays={selectedAccountantEmployee.leaveDays}

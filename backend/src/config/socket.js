@@ -2,10 +2,30 @@ import { Server } from 'socket.io';
 
 let io;
 
+const buildAllowedOrigins = () => {
+    const origins = new Set([
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'https://hrms.tectratechnologies.com',
+    ]);
+    if (process.env.FRONTEND_URL) origins.add(process.env.FRONTEND_URL);
+    if (process.env.SOCKET_CORS_ORIGINS) {
+        process.env.SOCKET_CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean).forEach((o) => origins.add(o));
+    }
+    return [...origins];
+};
+
 export const initSocket = (server) => {
+    const allowedOrigins = buildAllowedOrigins();
     io = new Server(server, {
         cors: {
-            origin: process.env.FRONTEND_URL || "http://localhost:3000",
+            origin: (origin, callback) => {
+                if (!origin || allowedOrigins.includes(origin) || /\.vercel\.app$/i.test(origin)) {
+                    callback(null, true);
+                } else {
+                    callback(new Error('Socket CORS blocked'));
+                }
+            },
             methods: ["GET", "POST"],
             credentials: true
         },

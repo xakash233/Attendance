@@ -1,5 +1,18 @@
 const INVALID_PUNCH_TOKENS = new Set(['---', 'ABSENT', 'N/A', 'LEAVE', 'WEEKEND', 'HOLIDAY', '']);
 
+export const ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES = new Set([
+    'YUVARAJ',
+    'SWETHA',
+    'E.GOKULAVASAN',
+    'A V NISHANTH',
+    'NIRANJAN PURUSHOTHAMAN'
+]);
+
+const normalizeEmployeeName = (name) => String(name || '').trim().toUpperCase();
+
+export const isExcludedFromAccountantSheet = (name) =>
+    ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES.has(normalizeEmployeeName(name));
+
 const hasValidPunch = (value) => {
     if (!value) return false;
     return !INVALID_PUNCH_TOKENS.has(String(value).trim().toUpperCase());
@@ -67,7 +80,7 @@ export const hasApprovedWfh = (row) => {
  * @returns {'PRESENT'|'ABSENT'|'LEAVE'|'UNKNOWN'}
  */
 export const classifyAccountantDay = (row) => {
-    if (!row?.IsCompanyWorkingDay) return 'UNKNOWN';
+    if (row?.IsBeforeEffectiveStart || !row?.IsCompanyWorkingDay) return 'UNKNOWN';
 
     if (isAccountantLeaveDay(row)) {
         return 'LEAVE';
@@ -96,6 +109,7 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
 
     for (const row of reportRows) {
         if (!row?.id || !enrolledSet.has(row.id)) continue;
+        if (isExcludedFromAccountantSheet(row.Name)) continue;
         const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
         if (!dateKey || (excludeDate && dateKey === excludeDate)) continue;
 
@@ -104,13 +118,16 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             byEmployee.set(employeeKey, {
                 userId: row.id,
                 name: row.Name,
+                joiningDate: row.JoiningDate ?? null,
+                firstBiometricDate: row.FirstBiometricDate ?? null,
+                effectiveAttendanceStart: row.EffectiveAttendanceStart ?? null,
                 perDay: new Map()
             });
         }
 
         const bucket = byEmployee.get(employeeKey);
 
-        if (!row.IsCompanyWorkingDay) continue;
+        if (row.IsBeforeEffectiveStart || !row.IsCompanyWorkingDay) continue;
 
         const classification = classifyAccountantDay(row);
         if (classification === 'UNKNOWN') continue;
@@ -134,7 +151,10 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             return {
                 userId: entry.userId,
                 name: entry.name,
-                companyWorkingDays,
+                joiningDate: entry.joiningDate,
+                firstBiometricDate: entry.firstBiometricDate,
+                effectiveAttendanceStart: entry.effectiveAttendanceStart,
+                companyWorkingDays: entry.perDay.size || companyWorkingDays,
                 presentDays,
                 leaveDays,
                 absentDays

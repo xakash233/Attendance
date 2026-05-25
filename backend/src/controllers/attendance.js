@@ -4,10 +4,12 @@ import calculateAttendance, {
     MIN_FULL_DAY_HOURS,
     resolveDayStatusFromHours
 } from '../utils/attendanceCalculator.js';
+import { applyUserHourAdjustment } from '../utils/userHourAdjustments.js';
 import {
     countAccountantCountableDaysInRange,
     countCompanyWorkingDaysInRange,
     getCompanyDayCategory,
+    getEffectiveAttendanceStart,
     getSaturdayOrdinalInMonth,
     getPayrollMonthLabel,
     getPayrollPeriodBounds,
@@ -594,6 +596,7 @@ export const getLiveAttendance = async (req, res, next) => {
             }
 
             const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
+            const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours);
 
             return {
                 id: user.id,
@@ -605,7 +608,7 @@ export const getLiveAttendance = async (req, res, next) => {
                 lastPunch: lastPunch ? lastPunch.toISOString() : null,
                 currentStatus: rawPunches.length === 0 ? 'ABSENT' : currentStatus,
                 isWfh,
-                totalHours: calcResult.totalWorkHours,
+                totalHours: adjustedHours.toFixed(2),
                 punchesCount: rawPunches.length,
                 punches: rawPunches.map(p => p.toISOString())
             };
@@ -661,8 +664,9 @@ export const getDashboardReport = async (req, res, next) => {
         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
         const calcPunchesForSync = rawPunches.map(p => ({ timestamp: p.time }));
         const calcResult = calculateAttendance(calcPunchesForSync, currentTimeStr, dateStr);
+        const adjustedWorkHours = applyUserHourAdjustment(userId, calcResult.totalWorkHours);
 
-        let workMs = calcResult.totalWorkMinutes * 60000;
+        let workMs = Math.round(adjustedWorkHours * 60) * 60000;
         let breakMs = 0;
         let breaksCount = 0;
         let dailyActivity = [];
@@ -804,9 +808,12 @@ export const getDashboardReport = async (req, res, next) => {
                     isTodaySession ? now : null,
                     dStr
                 );
-                worked = parseFloat(dayCalc.totalWorkHours);
+                worked = applyUserHourAdjustment(userId, dayCalc.totalWorkHours);
             } else if (att?.checkIn && att?.checkOut && att.checkOut > att.checkIn) {
-                worked = calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dStr);
+                worked = applyUserHourAdjustment(
+                    userId,
+                    calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dStr)
+                );
             }
 
             if (holidayDay) {
@@ -969,18 +976,36 @@ export const getComplianceReport = async (req, res, next) => {
                 name: true,
                 employeeCode: true,
                 shift: true,
+                joiningDate: true,
                 department: { select: { name: true } }
             }
         });
         const scopedUserIds = users.map((user) => user.id);
 
-        const biometricEnrolledGroups = scopedUserIds.length
+        const biometricFirstGroups = scopedUserIds.length
             ? await prisma.biometricAttendance.groupBy({
                 by: ['userId'],
-                where: { userId: { in: scopedUserIds } }
+                where: { userId: { in: scopedUserIds } },
+                _min: { timestamp: true }
             })
             : [];
-        const biometricEnrolledUserIds = biometricEnrolledGroups.map((group) => group.userId);
+        const firstBiometricDateByUserId = new Map(
+            biometricFirstGroups.map((group) => [
+                group.userId,
+                group._min.timestamp.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+            ])
+        );
+        const biometricEnrolledUserIds = users
+            .filter((user) => {
+                const firstBiometricDate = firstBiometricDateByUserId.get(user.id);
+                if (!firstBiometricDate) return false;
+                const joiningDateStr = user.joiningDate
+                    ? user.joiningDate.toISOString().split('T')[0]
+                    : null;
+                if (!joiningDateStr) return true;
+                return firstBiometricDate >= joiningDateStr;
+            })
+            .map((user) => user.id);
 
         const rangeStartIst = new Date(`${start.toISOString().split('T')[0]}T00:00:00.000+05:30`);
         const rangeEndIst = new Date(`${end.toISOString().split('T')[0]}T23:59:59.999+05:30`);
@@ -1045,7 +1070,19 @@ export const getComplianceReport = async (req, res, next) => {
 
         const formattedOutput = [];
 
+        const periodStartStr = start.toISOString().split('T')[0];
+
         for (const user of users) {
+            const joiningDateStr = user.joiningDate
+                ? user.joiningDate.toISOString().split('T')[0]
+                : null;
+            const firstBiometricDateStr = firstBiometricDateByUserId.get(user.id) ?? null;
+            const effectiveAttendanceStart = getEffectiveAttendanceStart(
+                periodStartStr,
+                joiningDateStr,
+                firstBiometricDateStr
+            );
+
             let iter = new Date(start);
             let weeklyHoursToDate = 0;
             let previousDayHours = 0;
@@ -1059,8 +1096,10 @@ export const getComplianceReport = async (req, res, next) => {
                 const dayCategory = getCompanyDayCategory(dateStr);
                 const holiday = allHolidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
                 const isHoliday = Boolean(holiday);
-                const isCompanyWorkday = isCompanyWorkingDay(dateStr, { isHoliday });
-                const isAccountantCountable = isAccountantCountableDay(dateStr, { isHoliday });
+                const isBeforeEffectiveStart = dateStr < effectiveAttendanceStart;
+                const isCompanyWorkdayBase = isCompanyWorkingDay(dateStr, { isHoliday });
+                const isCompanyWorkday = isCompanyWorkdayBase && !isBeforeEffectiveStart;
+                const isAccountantCountable = isAccountantCountableDay(dateStr, { isHoliday }) && !isBeforeEffectiveStart;
                 const wfh = allWfh.find((request) => {
                     const requestStatus = String(request.status || '').toUpperCase();
                     const isApprovedWfh = !requestStatus.includes('PENDING') && !requestStatus.includes('REJECTED');
@@ -1092,7 +1131,13 @@ export const getComplianceReport = async (req, res, next) => {
                 let hours = att ? (att.workingHours || 0) : 0;
                 let remarks = 'N/A';
 
-                if (isHoliday) {
+                if (isBeforeEffectiveStart) {
+                    status = isFuture ? 'SCHEDULED' : 'NOT_JOINED';
+                    remarks = joiningDateStr && dateStr < joiningDateStr
+                        ? 'Before joining date'
+                        : 'Before biometric enrollment';
+                    hours = 0;
+                } else if (isHoliday) {
                     status = 'HOLIDAY';
                     remarks = holiday.name;
                 } else if (dayCategory === 'SUNDAY') {
@@ -1179,7 +1224,9 @@ export const getComplianceReport = async (req, res, next) => {
                 let actualWorkedToday = att ? (att.workingHours || 0) : 0;
 
                 const dateStrToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-                const dayPunchTimestamps = biometricByUserDate.get(`${user.id}_${dateStr}`);
+                const dayPunchTimestamps = isBeforeEffectiveStart
+                    ? null
+                    : biometricByUserDate.get(`${user.id}_${dateStr}`);
                 let dayCalcResult = null;
 
                 if (dayPunchTimestamps && dayPunchTimestamps.length > 0) {
@@ -1190,7 +1237,10 @@ export const getComplianceReport = async (req, res, next) => {
                         dateStr
                     );
 
-                    const punchHours = parseFloat(dayCalcResult.totalWorkHours);
+                    const punchHours = applyUserHourAdjustment(
+                        user.id,
+                        parseFloat(dayCalcResult.totalWorkHours)
+                    );
                     const storedHours = att ? (att.workingHours || 0) : 0;
                     actualWorkedToday = Math.max(punchHours, storedHours);
 
@@ -1258,6 +1308,10 @@ export const getComplianceReport = async (req, res, next) => {
                     HasBiometricEnrollment: biometricEnrolledUserIds.includes(user.id),
                     Name: user.name,
                     Date: dateStr,
+                    JoiningDate: joiningDateStr,
+                    FirstBiometricDate: firstBiometricDateStr,
+                    EffectiveAttendanceStart: effectiveAttendanceStart,
+                    IsBeforeEffectiveStart: isBeforeEffectiveStart,
                     ShiftType: user.shift || 'B',
                     DayCategory: dayCategory,
                     SaturdayOrdinal: getSaturdayOrdinalInMonth(dateStr),

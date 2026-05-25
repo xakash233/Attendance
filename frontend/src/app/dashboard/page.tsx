@@ -57,7 +57,7 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (user && ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user.role)) {
-            api.get('/leaves').then(res => {
+            api.get('/leaves/history').then(res => {
                 const pending = res.data.filter((l: any) =>
                     l.status === 'PENDING_HR' || l.status === 'PENDING_SUPERADMIN' || l.status === 'PENDING'
                 ).length;

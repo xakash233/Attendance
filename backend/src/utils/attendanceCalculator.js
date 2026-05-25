@@ -250,7 +250,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         boundsHours = calculateWorkedHoursFromBounds(firstDate, lastDate, istDateStr);
     }
 
-    // Multi-punch days: sum IN/OUT sessions (lunch already excluded by device punches).
+    // Multi-punch days: sum IN/OUT sessions (gap between punches is unpaid).
     // Simple 1–2 punch days: use the higher of pairing vs bounds (with lunch deduction).
     const netHours = roundWorkedHours(
         cleanLogs.length > 2 ? pairingHours : Math.max(pairingHours, boundsHours)

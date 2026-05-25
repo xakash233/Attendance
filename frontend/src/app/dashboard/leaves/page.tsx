@@ -891,6 +891,7 @@ export default function LeavesPage() {
                                             onChange={(date) => setFormData({ ...formData, startDate: date })}
                                             placeholder="Start Date"
                                             required
+                                            disablePast={false}
                                         />
                                     </div>
                                     <div className="space-y-1.5">
@@ -900,6 +901,7 @@ export default function LeavesPage() {
                                             onChange={(date) => setFormData({ ...formData, endDate: date })}
                                             placeholder="End Date"
                                             required
+                                            disablePast={false}
                                         />
                                     </div>
                                 </div>

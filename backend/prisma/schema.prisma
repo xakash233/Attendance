@@ -38,6 +38,7 @@ model User {
   phone                String?
   profileImage         String?
   shift                String                @default("B")
+  joiningDate          DateTime?             @db.Date
   attendances          Attendance[]
   auditLogs            AuditLog[]
   biometricAttendances BiometricAttendance[]

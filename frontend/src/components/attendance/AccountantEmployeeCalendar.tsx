@@ -13,6 +13,7 @@ export type AccountantCalendarDay = {
     weekday: string;
     classification: AccountantDayClassification;
     isWfh?: boolean;
+    isBeforeEffectiveStart?: boolean;
     isCompanyWorkingDay: boolean;
     dayCategory: string;
     saturdayOrdinal: number | null;
@@ -27,6 +28,9 @@ type AccountantEmployeeCalendarProps = {
     employeeName: string;
     payrollPeriodStart?: string;
     payrollPeriodEnd?: string;
+    joiningDate?: string | null;
+    firstBiometricDate?: string | null;
+    effectiveAttendanceStart?: string | null;
     companyWorkingDays: number;
     presentDays: number;
     leaveDays: number;
@@ -142,6 +146,11 @@ const getAccountantStatusLabel = (day: AccountantCalendarDay) => {
 };
 
 const getDayTypeDescription = (day: AccountantCalendarDay) => {
+    if (day.isBeforeEffectiveStart) {
+        return day.remarks !== 'N/A' && day.remarks !== '—'
+            ? day.remarks
+            : 'Not yet joined / no biometric yet';
+    }
     if (day.isWfh) {
         return day.remarks !== 'N/A' && day.remarks !== '—'
             ? day.remarks
@@ -179,6 +188,9 @@ export default function AccountantEmployeeCalendar({
     employeeName,
     payrollPeriodStart,
     payrollPeriodEnd,
+    joiningDate,
+    firstBiometricDate,
+    effectiveAttendanceStart,
     companyWorkingDays,
     presentDays,
     leaveDays,
@@ -310,7 +322,24 @@ export default function AccountantEmployeeCalendar({
                                     26th–25th cycle
                                     <span className="mx-1.5 text-slate-300">•</span>
                                     {companyWorkingDays} working days
+                                    {joiningDate && (
+                                        <>
+                                            <span className="mx-1.5 text-slate-300">•</span>
+                                            Joined {joiningDate}
+                                        </>
+                                    )}
+                                    {firstBiometricDate && (
+                                        <>
+                                            <span className="mx-1.5 text-slate-300">•</span>
+                                            First punch {firstBiometricDate}
+                                        </>
+                                    )}
                                 </p>
+                                {effectiveAttendanceStart && (
+                                    <p className="text-[11px] text-slate-400 mt-1">
+                                        Attendance counted from {effectiveAttendanceStart} (not before join or first biometric day).
+                                    </p>
+                                )}
                             </div>
                             <button
                                 type="button"

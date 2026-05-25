@@ -122,3 +122,27 @@ export const isAccountantCountableDay = (dateStr, { isHoliday = false } = {}) =>
     if (isHoliday) return false;
     return getCompanyDayCategory(dateStr) !== 'SUNDAY';
 };
+
+/** Latest of period start, joining date, and first biometric date (YYYY-MM-DD strings). */
+export const getEffectiveAttendanceStart = (periodStartStr, joiningDateStr = null, firstBiometricDateStr = null) => {
+    let effective = periodStartStr;
+    if (joiningDateStr && joiningDateStr > effective) effective = joiningDateStr;
+    if (firstBiometricDateStr && firstBiometricDateStr > effective) effective = firstBiometricDateStr;
+    return effective;
+};
+
+export const countEmployeeWorkingDaysInRange = (
+    start,
+    end,
+    holidayDateSet = new Set(),
+    { joiningDateStr = null, firstBiometricDateStr = null, excludeDate = null } = {}
+) => {
+    const periodStartStr = start.toISOString().split('T')[0];
+    const effectiveStart = getEffectiveAttendanceStart(periodStartStr, joiningDateStr, firstBiometricDateStr);
+
+    return enumerateDateStrings(start, end).filter((dateStr) => {
+        if (excludeDate && dateStr === excludeDate) return false;
+        if (dateStr < effectiveStart) return false;
+        return isCompanyWorkingDay(dateStr, { isHoliday: holidayDateSet.has(dateStr) });
+    }).length;
+};

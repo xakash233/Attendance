@@ -8,6 +8,16 @@ const nextConfig = {
             { protocol: 'https', hostname: '**.vercel.app' }
         ],
     },
+    async rewrites() {
+        const target = process.env.SOCKET_PROXY_TARGET?.replace(/\/$/, '');
+        if (!target) return [];
+        return [
+            {
+                source: '/socket.io/:path*',
+                destination: `${target}/socket.io/:path*`,
+            },
+        ];
+    },
 };
 
 module.exports = nextConfig;

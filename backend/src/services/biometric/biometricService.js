@@ -4,6 +4,7 @@ import auditService from '../audit/auditService.js';
 import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
 import calculateAttendance, { resolveDayStatusFromHours } from '../../utils/attendanceCalculator.js';
+import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
 import bcrypt from 'bcryptjs';
 
 class BiometricService {
@@ -494,7 +495,7 @@ class BiometricService {
             const firstPunchTime = punches[0].timestamp;
             const lastPunchTime = punches[punches.length - 1].timestamp;
 
-            workHrs = parseFloat(result.totalWorkHours);
+            workHrs = applyUserHourAdjustment(userId, parseFloat(result.totalWorkHours));
             const isCurrentDay = dateStr === todayStr;
             finalStatus = resolveDayStatusFromHours(workHrs, {
                 isOngoing: result.isOngoing && isCurrentDay,
