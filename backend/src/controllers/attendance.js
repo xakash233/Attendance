@@ -13,6 +13,7 @@ import {
     getSaturdayOrdinalInMonth,
     getPayrollMonthLabel,
     getPayrollPeriodBounds,
+    getCalendarMonthBounds,
     isAccountantCountableDay,
     isCompanyWorkingDay
 } from '../utils/payrollCalendar.js';
@@ -940,10 +941,12 @@ export const getComplianceReport = async (req, res, next) => {
             start = new Date(startDate); start.setUTCHours(0, 0, 0, 0);
             end = new Date(endDate); end.setUTCHours(23, 59, 59, 999);
         } else if (month) {
-            const payrollBounds = getPayrollPeriodBounds(month, dateStrNow);
-            start = payrollBounds.start;
-            end = payrollBounds.end;
-            payrollPeriodLabel = payrollBounds.label;
+            const monthBounds = req.user.role === 'ACCOUNTANT'
+                ? getCalendarMonthBounds(month, dateStrNow)
+                : getPayrollPeriodBounds(month, dateStrNow);
+            start = monthBounds.start;
+            end = monthBounds.end;
+            payrollPeriodLabel = monthBounds.label;
         } else {
             // ROBUST DEFAULT: Last 30 Days from today (IST aware, UTC stored)
             end = new Date(`${dateStrNow}T23:59:59.999Z`);
@@ -952,7 +955,9 @@ export const getComplianceReport = async (req, res, next) => {
         }
 
         const reportTitle = payrollPeriodLabel
-            ? `Payroll Period (${payrollPeriodLabel})`
+            ? req.user.role === 'ACCOUNTANT'
+                ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+                : `Payroll Period (${payrollPeriodLabel})`
             : month
                 ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
                 : (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : 'Last 30 Days (IST Reference)');

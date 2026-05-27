@@ -246,11 +246,19 @@ export const deleteLeaveRequest = async (req, res, next) => {
     try {
         const leave = await prisma.leaveRequest.findUnique({
             where: { id: req.params.id },
-            select: { id: true }
+            select: { id: true, userId: true, status: true }
         });
 
         if (!leave) {
             return res.status(404).json({ message: 'Leave request not found' });
+        }
+
+        if (leave.userId !== req.user.id) {
+            return res.status(403).json({ message: 'You can only delete your own leave requests' });
+        }
+
+        if (['FINAL_APPROVED', 'CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN'].includes(leave.status)) {
+            return res.status(400).json({ message: 'This leave request cannot be deleted' });
         }
 
         await prisma.leaveRequest.delete({

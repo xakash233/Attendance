@@ -5,7 +5,7 @@ import api from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
-    Plus, Check, X, Filter, Calendar, Briefcase,
+    Plus, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
     CheckCircle2, XCircle, Database, AlertCircle, Trash2
 } from 'lucide-react';
@@ -226,6 +226,20 @@ export default function LeavesPage() {
             setIsDeletingLeave(false);
         }
     };
+
+    const isOwnLeaveRequest = useCallback(
+        (leave: { userId?: string; user?: { id?: string } }) =>
+            Boolean(user?.id && (leave.userId === user.id || leave.user?.id === user.id)),
+        [user?.id]
+    );
+
+    const canDeleteOwnLeaveRequest = useCallback(
+        (leave: { userId?: string; user?: { id?: string }; isWFH?: boolean; status?: string }) =>
+            isOwnLeaveRequest(leave)
+            && !leave.isWFH
+            && !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status || ''),
+        [isOwnLeaveRequest]
+    );
 
     const getStatusStyle = (status: string) => {
         switch (status) {
@@ -658,21 +672,21 @@ export default function LeavesPage() {
                                                 <div className="flex justify-end items-center gap-2">
                                                     {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                         <>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-all"><Check size={16} /></button>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
                                                         </>
                                                     )}
                                                     {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                         <>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="w-8 h-8 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded hover:bg-emerald-100 transition-all"><Check size={16} /></button>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"><X size={16} /></button>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
                                                         </>
                                                     )}
-                                                    {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && !leave.isWFH && (
+                                                    {canDeleteOwnLeaveRequest(leave) && (
                                                         <button
                                                             onClick={() => handleDeleteLeaveRequest(leave.id)}
                                                             className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"
-                                                            title="Delete leave request"
+                                                            title="Delete your leave request"
                                                         >
                                                             <Trash2 size={15} />
                                                         </button>
@@ -741,6 +755,12 @@ export default function LeavesPage() {
                                             <div>
                                                 <h4 className="text-[14px] font-bold text-[#101828]">{leave.user.name}</h4>
                                                 <p className="text-[12px] text-[#667085]">{leave.user.employeeCode}</p>
+                                                <Link
+                                                    href={`/dashboard/users/${leave.userId || leave.user.id}`}
+                                                    className="inline-block mt-1 text-[12px] font-bold text-indigo-600 hover:underline underline-offset-4"
+                                                >
+                                                    View Profile
+                                                </Link>
                                             </div>
                                         </div>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
@@ -777,23 +797,24 @@ export default function LeavesPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center justify-between pt-1">
-                                        <Link href={`/dashboard/users/${leave.userId || leave.user.id}`} className="text-[12px] font-bold text-indigo-600 hover:underline underline-offset-4">View Profile</Link>
+                                    <div className="flex items-center justify-between pt-1 w-full">
                                         <div className="flex items-center gap-2">
                                             {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
-                                                <>
-                                                    <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="w-9 h-9 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shadow-sm"><Check size={18} /></button>
-                                                    <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 shadow-sm"><X size={18} /></button>
-                                                </>
+                                                <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
                                             )}
                                             {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
-                                                <>
-                                                    <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="w-9 h-9 flex items-center justify-center bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shadow-sm"><Check size={18} /></button>
-                                                    <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="w-9 h-9 flex items-center justify-center bg-red-50 text-red-600 rounded-lg border border-red-100 shadow-sm"><X size={18} /></button>
-                                                </>
+                                                <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
                                             )}
-                                            {['SUPER_ADMIN', 'ADMIN'].includes(user?.role || '') && !leave.isWFH && (
-                                                <button onClick={() => handleDeleteLeaveRequest(leave.id)} className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg border border-rose-100 shadow-sm"><Trash2 size={16} /></button>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                                <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
+                                            )}
+                                            {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                                <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
+                                            )}
+                                            {canDeleteOwnLeaveRequest(leave) && (
+                                                <button onClick={() => handleDeleteLeaveRequest(leave.id)} className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg border border-rose-100 shadow-sm" title="Delete your leave request"><Trash2 size={16} /></button>
                                             )}
                                             {user?.role === 'EMPLOYEE' && !leave.isWFH && !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
                                                 <button onClick={() => handleCancel(leave.id)} className="px-4 py-2 text-[12px] font-bold text-rose-600 bg-rose-50 rounded-lg border border-rose-100">Cancel</button>

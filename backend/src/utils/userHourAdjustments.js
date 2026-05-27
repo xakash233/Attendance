@@ -1,9 +1,7 @@
 import { roundWorkedHours } from './attendanceCalculator.js';
 
 /** One-off payroll hour credits by user id (not a global rule). */
-const EXTRA_HOURS_BY_USER_ID = {
-    'd51af949-e2d5-4277-972d-2b6e56aa56ed': 1
-};
+const EXTRA_HOURS_BY_USER_ID = {};
 
 /**
  * Apply a manual hour adjustment for specific employees only.

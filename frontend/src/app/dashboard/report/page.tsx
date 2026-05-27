@@ -33,14 +33,8 @@ const ACCOUNTANT_EXCLUDED_EMPLOYEE_NAMES = new Set([
 const MIN_FULL_DAY_HOURS = 7.5;
 const STANDARD_DAY_HOURS = 8;
 
-const getPayrollMonthLabel = (istDateStr: string) => {
-    const [y, m, d] = istDateStr.split('-').map(Number);
-    if (d > 25) {
-        if (m === 12) return `${y + 1}-01`;
-        return `${y}-${String(m + 1).padStart(2, '0')}`;
-    }
-    return istDateStr.substring(0, 7);
-};
+const getCurrentIstCalendarMonth = () =>
+    new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
 
 const formatDuration = (decimalHours: any) => {
     const val = parseFloat(decimalHours);
@@ -97,10 +91,7 @@ export default function ReportPage() {
     const [meta, setMeta] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [exportLoading, setExportLoading] = useState(false);
-    const [complianceMonth, setComplianceMonth] = useState<string>(() => {
-        const istNow = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-        return getPayrollMonthLabel(istNow);
-    });
+    const [complianceMonth, setComplianceMonth] = useState<string>(() => getCurrentIstCalendarMonth());
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('all');
     const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
     const [currentPage, setCurrentPage] = useState(1);
@@ -1008,7 +999,7 @@ export default function ReportPage() {
                         <div className="flex flex-col gap-1 mb-4">
                             <h2 className="text-[18px] font-bold text-[#101828]">Accountant Attendance Sheet</h2>
                             <p className="text-[12px] font-medium text-slate-500">
-                                Payroll cycle: 26th → 25th
+                                Calendar month: 1st → last day of month
                                 {meta?.payrollPeriodStart && meta?.payrollPeriodEnd
                                     ? ` (${meta.payrollPeriodStart} to ${meta.payrollPeriodEnd})`
                                     : ''}

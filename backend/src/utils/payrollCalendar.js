@@ -67,6 +67,26 @@ export const getPayrollMonthLabel = (istDateStr) => {
 };
 
 /**
+ * Bounds for calendar month YYYY-MM: 1st → last day (capped at istTodayStr when provided).
+ */
+export const getCalendarMonthBounds = (monthStr, istTodayStr = null) => {
+    const [y, m] = monthStr.split('-').map(Number);
+    const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0, 0));
+    let end = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+
+    if (istTodayStr) {
+        const todayUtc = new Date(`${istTodayStr}T23:59:59.999Z`);
+        if (todayUtc < end) end = todayUtc;
+    }
+
+    return {
+        start,
+        end,
+        label: `${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}`
+    };
+};
+
+/**
  * Bounds for payroll month YYYY-MM: prev month 26 → month 25 (inclusive, UTC date marks).
  */
 export const getPayrollPeriodBounds = (monthStr, istTodayStr = null) => {
