@@ -319,7 +319,7 @@ export default function AccountantEmployeeCalendar({
                                         ? `${payrollPeriodStart} → ${payrollPeriodEnd}`
                                         : 'Selected period'}
                                     <span className="mx-1.5 text-slate-300">•</span>
-                                    26th–25th cycle
+                                    1st–last day of month
                                     <span className="mx-1.5 text-slate-300">•</span>
                                     {companyWorkingDays} working days
                                     {joiningDate && (

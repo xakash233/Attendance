@@ -16,7 +16,7 @@ export const roundWorkedHours = (hours) => {
 export const meetsMinimumFullDay = (hours) => roundWorkedHours(hours) >= MIN_FULL_DAY_HOURS;
 
 const PROTECTED_STATUS_KEYWORDS = [
-    'LEAVE', 'HOLIDAY', 'WFH', 'SCHEDULED', 'WEEKEND', 'OVERTIME', 'REJECTED', 'PENDING'
+    'LEAVE', 'HOLIDAY', 'WFH', 'SCHEDULED', 'WEEKEND', 'OVERTIME', 'REJECTED', 'PENDING', 'LOP'
 ];
 
 const normalizeStatusLabel = (status) =>
@@ -250,10 +250,10 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         boundsHours = calculateWorkedHoursFromBounds(firstDate, lastDate, istDateStr);
     }
 
-    // Multi-punch days: sum IN/OUT sessions (gap between punches is unpaid).
-    // Simple 1–2 punch days: use the higher of pairing vs bounds (with lunch deduction).
+    // Multi-punch days: sum IN/OUT sessions (gaps between punches are unpaid).
+    // Single session (1–2 punches): first→last with standard 13:00–14:00 IST lunch deduction.
     const netHours = roundWorkedHours(
-        cleanLogs.length > 2 ? pairingHours : Math.max(pairingHours, boundsHours)
+        cleanLogs.length > 2 ? pairingHours : (boundsHours > 0 ? boundsHours : pairingHours)
     );
     const totalWorkMinutesFinal = Math.round(netHours * 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY_MINUTES - totalWorkMinutesFinal);

@@ -275,16 +275,8 @@ export default function EmployeeProfileView() {
                                     else if (l.leaveType?.name.includes('Paid')) PL += leaveDays;
                                 });
 
-                                const balanceEntries = Array.isArray(employee?.leaveBalances) ? employee.leaveBalances : [];
-                                const usedFromBalanceRecords = balanceEntries.reduce(
-                                    (sum: number, entry: any) => sum + (Number(entry.used) || 0),
-                                    0
-                                );
-
-                                const usedFromApprovedLeaves = SL + CL + PL + HD;
+                                const used = Number((SL + CL + PL + HD).toFixed(1));
                                 const allocated = Number(systemSettings?.totalLeaveAllocation) || 18;
-                                const usedSource = usedFromBalanceRecords > 0 ? usedFromBalanceRecords : usedFromApprovedLeaves;
-                                const used = Number(usedSource.toFixed(1));
                                 const remaining = Number(Math.max(0, allocated - used).toFixed(1));
 
                                 return (

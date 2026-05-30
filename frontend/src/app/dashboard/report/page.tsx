@@ -12,7 +12,8 @@ import {
     ChevronRight,
     Search,
     Filter,
-    X
+    X,
+    ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -35,6 +36,15 @@ const STANDARD_DAY_HOURS = 8;
 
 const getCurrentIstCalendarMonth = () =>
     new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+
+const formatPunchTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+    });
 
 const formatDuration = (decimalHours: any) => {
     const val = parseFloat(decimalHours);
@@ -65,6 +75,7 @@ const formatStatus = (row: any) => {
         return 'Short Day';
     }
 
+    if (rawStatus.includes('LOP')) return 'LOP';
     if (rawStatus.includes('LEAVE')) return 'Leave';
     if (worked === 0) return 'Absent';
     return 'Present';
@@ -106,10 +117,13 @@ export default function ReportPage() {
         presentDays: number;
         leaveDays: number;
         absentDays: number;
+        lopDays: number;
     } | null>(null);
+    const [expandedLogRow, setExpandedLogRow] = useState<string | null>(null);
     const monthRef = React.useRef<HTMLInputElement>(null);
     const canUseAdvancedFilters = ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '');
     const isAccountant = user?.role === 'ACCOUNTANT';
+    const canViewLopSummary = ['ACCOUNTANT', 'SUPER_ADMIN'].includes(user?.role || '');
     const employeeRoleById = React.useMemo(() => {
         const roleMap = new Map<string, string>();
         employees.forEach((employee: any) => {
@@ -240,6 +254,10 @@ export default function ReportPage() {
             fetchReport();
         }
     }, [user, authLoading, fetchReport]);
+
+    useEffect(() => {
+        setExpandedLogRow(null);
+    }, [currentPage, selectedEmployeeId, complianceMonth]);
 
     const handleExportExcel = useCallback(async () => {
         setExportLoading(true);
@@ -445,7 +463,7 @@ export default function ReportPage() {
     }, []);
 
     const accountantSummaryRows = React.useMemo(() => {
-        if (!isAccountant || selectedEmployeeId !== 'all') return [];
+        if (!canViewLopSummary || selectedEmployeeId !== 'all') return [];
 
         const serverSummaries = meta?.accountantSummaries;
         if (Array.isArray(serverSummaries) && serverSummaries.length > 0) {
@@ -464,7 +482,8 @@ export default function ReportPage() {
                     companyWorkingDays: summary.companyWorkingDays ?? meta?.companyWorkingDays ?? 0,
                     presentDays: summary.presentDays ?? 0,
                     leaveDays: summary.leaveDays ?? 0,
-                    absentDays: summary.absentDays ?? 0
+                    absentDays: summary.absentDays ?? 0,
+                    lopDays: summary.lopDays ?? 0
                 }));
         }
 
@@ -495,7 +514,9 @@ export default function ReportPage() {
                 let presentDays = 0;
                 let absentDays = 0;
                 let leaveDays = 0;
+                let lopDays = 0;
                 const perDayClassification = new Map<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN'>();
+                const perDayLop = new Map<string, number>();
 
                 employeeData.rows.forEach((row: any) => {
                     const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
@@ -504,6 +525,11 @@ export default function ReportPage() {
                     const rowClassification = classifyAttendanceRow(row, { accountantMode: true }) as 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN';
                     if (rowClassification === 'UNKNOWN') return;
                     const existingClassification = perDayClassification.get(dateKey);
+                    const lopPortion = Number(row.LopPortion || 0);
+                    if (lopPortion > 0) {
+                        const priorLop = perDayLop.get(dateKey) || 0;
+                        perDayLop.set(dateKey, Math.max(priorLop, lopPortion));
+                    }
 
                     // Priority per day: PRESENT > LEAVE > ABSENT > UNKNOWN
                     if (!existingClassification || existingClassification === 'UNKNOWN') {
@@ -520,6 +546,9 @@ export default function ReportPage() {
                     else if (classification === 'LEAVE') leaveDays += 1;
                     else absentDays += 1;
                 });
+                perDayLop.forEach((lopPortion) => {
+                    lopDays += Number(lopPortion || 0);
+                });
 
                 return {
                     employeeId: employeeKey,
@@ -527,14 +556,15 @@ export default function ReportPage() {
                     companyWorkingDays,
                     presentDays,
                     leaveDays,
-                    absentDays
+                    absentDays,
+                    lopDays: Number(lopDays.toFixed(2))
                 };
             })
             .sort((firstEmployee, secondEmployee) => firstEmployee.name.localeCompare(secondEmployee.name));
-    }, [classifyAttendanceRow, isAccountant, meta, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+    }, [canViewLopSummary, classifyAttendanceRow, meta, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
 
     const accountantTodayCounts = React.useMemo(() => {
-        if (!isAccountant || selectedEmployeeId !== 'all') {
+        if (!canViewLopSummary || selectedEmployeeId !== 'all') {
             return { totalEmployees: 0, presentToday: 0, absentToday: 0, leaveToday: 0 };
         }
 
@@ -580,7 +610,7 @@ export default function ReportPage() {
             absentToday,
             leaveToday
         };
-    }, [classifyAttendanceRow, isAccountant, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
+    }, [canViewLopSummary, classifyAttendanceRow, reportData, selectedEmployeeId, shouldIncludeForAccountantSheet]);
 
     const resolveAccountantEmployeeRows = React.useCallback((employeeId: string, employeeName: string) => {
         const normalizedName = String(employeeName || '').trim().toUpperCase();
@@ -830,13 +860,31 @@ export default function ReportPage() {
                                                 const date = new Date(row.Date);
                                                 const displayDate = date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
                                                 const statusText = formatStatus(row);
+                                                const rowKey = `${row.id}-${row.Date}`;
+                                                const punches = Array.isArray(row.Punches) ? row.Punches : [];
+                                                const isExpanded = expandedLogRow === rowKey;
+                                                const canExpand = punches.length > 0;
                                                 return (
-                                                    <React.Fragment key={`${row.id}-${row.Date}-${idx}`}>
-                                                        <tr className="hover:bg-slate-50/50 transition-colors">
+                                                    <React.Fragment key={`${rowKey}-${idx}`}>
+                                                        <tr
+                                                            className={`transition-colors ${canExpand ? 'cursor-pointer hover:bg-slate-50/80' : 'hover:bg-slate-50/50'}`}
+                                                            onClick={() => {
+                                                                if (!canExpand) return;
+                                                                setExpandedLogRow(isExpanded ? null : rowKey);
+                                                            }}
+                                                        >
                                                         <td className="px-6 py-4">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-[13px] font-bold text-[#101828]">{displayDate}</span>
-                                                                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">{row.Date.split('T')[0]}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                {canExpand && (
+                                                                    <ChevronDown
+                                                                        size={14}
+                                                                        className={`text-slate-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                                                    />
+                                                                )}
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-[13px] font-bold text-[#101828]">{displayDate}</span>
+                                                                    <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">{row.Date.split('T')[0]}</span>
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
@@ -860,6 +908,22 @@ export default function ReportPage() {
                                                             </span>
                                                         </td>
                                                     </tr>
+                                                    {isExpanded && punches.length > 0 && (
+                                                        <tr className="bg-slate-50/50">
+                                                            <td colSpan={4} className="px-8 py-4 border-t border-slate-100">
+                                                                <div className="flex items-center gap-3 flex-wrap">
+                                                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Punch Details:</span>
+                                                                    {punches.map((p: { time: string; label: string; type: string }, pi: number) => (
+                                                                        <div key={pi} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl shadow-xs">
+                                                                            <div className={`w-1.5 h-1.5 rounded-full ${p.type === 'IN' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                                                            <span className="text-[11px] font-semibold text-[#101828]">{formatPunchTime(p.time)}</span>
+                                                                            <span className="text-[10px] text-slate-300 font-bold uppercase">{p.label}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
                                                 </React.Fragment>
                                                 );
                                             })}
@@ -994,12 +1058,14 @@ export default function ReportPage() {
                             </div>
                         </div>
                     </div>
-                ) : isAccountant ? (
+                ) : canViewLopSummary ? (
                     <section>
                         <div className="flex flex-col gap-1 mb-4">
-                            <h2 className="text-[18px] font-bold text-[#101828]">Accountant Attendance Sheet</h2>
+                            <h2 className="text-[18px] font-bold text-[#101828]">
+                                {isAccountant ? 'Accountant Attendance Sheet' : 'Attendance LOP Summary'}
+                            </h2>
                             <p className="text-[12px] font-medium text-slate-500">
-                                Calendar month: 1st → last day of month
+                                Payroll period: 1st → last day of month
                                 {meta?.payrollPeriodStart && meta?.payrollPeriodEnd
                                     ? ` (${meta.payrollPeriodStart} to ${meta.payrollPeriodEnd})`
                                     : ''}
@@ -1038,12 +1104,13 @@ export default function ReportPage() {
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Present Days</th>
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Leave Days</th>
                                         <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">Total Absent Days</th>
+                                        <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">LOP Days</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#E6E8EC]">
                                     {accountantSummaryRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-400 font-medium">
+                                            <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                                                 No employee records found for the selected period
                                             </td>
                                         </tr>
@@ -1062,6 +1129,7 @@ export default function ReportPage() {
                                                 <td className="px-6 py-4 text-[14px] text-emerald-700 text-center font-semibold">{summaryRow.presentDays}</td>
                                                 <td className="px-6 py-4 text-[14px] text-indigo-700 text-center font-semibold">{summaryRow.leaveDays}</td>
                                                 <td className="px-6 py-4 text-[14px] text-rose-700 text-center font-semibold">{summaryRow.absentDays}</td>
+                                                <td className="px-6 py-4 text-[14px] text-amber-700 text-center font-semibold">{summaryRow.lopDays ?? 0}</td>
                                             </tr>
                                         ))
                                     )}
@@ -1097,13 +1165,14 @@ export default function ReportPage() {
                                             <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">OUT Time</th>
                                             <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Total Hours</th>
                                             <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Required Hours</th>
+                                            <th className="px-6 py-4 text-[12px] font-bold text-[#667085] text-center">LOP</th>
                                             <th className="px-6 py-4 text-[12px] font-bold text-[#667085]">Status</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-[#E6E8EC]">
                                         {reportData.length === 0 ? (
                                             <tr>
-                                                <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No records found for the selected period</td>
+                                                <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium">No records found for the selected period</td>
                                             </tr>
                                         ) : (
                                             paginatedReportData.map((row, idx) => {
@@ -1128,6 +1197,9 @@ export default function ReportPage() {
                                                             <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
                                                             <td className="px-6 py-4 text-[14px] text-[#667085]">
                                                                 {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : formatDuration(MIN_FULL_DAY_HOURS)}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-[13px] text-center font-semibold text-amber-700">
+                                                                {Number(row.LopPortion || 0) > 0 ? Number(row.LopPortion).toFixed(1) : '-'}
                                                             </td>
                                                             <td className="px-6 py-4">
                                                                 <span className={`px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider ${

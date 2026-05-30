@@ -13,7 +13,6 @@ import {
     getSaturdayOrdinalInMonth,
     getPayrollMonthLabel,
     getPayrollPeriodBounds,
-    getCalendarMonthBounds,
     isAccountantCountableDay,
     isCompanyWorkingDay
 } from '../utils/payrollCalendar.js';
@@ -21,6 +20,113 @@ import { buildAccountantSummaries } from '../utils/accountantAttendance.js';
 
 const formatIstPunchTime = (timestamp) =>
     timestamp.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' });
+
+const buildDayPunchDetails = (timestamps, att) => {
+    const punches = [];
+
+    if (Array.isArray(timestamps) && timestamps.length > 0) {
+        const deduped = [];
+        for (const ts of timestamps) {
+            const punchDate = new Date(ts);
+            if (
+                deduped.length === 0
+                || punchDate.getTime() - deduped[deduped.length - 1].getTime() > 10000
+            ) {
+                deduped.push(punchDate);
+            }
+        }
+
+        deduped.forEach((punchDate, index) => {
+            punches.push({
+                time: punchDate.toISOString(),
+                label: index % 2 === 0 ? 'PUNCH IN' : 'PUNCH OUT',
+                type: index % 2 === 0 ? 'IN' : 'OUT'
+            });
+        });
+    } else if (att?.checkIn) {
+        punches.push({
+            time: new Date(att.checkIn).toISOString(),
+            label: 'MANUAL CHECK IN',
+            type: 'IN'
+        });
+        if (att.checkOut) {
+            punches.push({
+                time: new Date(att.checkOut).toISOString(),
+                label: 'MANUAL CHECK OUT',
+                type: 'OUT'
+            });
+        }
+    }
+
+    return punches;
+};
+
+const MONTHLY_PAID_LEAVE_LIMIT_DAYS = 1.5;
+
+const isHalfDayDuration = (durationType) => {
+    const normalized = String(durationType || '').toUpperCase();
+    return ['FIRST_HALF', 'SECOND_HALF', 'HALF_DAY'].includes(normalized);
+};
+
+const canAllocateLeaveForLop = (leave) => {
+    const status = String(leave?.status || '').toUpperCase();
+    const durationType = String(leave?.durationType || '').toUpperCase();
+    if (!status || status.includes('REJECTED') || status.includes('CANCELLED')) return false;
+    if (durationType === 'WORK_FROM_HOME') return false;
+    return true;
+};
+
+const buildLeaveAllocationByUserDate = (allLeaves, start, end, holidayDateSet) => {
+    const byUserDate = new Map();
+    const paidUsedByUser = new Map();
+    const sortedLeaves = [...allLeaves].sort((a, b) => {
+        const aStart = new Date(a.startDate).getTime();
+        const bStart = new Date(b.startDate).getTime();
+        if (aStart !== bStart) return aStart - bStart;
+        return new Date(a.createdAt || a.startDate).getTime() - new Date(b.createdAt || b.startDate).getTime();
+    });
+
+    for (const leave of sortedLeaves) {
+        if (!canAllocateLeaveForLop(leave)) continue;
+        const userId = leave.userId;
+        if (!userId) continue;
+
+        const leaveStart = new Date(leave.startDate);
+        leaveStart.setUTCHours(0, 0, 0, 0);
+        const leaveEnd = new Date(leave.endDate);
+        leaveEnd.setUTCHours(0, 0, 0, 0);
+
+        const overlapStart = leaveStart < start ? new Date(start) : leaveStart;
+        const overlapEnd = leaveEnd > end ? new Date(end) : leaveEnd;
+        if (overlapStart > overlapEnd) continue;
+
+        let cursor = new Date(overlapStart);
+        const halfDay = isHalfDayDuration(leave.durationType);
+        while (cursor <= overlapEnd) {
+            const dateStr = cursor.toISOString().split('T')[0];
+            if (isCompanyWorkingDay(dateStr, { isHoliday: holidayDateSet.has(dateStr) })) {
+                const dayPortion = halfDay ? 0.5 : 1;
+                const paidUsed = paidUsedByUser.get(userId) || 0;
+                const paidRemaining = Math.max(0, MONTHLY_PAID_LEAVE_LIMIT_DAYS - paidUsed);
+                const paidPortion = Math.min(dayPortion, paidRemaining);
+                const lopPortion = Math.max(0, dayPortion - paidPortion);
+
+                paidUsedByUser.set(userId, paidUsed + paidPortion);
+
+                const key = `${userId}_${dateStr}`;
+                const existing = byUserDate.get(key) || { paidPortion: 0, lopPortion: 0, totalPortion: 0 };
+                byUserDate.set(key, {
+                    paidPortion: existing.paidPortion + paidPortion,
+                    lopPortion: existing.lopPortion + lopPortion,
+                    totalPortion: existing.totalPortion + dayPortion
+                });
+            }
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+    }
+
+    return byUserDate;
+};
 
 // @desc    Manual Check-in
 // @route   POST /api/attendance/check-in
@@ -941,9 +1047,7 @@ export const getComplianceReport = async (req, res, next) => {
             start = new Date(startDate); start.setUTCHours(0, 0, 0, 0);
             end = new Date(endDate); end.setUTCHours(23, 59, 59, 999);
         } else if (month) {
-            const monthBounds = req.user.role === 'ACCOUNTANT'
-                ? getCalendarMonthBounds(month, dateStrNow)
-                : getPayrollPeriodBounds(month, dateStrNow);
+            const monthBounds = getPayrollPeriodBounds(month, dateStrNow);
             start = monthBounds.start;
             end = monthBounds.end;
             payrollPeriodLabel = monthBounds.label;
@@ -955,9 +1059,7 @@ export const getComplianceReport = async (req, res, next) => {
         }
 
         const reportTitle = payrollPeriodLabel
-            ? req.user.role === 'ACCOUNTANT'
-                ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-                : `Payroll Period (${payrollPeriodLabel})`
+            ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
             : month
                 ? start.toLocaleString('default', { month: 'long', year: 'numeric', timeZone: 'UTC' })
                 : (startDate ? `${start.toLocaleDateString()} to ${end.toLocaleDateString()}` : 'Last 30 Days (IST Reference)');
@@ -1055,6 +1157,12 @@ export const getComplianceReport = async (req, res, next) => {
         const holidayDateSet = new Set(
             allHolidays.map((holiday) => holiday.date.toISOString().split('T')[0])
         );
+        const leaveAllocationByUserDate = buildLeaveAllocationByUserDate(
+            allLeaves,
+            start,
+            end,
+            holidayDateSet
+        );
         const companyWorkingDaysTotal = countCompanyWorkingDaysInRange(start, end, holidayDateSet);
         const accountantCountableDaysTotal = countAccountantCountableDaysInRange(
             start,
@@ -1127,6 +1235,11 @@ export const getComplianceReport = async (req, res, next) => {
                     const d = new Date(iter); d.setUTCHours(0, 0, 0, 0);
                     return l.userId === user.id && d >= ls && d <= le;
                 });
+                const leaveAllocation = leaveAllocationByUserDate.get(`${user.id}_${dateStr}`) || {
+                    paidPortion: 0,
+                    lopPortion: 0,
+                    totalPortion: 0
+                };
 
                 const todayRef = new Date();
                 todayRef.setUTCHours(0, 0, 0, 0);
@@ -1164,6 +1277,8 @@ export const getComplianceReport = async (req, res, next) => {
                     const isWfhSaturday = dayCategory === 'SAT_WFH';
                     const workedOnDay = att ? (att.workingHours || 0) : 0;
                     const noWorkRecorded = workedOnDay < 1;
+                    const lopPortion = leaveAllocation.lopPortion || 0;
+                    const hasLop = lopPortion > 0;
 
                     if (leave.status.includes('REJECTED')) {
                         if (!att) {
@@ -1172,8 +1287,10 @@ export const getComplianceReport = async (req, res, next) => {
                         }
                     } else if (leave.status.includes('PENDING')) {
                         if (noWorkRecorded) {
-                            status = `PENDING (${lType})`;
-                            remarks = 'Awaiting Approval';
+                            status = hasLop ? 'PENDING (LOP)' : `PENDING (${lType})`;
+                            remarks = hasLop
+                                ? `Awaiting Approval • LOP ${lopPortion.toFixed(1)} day(s) after 1.5 paid leave cap`
+                                : 'Awaiting Approval';
                         }
                     } else if (leave.status.includes('CANCELLED')) {
                         if (noWorkRecorded) {
@@ -1182,20 +1299,24 @@ export const getComplianceReport = async (req, res, next) => {
                         }
                     } else if (leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF') {
                         if (noWorkRecorded || isWfhSaturday) {
-                            status = `HALF DAY ${lType}`;
+                            status = hasLop ? 'HALF DAY LOP' : `HALF DAY ${lType}`;
                             hours = Math.max(hours, isWfhSaturday ? 0 : 4.0);
-                            remarks = 'HALF DAY LEAVE';
+                            remarks = hasLop
+                                ? `HALF DAY LOP (${lopPortion.toFixed(1)} day)`
+                                : 'HALF DAY LEAVE';
                         }
                     } else if (leave.durationType === 'WORK_FROM_HOME' && (isWfhSaturday || noWorkRecorded)) {
                         status = 'WFH';
                         hours = Math.max(hours, 8.0);
                         remarks = 'WFH (Approved)';
                     } else if (isWfhSaturday || noWorkRecorded) {
-                        status = lType;
+                        status = hasLop ? 'LOP' : lType;
                         if (!isWfhSaturday) {
                             hours = Math.max(hours, 8.0);
                         }
-                        remarks = 'APPROVED LEAVE';
+                        remarks = hasLop
+                            ? `LOP (${lopPortion.toFixed(1)} day) • exceeded 1.5 paid leave days this month`
+                            : 'APPROVED LEAVE';
                     }
                 }
 
@@ -1338,7 +1459,12 @@ export const getComplianceReport = async (req, res, next) => {
                         && isCompanyWorkday
                     ),
                     LeaveDeducted: att?.leaveDeducted ?? 0,
-                    Remarks: remarks
+                    Remarks: remarks,
+                    LeavePortion: Number((leaveAllocation.totalPortion || 0).toFixed(2)),
+                    PaidLeavePortion: Number((leaveAllocation.paidPortion || 0).toFixed(2)),
+                    LopPortion: Number((leaveAllocation.lopPortion || 0).toFixed(2)),
+                    IsLop: (leaveAllocation.lopPortion || 0) > 0,
+                    Punches: buildDayPunchDetails(dayPunchTimestamps, att)
                 });
 
                 previousDayHours = actualWorkedToday;

@@ -51,6 +51,7 @@ export default function LeavesPage() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
+    const [showCancelledLeaves, setShowCancelledLeaves] = useState(false);
     const [expandedLeaveId, setExpandedLeaveId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -258,6 +259,9 @@ export default function LeavesPage() {
     const filteredLeaves = useMemo(() => {
         const normalizedQuery = searchQuery.toLowerCase().trim();
         return leaves.filter((leave: any) => {
+            const isCancelled = String(leave.status || '').toUpperCase() === 'CANCELLED';
+            if (!showCancelledLeaves && isCancelled) return false;
+
             const matchesSearch = !normalizedQuery
                 || leave.user.name.toLowerCase().includes(normalizedQuery)
                 || leave.user.employeeCode.toLowerCase().includes(normalizedQuery)
@@ -268,7 +272,7 @@ export default function LeavesPage() {
 
             return matchesSearch && matchesLeaveType;
         });
-    }, [leaves, searchQuery, leaveTypeFilter]);
+    }, [leaves, searchQuery, leaveTypeFilter, showCancelledLeaves]);
 
     const totalPages = Math.max(1, Math.ceil(filteredLeaves.length / LEAVE_REQUESTS_PER_PAGE));
     const paginatedLeaves = useMemo(() => {
@@ -278,7 +282,7 @@ export default function LeavesPage() {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, leaveTypeFilter, leaves.length]);
+    }, [searchQuery, leaveTypeFilter, showCancelledLeaves, leaves.length]);
 
     useEffect(() => {
         if (currentPage > totalPages) {
@@ -503,6 +507,17 @@ export default function LeavesPage() {
                                     ))}
                                 </select>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowCancelledLeaves((prev) => !prev)}
+                                className={`px-3 py-2 text-[12px] font-semibold rounded-xl border transition-all ${
+                                    showCancelledLeaves
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-[#667085] border-[#E6E8EC] hover:border-slate-300'
+                                }`}
+                            >
+                                {showCancelledLeaves ? 'Hide Cancelled' : 'Show Cancelled'}
+                            </button>
                         </div>
                     </div>
 

@@ -121,7 +121,8 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
                 joiningDate: row.JoiningDate ?? null,
                 firstBiometricDate: row.FirstBiometricDate ?? null,
                 effectiveAttendanceStart: row.EffectiveAttendanceStart ?? null,
-                perDay: new Map()
+                perDay: new Map(),
+                perDayLop: new Map()
             });
         }
 
@@ -134,6 +135,11 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
 
         const prior = bucket.perDay.get(dateKey);
         bucket.perDay.set(dateKey, mergeDayClassification(prior, classification));
+        const lopValue = Number(row.LopPortion || 0);
+        if (lopValue > 0) {
+            const priorLop = bucket.perDayLop.get(dateKey) || 0;
+            bucket.perDayLop.set(dateKey, Math.max(priorLop, lopValue));
+        }
     }
 
     return Array.from(byEmployee.values())
@@ -141,11 +147,15 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             let presentDays = 0;
             let leaveDays = 0;
             let absentDays = 0;
+            let lopDays = 0;
 
             entry.perDay.forEach((classification) => {
                 if (classification === 'PRESENT') presentDays += 1;
                 else if (classification === 'LEAVE') leaveDays += 1;
                 else absentDays += 1;
+            });
+            entry.perDayLop.forEach((lopPortion) => {
+                lopDays += Number(lopPortion || 0);
             });
 
             return {
@@ -157,7 +167,8 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
                 companyWorkingDays: entry.perDay.size || companyWorkingDays,
                 presentDays,
                 leaveDays,
-                absentDays
+                absentDays,
+                lopDays: Number(lopDays.toFixed(2))
             };
         })
         .sort((a, b) => a.name.localeCompare(b.name));

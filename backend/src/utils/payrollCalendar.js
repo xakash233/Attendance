@@ -1,6 +1,5 @@
 /**
- * Payroll cycle: 26th of previous month → 25th of selected month (IST).
- * Label month uses 25th boundary; period starts day after prior month's 25th.
+ * Payroll cycle: 1st → last day of calendar month (IST).
  * Saturdays: 1st/3rd/5th = WFH working day; 2nd/4th = scheduled leave.
  */
 
@@ -54,20 +53,13 @@ export const isCompanyWorkingDay = (dateStr, { isHoliday = false } = {}) => {
 };
 
 /**
- * Payroll month label for a given IST date (period ending on 25th).
- * e.g. 2026-05-10 → 2026-05 ; 2026-05-26 → 2026-06
+ * Payroll month label for a given IST date (calendar month).
+ * e.g. 2026-05-26 → 2026-05
  */
-export const getPayrollMonthLabel = (istDateStr) => {
-    const { y, m, d } = parseYmd(istDateStr);
-    if (d > 25) {
-        if (m === 12) return `${y + 1}-01`;
-        return `${y}-${pad2(m + 1)}`;
-    }
-    return `${y}-${pad2(m)}`;
-};
+export const getPayrollMonthLabel = (istDateStr) => istDateStr.substring(0, 7);
 
 /**
- * Bounds for calendar month YYYY-MM: 1st → last day (capped at istTodayStr when provided).
+ * Bounds for payroll month YYYY-MM: 1st → last day (capped at istTodayStr when provided).
  */
 export const getCalendarMonthBounds = (monthStr, istTodayStr = null) => {
     const [y, m] = monthStr.split('-').map(Number);
@@ -86,27 +78,8 @@ export const getCalendarMonthBounds = (monthStr, istTodayStr = null) => {
     };
 };
 
-/**
- * Bounds for payroll month YYYY-MM: prev month 26 → month 25 (inclusive, UTC date marks).
- */
-export const getPayrollPeriodBounds = (monthStr, istTodayStr = null) => {
-    const [y, m] = monthStr.split('-').map(Number);
-    const prevMonth = m === 1 ? 12 : m - 1;
-    const prevYear = m === 1 ? y - 1 : y;
-    const start = new Date(Date.UTC(prevYear, prevMonth - 1, 26, 0, 0, 0, 0));
-    let end = new Date(Date.UTC(y, m - 1, 25, 23, 59, 59, 999));
-
-    if (istTodayStr) {
-        const todayUtc = new Date(`${istTodayStr}T23:59:59.999Z`);
-        if (todayUtc < end) end = todayUtc;
-    }
-
-    return {
-        start,
-        end,
-        label: `${start.toISOString().split('T')[0]} to ${end.toISOString().split('T')[0]}`
-    };
-};
+/** Alias: payroll period uses calendar month (1st → last day). */
+export const getPayrollPeriodBounds = getCalendarMonthBounds;
 
 /** Enumerate YYYY-MM-DD strings in range (inclusive). */
 export const enumerateDateStrings = (start, end) => {

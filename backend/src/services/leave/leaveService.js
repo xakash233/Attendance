@@ -5,6 +5,48 @@ import biometricService from '../biometric/biometricService.js';
 
 
 class LeaveService {
+    async reconcileLeaveBalancesForUser(userId, tx = prisma) {
+        const leaveTypes = await tx.leaveType.findMany();
+        const approvedLeaves = await tx.leaveRequest.findMany({
+            where: {
+                userId,
+                status: 'FINAL_APPROVED',
+                durationType: { not: 'WORK_FROM_HOME' }
+            },
+            select: { leaveTypeId: true, totalDays: true }
+        });
+
+        const usedByType = new Map();
+        for (const leave of approvedLeaves) {
+            const current = usedByType.get(leave.leaveTypeId) || 0;
+            usedByType.set(leave.leaveTypeId, current + (Number(leave.totalDays) || 0));
+        }
+
+        for (const leaveType of leaveTypes) {
+            const used = Number((usedByType.get(leaveType.id) || 0).toFixed(2));
+            const balance = Math.max(0, Number((leaveType.daysAllowed - used).toFixed(2)));
+
+            await tx.leaveBalance.upsert({
+                where: {
+                    userId_leaveTypeId: {
+                        userId,
+                        leaveTypeId: leaveType.id
+                    }
+                },
+                create: {
+                    userId,
+                    leaveTypeId: leaveType.id,
+                    balance,
+                    used
+                },
+                update: {
+                    balance,
+                    used
+                }
+            });
+        }
+    }
+
     calculateWorkingDays(startDate, endDate) {
         let count = 0;
         let curDate = new Date(startDate);

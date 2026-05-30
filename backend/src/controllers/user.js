@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import prisma from '../config/prisma.js';
 import sendEmail from '../utils/email.js';
 import crypto from 'crypto';
+import leaveService from '../services/leave/leaveService.js';
 
 const istDateToUtcMidnight = (yyyyMmDd) => new Date(`${yyyyMmDd}T00:00:00.000Z`);
 
@@ -231,6 +232,18 @@ export const getUser = async (req, res, next) => {
             console.error(`[USER CTRL] FATAL: User [${id}] not found in registry (tried ID & EmployeeCode).`);
             return res.status(404).json({ message: 'User not found' });
         }
+
+        await leaveService.reconcileLeaveBalancesForUser(user.id);
+        user = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+                id: true, email: true, name: true, employeeCode: true, role: true,
+                departmentId: true, bio: true, phone: true, profileImage: true, shift: true,
+                needsPasswordChange: true, createdAt: true, updatedAt: true, department: true,
+                leaveBalances: { include: { leaveType: true } }
+            }
+        });
+
         res.json(user);
     } catch (error) {
         console.error('[USER CTRL] getUser error:', error);
@@ -409,7 +422,7 @@ export const verifyUserCreation = async (req, res, next) => {
 export const getUserProfile = async (req, res, next) => {
     try {
         console.log(`[USER CTRL] getUserProfile for ID: ${req.user?.id}`);
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { id: req.user.id },
             select: {
                 id: true,
@@ -434,6 +447,29 @@ export const getUserProfile = async (req, res, next) => {
             console.error(`[USER CTRL] getUserProfile FAILED: User ${req.user.id} not found in repository.`);
             return res.status(404).json({ message: 'Self user profile not found' });
         }
+
+        await leaveService.reconcileLeaveBalancesForUser(user.id);
+        user = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                employeeCode: true,
+                role: true,
+                departmentId: true,
+                bio: true,
+                phone: true,
+                profileImage: true,
+                shift: true,
+                needsPasswordChange: true,
+                createdAt: true,
+                updatedAt: true,
+                department: true,
+                leaveBalances: { include: { leaveType: true } }
+            }
+        });
+
         res.json(user);
     } catch (error) {
         console.error('[USER CTRL] getUserProfile error:', error);
