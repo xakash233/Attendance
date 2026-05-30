@@ -483,6 +483,7 @@ export const getSummary = async (req, res, next) => {
         const monthLeaves = await prisma.leaveRequest.findMany({
             where: {
                 userId: targetUserId,
+                status: { not: 'CANCELLED' },
                 OR: [
                     { startDate: { lte: endDate }, endDate: { gte: startDate } }
                 ]
@@ -531,6 +532,7 @@ export const getSummary = async (req, res, next) => {
             });
 
             let durationType = null;
+            let isApprovedLeaveDay = false;
             if (activeLeaves.length > 0) {
                 const approved = activeLeaves.find(l => ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'].includes(l.status));
                 const pending = activeLeaves.find(l => ['PENDING', 'PENDING_HR', 'PENDING_SUPERADMIN'].includes(l.status));
@@ -558,7 +560,8 @@ export const getSummary = async (req, res, next) => {
                         dayStatus = 'HALF_DAY';
                         workingHours = workingHours + 4;
                     } else if (approved.durationType !== 'WORK_FROM_HOME') {
-                        workingHours = Math.max(workingHours, 8);
+                        isApprovedLeaveDay = true;
+                        workingHours = 0;
                     }
                 } else if (pending) {
                     if (dayStatus === 'ABSENT' || dayStatus === 'FUTURE') dayStatus = 'PENDING_LEAVE';
@@ -568,7 +571,7 @@ export const getSummary = async (req, res, next) => {
                 }
             }
 
-            if (!isSunday && !isSaturday && !holiday) {
+            if (!isSunday && !isSaturday && !holiday && !isApprovedLeaveDay) {
                 dayStatus = resolveDayStatusFromHours(workingHours, {
                     preserveStatus: dayStatus
                 }).replace(/ /g, '_');

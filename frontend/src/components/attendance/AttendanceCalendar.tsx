@@ -4,7 +4,7 @@ import api from '@/lib/axios';
 import { Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function AttendanceCalendar({ userId }: { userId?: string }) {
+export default function AttendanceCalendar({ userId, refreshKey }: { userId?: string; refreshKey?: string | number }) {
     const [summary, setSummary] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -23,10 +23,18 @@ export default function AttendanceCalendar({ userId }: { userId?: string }) {
         } finally {
             setLoading(false);
         }
-    }, [currentMonth, userId]);
+    }, [currentMonth, userId, refreshKey]);
 
     useEffect(() => {
         fetchSummary();
+    }, [fetchSummary]);
+
+    useEffect(() => {
+        const handleFocus = () => {
+            fetchSummary();
+        };
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
     }, [fetchSummary]);
 
     useEffect(() => {

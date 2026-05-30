@@ -16,14 +16,22 @@ export const roundWorkedHours = (hours) => {
 export const meetsMinimumFullDay = (hours) => roundWorkedHours(hours) >= MIN_FULL_DAY_HOURS;
 
 const PROTECTED_STATUS_KEYWORDS = [
-    'LEAVE', 'HOLIDAY', 'WFH', 'SCHEDULED', 'WEEKEND', 'OVERTIME', 'REJECTED', 'PENDING', 'LOP'
+    'LEAVE', 'HOLIDAY', 'WFH', 'SCHEDULED', 'WEEKEND', 'OVERTIME', 'REJECTED', 'PENDING', 'LOP',
+    'SICK', 'CASUAL', 'PAID', 'EARNED', 'UNPAID'
 ];
+
+const PROTECTED_STATUS_EXACT = new Set([
+    'SL', 'CL', 'PL', 'LOP', 'WFH', 'PRESENT WFH', 'PRESENT_WFH', 'ON LEAVE', 'ON_LEAVE'
+]);
 
 const normalizeStatusLabel = (status) =>
     (status || '').toString().replace(/_/g, ' ').trim().toUpperCase();
 
 const isProtectedStatus = (status) => {
     const normalized = normalizeStatusLabel(status);
+    if (PROTECTED_STATUS_EXACT.has(normalized.replace(/ /g, '_'))) {
+        return true;
+    }
     return PROTECTED_STATUS_KEYWORDS.some((keyword) => normalized.includes(keyword));
 };
 

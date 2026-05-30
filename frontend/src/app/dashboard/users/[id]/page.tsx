@@ -335,7 +335,10 @@ export default function EmployeeProfileView() {
                             </div>
 
                             <div className="border border-[#E6E8EC] rounded-xl overflow-hidden p-4 bg-[#F8F9FB]">
-                                <AttendanceCalendar userId={employee.id} />
+                                <AttendanceCalendar
+                                    userId={employee.id}
+                                    refreshKey={leaves.map((l: any) => `${l.id}:${l.status}:${l.updatedAt}`).join('|')}
+                                />
                             </div>
                         </div>
                     )}
