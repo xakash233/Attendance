@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isAccessEnabled" BOOLEAN NOT NULL DEFAULT true;

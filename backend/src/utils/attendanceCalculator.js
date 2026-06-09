@@ -65,13 +65,21 @@ export const resolveDayStatusFromHours = (workedHours, options = {}) => {
     return 'SHORT DAY';
 };
 
-/** Net worked hours from first/last punch, deducting 13:00–14:00 IST lunch overlap. */
+/** Gross worked hours from first/last punch; lunch only when span is a near-full day. */
 export const calculateWorkedHoursFromBounds = (firstPunch, lastPunch, dateStr) => {
     if (!firstPunch || !lastPunch || lastPunch <= firstPunch) {
         return 0;
     }
 
     const totalMs = lastPunch.getTime() - firstPunch.getTime();
+    const grossHours = totalMs / (1000 * 60 * 60);
+
+    // Short days (early leave) count gross presence — no implicit lunch break.
+    const lunchDeductionThreshold = MIN_FULL_DAY_HOURS + 0.5; // 8h span ≈ 7.5h work + lunch
+    if (grossHours < lunchDeductionThreshold) {
+        return roundWorkedHours(grossHours);
+    }
+
     const lunchStart = new Date(`${dateStr}T13:00:00.000+05:30`);
     const lunchEnd = new Date(`${dateStr}T14:00:00.000+05:30`);
 
@@ -258,11 +266,21 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         boundsHours = calculateWorkedHoursFromBounds(firstDate, lastDate, istDateStr);
     }
 
-    // Multi-punch days: sum IN/OUT sessions (gaps between punches are unpaid).
-    // Single session (1–2 punches): first→last with standard 13:00–14:00 IST lunch deduction.
-    const netHours = roundWorkedHours(
-        cleanLogs.length > 2 ? pairingHours : (boundsHours > 0 ? boundsHours : pairingHours)
-    );
+    // Multi-punch: sum IN/OUT sessions (gaps between punches are unpaid breaks).
+    // Single session (1–2 punches): gross span for short days; deduct standard lunch only
+    // when the continuous presence spans a near-full day (≥ 8h).
+    const lunchDeductionThreshold = MIN_FULL_DAY_HOURS + 0.5;
+    let netHours;
+    if (cleanLogs.length > 2) {
+        netHours = pairingHours;
+    } else if (isOngoing) {
+        netHours = boundsHours > 0 ? boundsHours : pairingHours;
+    } else if (pairingHours >= lunchDeductionThreshold && boundsHours > 0) {
+        netHours = boundsHours;
+    } else {
+        netHours = pairingHours;
+    }
+    netHours = roundWorkedHours(netHours);
     const totalWorkMinutesFinal = Math.round(netHours * 60);
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY_MINUTES - totalWorkMinutesFinal);
 

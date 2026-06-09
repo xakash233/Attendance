@@ -11,6 +11,8 @@ const generateRefreshToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
 };
 
+const ACCESS_DISABLED_MESSAGE = 'Your account access has been disabled. Contact HR or admin.';
+
 // @desc    Login user & get token
 // @route   POST /api/auth/login
 // @access  Public
@@ -26,6 +28,10 @@ export const login = async (req, res, next) => {
 
         if (!user) {
             return res.status(401).json({ message: 'User account not found' });
+        }
+
+        if (user.isAccessEnabled === false) {
+            return res.status(403).json({ message: ACCESS_DISABLED_MESSAGE });
         }
 
         if (await bcrypt.compare(password, user.password)) {
@@ -82,6 +88,10 @@ export const magicLogin = async (req, res, next) => {
             return res.status(401).json({ message: 'User account not found' });
         }
 
+        if (user.isAccessEnabled === false) {
+            return res.status(403).json({ message: ACCESS_DISABLED_MESSAGE });
+        }
+
         const accessToken = generateToken(user.id);
         const refreshToken = generateRefreshToken(user.id);
 
@@ -130,6 +140,17 @@ export const refreshToken = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { isAccessEnabled: true }
+        });
+
+        if (!user || user.isAccessEnabled === false) {
+            await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+            return res.status(403).json({ message: ACCESS_DISABLED_MESSAGE });
+        }
+
         const accessToken = generateToken(decoded.id);
 
         res.json({ accessToken });

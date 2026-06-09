@@ -529,6 +529,7 @@ export default function LeavesPage() {
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave Type</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Duration</th>
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Applied On</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Action</th>
                                 </tr>
@@ -537,7 +538,7 @@ export default function LeavesPage() {
                                 {(() => {
                                     if (leaves.length === 0) return (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-32 text-center">
+                                            <td colSpan={6} className="px-6 py-32 text-center">
                                                 <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
                                                     <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
                                                         <Calendar size={40} strokeWidth={1.5} />
@@ -580,7 +581,7 @@ export default function LeavesPage() {
 
                                     if (filteredLeaves.length === 0) return (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-24 text-center">
+                                            <td colSpan={6} className="px-6 py-24 text-center">
                                                 <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
                                                     <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
                                                         <Search size={24} />
@@ -672,6 +673,15 @@ export default function LeavesPage() {
                                                         {leave.totalDays} Days
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="text-[13px] font-semibold text-[#101828]">
+                                                    {new Date(leave.createdAt).toLocaleDateString('en-GB', {
+                                                        day: '2-digit',
+                                                        month: 'short',
+                                                        year: 'numeric'
+                                                    })}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
@@ -803,6 +813,16 @@ export default function LeavesPage() {
                                             </p>
                                             <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{leave.totalDays} Days</p>
                                         </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[11px] text-[#667085]">
+                                        <span className="font-semibold uppercase tracking-wide">Applied On</span>
+                                        <span className="text-[12px] font-semibold text-[#101828]">
+                                            {new Date(leave.createdAt).toLocaleDateString('en-GB', {
+                                                day: '2-digit',
+                                                month: 'short',
+                                                year: 'numeric'
+                                            })}
+                                        </span>
                                     </div>
 
                                     <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100">

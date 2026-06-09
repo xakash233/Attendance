@@ -81,7 +81,7 @@ export default function EmployeeProfileView() {
                 
                 try {
                     const leavesRes = await api.get('/leaves/history');
-                    setLeaves(leavesRes.data.filter((l: any) => l.userId === id && l.status === 'FINAL_APPROVED'));
+                    setLeaves(leavesRes.data.filter((l: any) => l.userId === id));
                 } catch (e) {
                     // Ignore leaves fail
                 }
@@ -267,6 +267,7 @@ export default function EmployeeProfileView() {
                                 let PL = 0;
                                 let HD = 0;
                                 leaves.forEach(l => {
+                                    if (l.status !== 'FINAL_APPROVED') return;
                                     const leaveDays = Number(l.totalDays) || 0;
                                     const dt = (l.durationType || '').toUpperCase();
                                     if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += leaveDays;

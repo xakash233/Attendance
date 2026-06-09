@@ -39,6 +39,7 @@ model User {
   profileImage         String?
   shift                String                @default("B")
   joiningDate          DateTime?             @db.Date
+  isAccessEnabled      Boolean               @default(true)
   attendances          Attendance[]
   auditLogs            AuditLog[]
   biometricAttendances BiometricAttendance[]
@@ -298,6 +299,59 @@ model WfhRequest {
   @@unique([userId, wfhDate])
   @@index([userId])
   @@index([wfhDate])
+}
+
+enum LeadCampaignPlatform {
+  META
+  GOOGLE_ADS
+  LINKED_IN
+  INSTAGRAM_DM
+  OTHER
+}
+
+enum LeadCampaignStatus {
+  ACTIVE
+  PAUSED
+}
+
+enum LeadRecordStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  CONFIRMED
+  LOST
+}
+
+model LeadCampaign {
+  id          String               @id @default(uuid())
+  name        String
+  platform    LeadCampaignPlatform
+  status      LeadCampaignStatus   @default(PAUSED)
+  description String?
+  spend       Float                @default(0)
+  assignedAt  DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  leads       Lead[]
+
+  @@index([platform])
+  @@index([status])
+}
+
+model Lead {
+  id         String                @id @default(uuid())
+  campaignId String?
+  name       String?
+  platform   LeadCampaignPlatform?
+  status     LeadRecordStatus      @default(NEW)
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  campaign   LeadCampaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([platform])
+  @@index([status])
+  @@index([createdAt])
 }
 
 enum Role {

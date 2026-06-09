@@ -532,6 +532,7 @@ export const getSummary = async (req, res, next) => {
             });
 
             let durationType = null;
+            let leaveAppliedAt = null;
             let isApprovedLeaveDay = false;
             if (activeLeaves.length > 0) {
                 const approved = activeLeaves.find(l => ['APPROVED', 'FINAL_APPROVED', 'HR_APPROVED'].includes(l.status));
@@ -556,6 +557,7 @@ export const getSummary = async (req, res, next) => {
 
                     leaveType = approved.leaveType.name;
                     durationType = approved.durationType;
+                    leaveAppliedAt = approved.createdAt;
                     if (approved.durationType === 'FIRST_HALF' || approved.durationType === 'SECOND_HALF') {
                         dayStatus = 'HALF_DAY';
                         workingHours = workingHours + 4;
@@ -566,6 +568,7 @@ export const getSummary = async (req, res, next) => {
                 } else if (pending) {
                     if (dayStatus === 'ABSENT' || dayStatus === 'FUTURE') dayStatus = 'PENDING_LEAVE';
                     leaveType = pending.leaveType.name;
+                    leaveAppliedAt = pending.createdAt;
                 } else if (rejected && dayStatus === 'ABSENT') {
                     // Rejected stays absent
                 }
@@ -584,6 +587,7 @@ export const getSummary = async (req, res, next) => {
                 isSunday: isSunday,
                 leaveType,
                 durationType,
+                leaveAppliedAt,
                 checkIn,
                 checkOut,
                 workingHours

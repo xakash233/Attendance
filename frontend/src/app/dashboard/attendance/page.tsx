@@ -250,14 +250,12 @@ export default function AttendancePage() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
-                                                    {emp.firstPunch ? formatTime(emp.firstPunch).split(' ')[0] : '--:--'}
-                                                    <span className="text-[10px] ml-1 uppercase opacity-40">{emp.firstPunch ? formatTime(emp.firstPunch).split(' ')[1] : ''}</span>
+                                                    {emp.firstPunch ? formatTime(emp.firstPunch) : '--:--'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
-                                                    {emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[0] : '--:--'}
-                                                    <span className="text-[10px] ml-1 uppercase opacity-40">{emp.lastPunch ? formatTime(emp.lastPunch).split(' ')[1] : ''}</span>
+                                                    {emp.lastPunch ? formatTime(emp.lastPunch) : '--:--'}
                                                 </span>
                                             </td>
                                                 <td className="px-6 py-4 text-right">
@@ -286,7 +284,7 @@ export default function AttendancePage() {
                                                         <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>
                                                         {emp.punches?.map((punchIso: string, idx: number) => (
                                                             <span key={idx} className={`text-[10px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
-                                                                {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso).split(' ')[0]}
+                                                                {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso)}
                                                             </span>
                                                         ))}
                                                     </div>
@@ -360,7 +358,7 @@ export default function AttendancePage() {
                                         {emp.punches?.length > 0 ? (
                                             emp.punches.map((punchIso: string, idx: number) => (
                                                 <span key={idx} className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50/50 text-emerald-700 border-emerald-100' : 'bg-rose-50/50 text-rose-700 border-rose-100'}`}>
-                                                    {idx % 2 === 0 ? 'In' : 'Out'}: {formatTime(punchIso).split(' ')[0]}
+                                                    {idx % 2 === 0 ? 'In' : 'Out'}: {formatTime(punchIso)}
                                                 </span>
                                             ))
                                         ) : (

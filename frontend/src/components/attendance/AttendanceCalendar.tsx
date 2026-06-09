@@ -23,11 +23,11 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
         } finally {
             setLoading(false);
         }
-    }, [currentMonth, userId, refreshKey]);
+    }, [currentMonth, userId]);
 
     useEffect(() => {
         fetchSummary();
-    }, [fetchSummary]);
+    }, [fetchSummary, refreshKey]);
 
     useEffect(() => {
         const handleFocus = () => {
@@ -179,6 +179,17 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
         });
     };
 
+    const formatAppliedDate = (value: any) => {
+        if (!value) return '--';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '--';
+        return date.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    };
+
     if (loading && !summary) {
         return (
             <div className="flex justify-center items-center py-12">
@@ -288,7 +299,7 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
                                 year: 'numeric'
                             })}
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</p>
                                 <p className="text-[14px] font-semibold text-[#101828]">
@@ -305,6 +316,12 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Check In / Out</p>
                                 <p className="text-[14px] font-semibold text-[#101828]">
                                     {formatPunchTime(selectedDateCell.log?.checkIn)} - {formatPunchTime(selectedDateCell.log?.checkOut)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leave Applied On</p>
+                                <p className="text-[14px] font-semibold text-[#101828]">
+                                    {formatAppliedDate(selectedDateCell.log?.leaveAppliedAt)}
                                 </p>
                             </div>
                         </div>

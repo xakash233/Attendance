@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../config/prisma.js';
 
+const ACCESS_DISABLED_MESSAGE = 'Your account access has been disabled. Contact HR or admin.';
+
 export const protect = async (req, res, next) => {
     let token;
 
@@ -20,13 +22,18 @@ export const protect = async (req, res, next) => {
                     name: true,
                     role: true,
                     departmentId: true,
-                    employeeCode: true
+                    employeeCode: true,
+                    isAccessEnabled: true
                 }
             });
 
             if (!req.user) {
                 console.warn(`[AUTH] User not found during middleware validation for ID: ${decoded.id}`);
                 return res.status(401).json({ message: 'Authorization identity no longer exists.' });
+            }
+
+            if (req.user.isAccessEnabled === false) {
+                return res.status(403).json({ message: ACCESS_DISABLED_MESSAGE });
             }
 
             next();

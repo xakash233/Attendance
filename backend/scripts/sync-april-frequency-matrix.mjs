@@ -1,4 +1,3 @@
-/* global console, process */
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { spawnSync } from 'node:child_process';
