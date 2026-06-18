@@ -15,10 +15,10 @@ const COMMON_PASSWORD = 'Password@123';
 
 const NEW_JOINEES = [
     { employeeCode: '43', name: 'Lucky', email: 'lucky43@joinee.tectratech.local' },
-    { employeeCode: '44', name: 'Sunitha', email: 'sunitha44@joinee.tectratech.local' },
+    { employeeCode: '44', name: 'Sunitha Choudhary', email: 'sunithachoudhary44@gmail.com' },
     { employeeCode: '45', name: 'Munies', email: 'munies45@joinee.tectratech.local' },
-    { employeeCode: '46', name: 'Saraya', email: 'saraya46@joinee.tectratech.local' },
-    { employeeCode: '47', name: 'Poojesh', email: 'poojesh47@joinee.tectratech.local' }
+    { employeeCode: '46', name: 'Saranya', email: 'saranya@tectratechnologies.com' },
+    { employeeCode: '47', name: 'Poojesh', email: 'uppalapoojeshgowd@gmail.com' }
 ];
 
 async function backfillAttendanceFromBiometric(userId, employeeCode) {

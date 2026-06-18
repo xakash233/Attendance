@@ -38,10 +38,13 @@ export const protect = async (req, res, next) => {
 
             next();
         } catch (error) {
-            console.error('Auth Middleware Error:', error);
-            if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+            if (error.name === 'TokenExpiredError') {
+                return res.status(401).json({ message: 'Not authorized, token expired' });
+            }
+            if (error.name === 'JsonWebTokenError') {
                 return res.status(401).json({ message: 'Not authorized, token failed' });
             }
+            console.error('Auth Middleware Error:', error);
             return res.status(500).json({ message: 'Internal server error during authentication' });
         }
     }

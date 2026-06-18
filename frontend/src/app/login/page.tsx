@@ -359,12 +359,17 @@ export default function LoginPage() {
                         />
                     </div>
                     <div className="space-y-4 text-left mb-64">
-                        <h1 className="text-3xl font-semibold text-white tracking-[-0.05em] leading-[0.75] flex flex-col gap-0.5">
-                            <span>Tectra Tech</span>
+                        <h1 className="text-3xl font-semibold text-white tracking-[-0.05em] flex flex-col gap-2">
+                            <span className="leading-tight">Tectra Tech</span>
                             <span
                                 ref={textRef}
                                 onMouseMove={handleMouseMove}
-                                className="font-semibold transition-all duration-300 cursor-default interactive-shine-text"
+                                onMouseLeave={() => {
+                                    if (!textRef.current) return;
+                                    textRef.current.style.setProperty('--x', '50%');
+                                    textRef.current.style.setProperty('--y', '50%');
+                                }}
+                                className="leading-tight font-semibold transition-all duration-300 cursor-default interactive-shine-text"
                             >
                                 Employee Corner
                             </span>

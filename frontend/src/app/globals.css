@@ -141,17 +141,20 @@ body {
 .interactive-shine-text {
   --x: 50%;
   --y: 50%;
-  background: radial-gradient(circle at var(--x) var(--y),
-      rgba(255, 255, 255, 1) 0%,
-      rgba(255, 255, 255, 0.4) 30%,
-      rgba(255, 255, 255, 0.4) 100%) !important;
-  background-size: 100% 100% !important;
+  display: inline-block;
+  background-image: radial-gradient(
+    circle 150px at var(--x) var(--y),
+    rgba(255, 255, 255, 1) 0%,
+    rgba(255, 255, 255, 0.55) 40%,
+    rgba(255, 255, 255, 0.55) 100%
+  );
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
+  color: transparent;
   transition: filter 0.3s ease;
 }
 
 .interactive-shine-text:hover {
-  filter: brightness(1.3);
+  filter: brightness(1.25);
 }

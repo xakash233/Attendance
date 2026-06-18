@@ -1,8 +1,9 @@
 "use client";
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import socket from '@/lib/socket';
+import { clearStoredSession, getValidStoredSession, isAuthApiPath } from '@/lib/authToken';
 
 type User = {
     id: string;
@@ -31,6 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const router = useRouter();
+    const isLoggingOut = useRef(false);
 
     const login = (token: string, userData: User) => {
         localStorage.setItem('token', token);
@@ -42,11 +44,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     const logout = React.useCallback(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        if (isLoggingOut.current) return;
+        isLoggingOut.current = true;
+        clearStoredSession();
         setUser(null);
         socket.disconnect();
         router.push('/login');
+        window.setTimeout(() => {
+            isLoggingOut.current = false;
+        }, 500);
     }, [router]);
 
     useEffect(() => {
@@ -56,20 +62,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [user]);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
-        if (token && storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
+        const session = getValidStoredSession();
+        if (session) {
+            setUser(JSON.parse(session.user));
             socket.connect();
         }
         setLoading(false);
 
-        // Global response interceptor to handle unauthorized access
         const interceptor = api.interceptors.response.use(
             (response) => response,
             (error) => {
-                if (error.response?.status === 401) {
+                const requestUrl = error.config?.url as string | undefined;
+                if (error.response?.status === 401 && !isAuthApiPath(requestUrl)) {
                     logout();
                 }
                 return Promise.reject(error);
