@@ -98,13 +98,14 @@ async function showBrowserNotification() {
 
     if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(OUT_ALERT_TITLE, {
+        const notificationOptions: NotificationOptions = {
             body: OUT_ALERT_BODY,
             icon: '/logo/Tectra.png',
             badge: '/logo/Tectra.png',
             tag: OUT_ALERT_TAG,
             silent: false
-        });
+        };
+        await registration.showNotification(OUT_ALERT_TITLE, notificationOptions);
         return;
     }
 
