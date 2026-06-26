@@ -27,6 +27,7 @@ import holidayRoutes from './routes/holiday.js';
 import admsRoutes from './routes/adms.js';
 import workLogRoutes from './routes/workLog.js';
 import leadsRoutes from './routes/leads.js';
+import pushRoutes from './routes/push.js';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,6 +85,7 @@ app.use('/api/wfh', wfhRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/work-logs', workLogRoutes);
 app.use('/api/leads', leadsRoutes);
+app.use('/api/push', pushRoutes);
 app.use('/health', healthRoutes);
 
 // Root route

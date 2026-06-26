@@ -17,6 +17,10 @@ import {
     isCompanyWorkingDay
 } from '../utils/payrollCalendar.js';
 import { buildAccountantSummaries } from '../utils/accountantAttendance.js';
+import {
+    buildAttendanceWorkbookBuffer,
+    syncAttendanceToGoogleSheet
+} from '../services/attendance/attendanceSheetExportService.js';
 
 const formatIstPunchTime = (timestamp) =>
     timestamp.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' });
@@ -1804,6 +1808,37 @@ export const exportComplianceReport = async (req, res, next) => {
         await workbook.xlsx.write(res);
         res.end();
 
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const exportTectraAttendanceSheet = async (req, res, next) => {
+    try {
+        const { month } = req.query;
+        const { buffer, sheetData } = await buildAttendanceWorkbookBuffer(prisma, month ? { month } : {});
+        const fileName = `Tectra_Attendance_${sheetData.payrollMonth}.xlsx`;
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        res.send(Buffer.from(buffer));
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const syncTectraAttendanceSheet = async (req, res, next) => {
+    try {
+        const { month } = req.query;
+        const { sheetData, publishResult } = await syncAttendanceToGoogleSheet(prisma, month ? { month } : {});
+
+        res.json({
+            message: 'Attendance sheet synced to Google Sheets',
+            month: sheetData.payrollMonth,
+            monthLabel: sheetData.monthLabel,
+            employeeCount: sheetData.employees.length,
+            ...publishResult
+        });
     } catch (error) {
         next(error);
     }

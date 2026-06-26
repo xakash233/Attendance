@@ -12,6 +12,7 @@ import api from '@/lib/axios';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import Image from 'next/image';
 import { LayoutDashboard, Globe } from 'lucide-react';
+import { useOutBreakMonitor } from '@/hooks/useOutBreakMonitor';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { user, loading, logout } = useAuth();
@@ -23,6 +24,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [isNotificationOpen, setIsNotificationOpen] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+    useOutBreakMonitor({
+        enabled: Boolean(user && user.role === 'EMPLOYEE'),
+        pollIntervalMs: 60_000
+    });
 
 
     // Listen for custom title updates from child components

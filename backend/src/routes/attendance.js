@@ -8,6 +8,8 @@ import {
     getDashboardReport,
     getComplianceReport,
     exportComplianceReport,
+    exportTectraAttendanceSheet,
+    syncTectraAttendanceSheet,
     getWeeklySummary,
     getAdminAnalytics
 } from '../controllers/attendance.js';
@@ -25,6 +27,8 @@ router.get('/live', protect, getLiveAttendance);
 router.get('/dashboard-report', protect, getDashboardReport);
 router.get('/compliance-report', protect, getComplianceReport);
 router.get('/export-compliance', protect, exportComplianceReport);
+router.get('/export-tectra-sheet', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), exportTectraAttendanceSheet);
+router.post('/sync-tectra-sheet', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), syncTectraAttendanceSheet);
 router.get('/admin-analytics', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), getAdminAnalytics);
 
 export default router;

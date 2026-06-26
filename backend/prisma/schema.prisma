@@ -54,6 +54,8 @@ model User {
   department           Department?           @relation("DeptEmployees", fields: [departmentId], references: [id])
   wfhRequests          WfhRequest[]
   workLogs             WorkLog[]
+  pushSubscriptions    PushSubscription[]
+  outBreakAlertState   OutBreakAlertState?
 
   @@index([role])
   @@index([departmentId])
@@ -176,6 +178,26 @@ model Notification {
   @@index([userId])
   @@index([createdAt])
   @@index([isRead])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model OutBreakAlertState {
+  userId           String    @id
+  lastAlertedOutAt DateTime?
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {

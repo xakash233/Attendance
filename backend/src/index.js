@@ -6,6 +6,7 @@ import { initSocket } from './config/socket.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { startBiometricAutoSync } from './services/biometric/biometricSyncTask.js';
+import { startOutBreakMonitor } from './services/attendance/outBreakMonitorService.js';
 
 const PORT = process.env.PORT || 5001;
 
@@ -28,6 +29,10 @@ if (isMain || process.env.NODE_ENV === 'development') {
       console.log('[Startup] Biometric auto-sync enabled.');
     } else {
       console.log('[Startup] Biometric auto-sync disabled. Set ENABLE_BIOMETRIC_AUTO_SYNC=true to enable.');
+    }
+
+    if (process.env.ENABLE_OUT_BREAK_MONITOR !== 'false') {
+      startOutBreakMonitor(60);
     }
   });
 }
