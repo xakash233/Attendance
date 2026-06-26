@@ -20,7 +20,7 @@ export function dedupeBiometricPunches(biometricPunches) {
     return rawPunches;
 }
 
-export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr, todayStart }) {
+export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr }) {
     const biometricPunches = (user.biometricAttendances || []).map((entry) => new Date(entry.timestamp));
     let isWfh = false;
 

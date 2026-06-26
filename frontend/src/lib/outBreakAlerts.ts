@@ -103,7 +103,6 @@ async function showBrowserNotification() {
             icon: '/logo/Tectra.png',
             badge: '/logo/Tectra.png',
             tag: OUT_ALERT_TAG,
-            renotify: true,
             silent: false
         });
         return;

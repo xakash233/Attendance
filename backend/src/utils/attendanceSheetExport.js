@@ -1,6 +1,5 @@
 import {
     enumerateDateStrings,
-    getCompanyDayCategory,
     getIstWeekday,
     getPayrollMonthLabel,
     getPayrollPeriodBounds
