@@ -6,13 +6,13 @@ npx vercel env rm SMTP_PORT production --yes || true
 printf '587' | npx vercel env add SMTP_PORT production || true
 
 npx vercel env rm SMTP_USER production --yes || true
-printf 'personalakash23@gmail.com' | npx vercel env add SMTP_USER production || true
+printf 'tectradeveloper@gmail.com' | npx vercel env add SMTP_USER production || true
 
 npx vercel env rm SMTP_PASS production --yes || true
-printf 'cxyu kaih mpdx ricq' | npx vercel env add SMTP_PASS production || true
+printf 'mxle dlnl ydyf puxx' | npx vercel env add SMTP_PASS production || true
 
 npx vercel env rm SMTP_FROM production --yes || true
-printf 'noreply@tectratech.com' | npx vercel env add SMTP_FROM production || true
+printf 'tectradeveloper@gmail.com' | npx vercel env add SMTP_FROM production || true
 
 npx vercel env rm JWT_SECRET production --yes || true
 printf 'tectra-attendance-super-secret-key' | npx vercel env add JWT_SECRET production || true
