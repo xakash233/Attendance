@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
     Users, LayoutDashboard, Briefcase,
-    Settings, LogOut, Globe, Clock, ChevronLeft, Calendar, TrendingUp, FileText, Target
+    Settings, LogOut, Globe, Clock, ChevronLeft, Calendar, TrendingUp, FileText
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
@@ -32,7 +32,6 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Users', href: '/dashboard/users', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT'] },
-        { label: 'Leads', href: '/dashboard/leads', icon: Target, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Company Policy', href: '/dashboard/policies/company-policy', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: 'Leave & Attendance Rulebook', href: '/dashboard/policies/leave-attendance-rulebook', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
     ];
