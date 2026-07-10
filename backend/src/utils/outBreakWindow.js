@@ -1,6 +1,6 @@
 const LUNCH_START_MINUTES = 12 * 60 + 50; // 12:50 IST
 const LUNCH_END_MINUTES = 14 * 60 + 30;   // 14:30 IST
-export const OUT_BREAK_THRESHOLD_MS = 15 * 60 * 1000;
+export const OUT_BREAK_THRESHOLD_MS = 20 * 60 * 1000;
 
 export function getIstMinutesOfDay(date = new Date()) {
     const parts = new Intl.DateTimeFormat('en-GB', {

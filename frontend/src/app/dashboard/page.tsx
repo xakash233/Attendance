@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 import { createPortal } from 'react-dom';
+import DesktopAlertsBanner from '@/components/notifications/DesktopAlertsBanner';
 
 const CHART_MONO_COLORS = {
     present: '#111827',
@@ -305,6 +306,7 @@ export default function DashboardPage() {
     return (
         <>
             <div className="min-h-screen pb-12 overflow-x-hidden selection:bg-[#101828] selection:text-white">
+                {user?.role === 'EMPLOYEE' && <DesktopAlertsBanner />}
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -138,7 +138,7 @@ export async function runOutBreakMonitor() {
         }
 
         const title = 'Long break alert';
-        const message = 'You have been out for more than 15 minutes. Please punch in when you return.';
+        const message = 'You have been out for more than 20 minutes. Please punch in when you return.';
 
         await Promise.all([
             sendOutBreakPush(user.id, { title, body: message }),

@@ -16,7 +16,7 @@ export function useOutBreakMonitor({
     pollIntervalMs = 60_000
 }: UseOutBreakMonitorOptions = {}) {
     const lastAlertedPunchRef = useRef<string | null>(null);
-    const pushSetupDoneRef = useRef(false);
+    const pushReadyRef = useRef(false);
 
     useEffect(() => {
         if (!enabled) return;
@@ -25,11 +25,18 @@ export function useOutBreakMonitor({
         let intervalId: number | undefined;
 
         const setupPush = async () => {
-            if (pushSetupDoneRef.current || cancelled) return;
-            pushSetupDoneRef.current = true;
+            if (cancelled || pushReadyRef.current) return;
+
+            if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+                return;
+            }
 
             try {
-                await subscribeToOutBreakPush();
+                const subscribed = await subscribeToOutBreakPush();
+                if (subscribed) {
+                    pushReadyRef.current = true;
+                    console.log('[OutBreak] Push subscription ready');
+                }
             } catch (error) {
                 console.warn('Out-break push subscription unavailable:', error);
             }
@@ -37,6 +44,10 @@ export function useOutBreakMonitor({
 
         const checkStatus = async () => {
             try {
+                if (!pushReadyRef.current) {
+                    await setupPush();
+                }
+
                 const result = await evaluateOutBreakAlert(lastAlertedPunchRef.current);
                 if (result.status.currentStatus === 'IN' || result.status.currentStatus === 'ABSENT') {
                     lastAlertedPunchRef.current = null;

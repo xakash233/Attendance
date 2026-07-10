@@ -1,6 +1,6 @@
 const OUT_ALERT_TAG = 'tectra-out-break-alert';
 const OUT_ALERT_TITLE = 'Long break alert';
-const OUT_ALERT_BODY = 'You have been out for more than 15 minutes. Please punch in when you return.';
+const OUT_ALERT_BODY = 'You have been out for more than 20 minutes. Please punch in when you return.';
 
 self.addEventListener('install', (event) => {
     self.skipWaiting();

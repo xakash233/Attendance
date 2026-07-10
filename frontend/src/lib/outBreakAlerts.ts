@@ -2,10 +2,10 @@ import api from '@/lib/axios';
 
 const OUT_ALERT_TAG = 'tectra-out-break-alert';
 const OUT_ALERT_TITLE = 'Long break alert';
-const OUT_ALERT_BODY = 'You have been out for more than 15 minutes. Please punch in when you return.';
+const OUT_ALERT_BODY = 'You have been out for more than 20 minutes. Please punch in when you return.';
 const LUNCH_START_MINUTES = 12 * 60 + 50;
 const LUNCH_END_MINUTES = 14 * 60 + 30;
-const OUT_BREAK_THRESHOLD_MS = 15 * 60 * 1000;
+const OUT_BREAK_THRESHOLD_MS = 20 * 60 * 1000;
 
 type LiveStatusResponse = {
     currentStatus: string;
@@ -129,11 +129,18 @@ export async function registerOutBreakServiceWorker() {
 
 export async function subscribeToOutBreakPush() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('[OutBreak] Push API not supported in this browser');
+        return false;
+    }
+
+    if (!window.isSecureContext) {
+        console.warn('[OutBreak] Push requires HTTPS or localhost');
         return false;
     }
 
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
+        console.warn('[OutBreak] Notification permission:', permission);
         return false;
     }
 
@@ -141,6 +148,11 @@ export async function subscribeToOutBreakPush() {
     if (!registration) return false;
 
     const { data } = await api.get('/push/vapid-public-key');
+    if (!data?.publicKey) {
+        console.warn('[OutBreak] Missing VAPID public key from server');
+        return false;
+    }
+
     const existing = await registration.pushManager.getSubscription();
 
     const subscription = existing || await registration.pushManager.subscribe({
