@@ -3,6 +3,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import api from '@/lib/axios';
 import { Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatWorkedHoursLabel } from '@/lib/formatWorkedHours';
 
 export default function AttendanceCalendar({ userId, refreshKey }: { userId?: string; refreshKey?: string | number }) {
     const [summary, setSummary] = useState<any>(null);
@@ -164,12 +165,6 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
         return 'bg-slate-200';
     };
 
-    const formatWorkedHours = (hours: any) => {
-        const parsed = Number.parseFloat(String(hours ?? 0));
-        if (!Number.isFinite(parsed)) return '--';
-        return parsed.toFixed(2).replace(/\.?0+$/, '');
-    };
-
     const formatPunchTime = (timeValue: any) => {
         if (!timeValue) return '--:--';
         return new Date(timeValue).toLocaleTimeString('en-US', {
@@ -309,7 +304,7 @@ export default function AttendanceCalendar({ userId, refreshKey }: { userId?: st
                             <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Worked Time</p>
                                 <p className="text-[14px] font-semibold text-[#101828]">
-                                    {formatWorkedHours(selectedDateCell.log?.workingHours)} HRS
+                                    {formatWorkedHoursLabel(selectedDateCell.log?.workingHours)}
                                 </p>
                             </div>
                             <div>
