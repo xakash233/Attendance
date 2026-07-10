@@ -39,3 +39,18 @@ export async function compressProfileImage(file: File): Promise<File> {
     const baseName = file.name.replace(/\.[^.]+$/, '') || 'profile';
     return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
 }
+
+export function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result);
+                return;
+            }
+            reject(new Error('Unable to read image file.'));
+        };
+        reader.onerror = () => reject(new Error('Unable to read image file.'));
+        reader.readAsDataURL(file);
+    });
+}

@@ -495,6 +495,11 @@ export const updateUserProfile = async (req, res, next) => {
             data.bio = bio ? String(bio).trim() : null;
         }
         if (profileImage !== undefined) {
+            if (profileImage && typeof profileImage === 'string' && profileImage.startsWith('data:image/')) {
+                if (profileImage.length > 2_500_000) {
+                    return res.status(400).json({ message: 'Image is too large. Please choose a smaller photo.' });
+                }
+            }
             data.profileImage = profileImage || null;
         }
 

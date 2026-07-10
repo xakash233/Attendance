@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import { createPortal } from 'react-dom';
-import { compressProfileImage } from '@/lib/compressProfileImage';
+import { compressProfileImage, fileToDataUrl } from '@/lib/compressProfileImage';
 
 export default function EmployeeProfileView() {
     const { id } = useParams();
@@ -167,27 +167,21 @@ export default function EmployeeProfileView() {
         e.preventDefault();
         setSaving(true);
         try {
-            let updatedUser = employee;
-
-            if (avatarFile) {
-                const formData = new FormData();
-                formData.append('avatar', avatarFile);
-                const avatarRes = await api.post('/users/profile/avatar', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
-                });
-                updatedUser = avatarRes.data;
-            } else if (removeAvatar) {
-                const avatarRes = await api.put('/users/profile', { profileImage: null });
-                updatedUser = avatarRes.data;
-            }
-
-            const profileRes = await api.put('/users/profile', {
+            const payload: Record<string, string | null> = {
                 name: selfEditData.name,
                 phone: selfEditData.phone,
-                bio: selfEditData.bio
-            });
+                bio: selfEditData.bio,
+            };
 
-            updatedUser = profileRes.data;
+            if (avatarFile) {
+                payload.profileImage = await fileToDataUrl(avatarFile);
+            } else if (removeAvatar) {
+                payload.profileImage = null;
+            }
+
+            const profileRes = await api.put('/users/profile', payload);
+            const updatedUser = profileRes.data;
+
             toast.success('Profile updated successfully');
             setIsEditModalOpen(false);
             setEmployee(updatedUser);
