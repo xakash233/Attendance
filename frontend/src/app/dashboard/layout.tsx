@@ -11,6 +11,7 @@ import socket from '@/lib/socket';
 import api from '@/lib/axios';
 import { formatDistanceToNow } from 'date-fns/formatDistanceToNow';
 import Image from 'next/image';
+import UserAvatar from '@/components/users/UserAvatar';
 import { LayoutDashboard, Globe } from 'lucide-react';
 import { useOutBreakMonitor } from '@/hooks/useOutBreakMonitor';
 
@@ -339,13 +340,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <p className="text-[13px] font-bold text-[#101828] leading-none">{user?.name}</p>
                                     <p className="font-medium text-[#667085] mt-1 uppercase tracking-wider text-[9px] leading-none">{user?.role?.replace('_', ' ')}</p>
                                 </div>
-                                <div className="w-9 h-9 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px] overflow-hidden relative">
-                                    {user?.profileImage ? (
-                                        <Image src={user.profileImage} alt={user.name} fill style={{ objectFit: 'cover' }} unoptimized />
-                                    ) : (
-                                        user?.name?.[0]?.toUpperCase()
-                                    )}
-                                </div>
+                                <UserAvatar name={user?.name || 'User'} profileImage={user?.profileImage} size="sm" />
                                 <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
                             </button>
 

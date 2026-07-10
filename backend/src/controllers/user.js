@@ -142,6 +142,34 @@ async function computeHoursSummariesForUsers({ userIds, month }) {
     return acc;
 }
 
+// @desc    Public employee directory for all authenticated users
+// @route   GET /api/users/directory
+// @access  Private
+export const getEmployeeDirectory = async (req, res, next) => {
+    try {
+        const employees = await prisma.user.findMany({
+            where: {
+                role: { not: 'SUPER_ADMIN' },
+                employeeCode: { not: '' },
+                isAccessEnabled: true,
+            },
+            select: {
+                id: true,
+                name: true,
+                employeeCode: true,
+                role: true,
+                profileImage: true,
+                department: { select: { id: true, name: true } },
+            },
+            orderBy: [{ name: 'asc' }],
+        });
+
+        res.json(employees);
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Get all users
 // @route   GET /api/users
 // @access  Private (SUPER_ADMIN, ADMIN)

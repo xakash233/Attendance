@@ -5,6 +5,8 @@ import api from '@/lib/axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Activity, User, Calendar, History, Search, Filter } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import UserAvatar from '@/components/users/UserAvatar';
+import ProfileImageLightbox from '@/components/users/ProfileImageLightbox';
 
 export default function AttendancePage() {
     const { user, loading } = useAuth();
@@ -15,6 +17,7 @@ export default function AttendancePage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN' | 'OUT' | 'ABSENT'>('ALL');
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
+    const [previewEmployee, setPreviewEmployee] = useState<any | null>(null);
 
     const fetchLiveAttendance = useCallback(async () => {
         try {
@@ -214,9 +217,16 @@ export default function AttendancePage() {
                                         >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[12px] group-hover:bg-indigo-600 transition-colors">
-                                                        {emp.name.substring(0, 2).toUpperCase()}
-                                                    </div>
+                                                    <UserAvatar
+                                                        name={emp.name}
+                                                        profileImage={emp.profileImage}
+                                                        size="sm"
+                                                        clickable
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPreviewEmployee(emp);
+                                                        }}
+                                                    />
                                                     <div>
                                                         <span 
                                                             className="text-[14px] font-bold text-[#101828] hover:text-indigo-600 hover:underline cursor-pointer transition-all"
@@ -307,9 +317,13 @@ export default function AttendancePage() {
                             <div key={emp.id} className={`p-5 space-y-4 bg-white hover:bg-slate-50 transition-all ${emp.id === user?.id ? 'bg-indigo-50/20 border-l-4 border-indigo-500' : ''}`}>
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px]">
-                                            {emp.name.substring(0, 2).toUpperCase()}
-                                        </div>
+                                        <UserAvatar
+                                            name={emp.name}
+                                            profileImage={emp.profileImage}
+                                            size="md"
+                                            clickable
+                                            onClick={() => setPreviewEmployee(emp)}
+                                        />
                                         <div>
                                             <h4 
                                                 className="text-[15px] font-bold text-[#101828] hover:text-indigo-600 active:text-indigo-700 transition-colors"
@@ -380,6 +394,18 @@ export default function AttendancePage() {
                     )}
                 </div>
             </motion.div>
+
+            <ProfileImageLightbox
+                open={Boolean(previewEmployee)}
+                onClose={() => setPreviewEmployee(null)}
+                name={previewEmployee?.name || ''}
+                profileImage={previewEmployee?.profileImage}
+                subtitle={
+                    previewEmployee
+                        ? `ID ${previewEmployee.employeeCode} • ${previewEmployee.department || 'Unassigned'}`
+                        : undefined
+                }
+            />
         </div>
     );
 }

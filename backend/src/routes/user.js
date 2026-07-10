@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+    getEmployeeDirectory,
     getUsers,
     initUserCreation,
     verifyUserCreation,
@@ -28,6 +29,7 @@ router.post('/profile/avatar', protect, imageUpload.single('avatar'), uploadProf
 router.put('/change-password', protect, changePassword);
 router.get('/analytics', protect, getAnalytics);
 router.get('/search', protect, globalSearch);
+router.get('/directory', protect, getEmployeeDirectory);
 router.get('/:id', protect, getUser);
 router.put('/:id', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), updateUser);
 router.post('/:id/verify-email', protect, authorize('SUPER_ADMIN'), verifyEmailUpdate);

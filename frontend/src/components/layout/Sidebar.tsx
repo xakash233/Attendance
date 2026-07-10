@@ -23,6 +23,7 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
 
     const links = [
         { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
+        { label: 'Employee List', href: '/dashboard/employees', icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: 'Working Hours', href: '/dashboard/working-hours', icon: TrendingUp, roles: ['HR', 'EMPLOYEE'] },
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
