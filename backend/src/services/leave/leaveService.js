@@ -55,10 +55,7 @@ class LeaveService {
         end.setUTCHours(0, 0, 0, 0);
 
         while (curDate <= end) {
-            const dayOfWeek = curDate.getUTCDay();
-            if (dayOfWeek !== 0) { // Skip only Sunday(0)
-                count++;
-            }
+            count++;
             curDate.setUTCDate(curDate.getUTCDate() + 1);
         }
         return count;
@@ -87,7 +84,7 @@ class LeaveService {
         }
 
         if (totalDays <= 0) {
-            throw new Error('Request cannot be applied on weekends alone');
+            throw new Error('Invalid date range. End date must be on or after start date.');
         }
 
         return await prisma.$transaction(async (tx) => {

@@ -339,8 +339,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <p className="text-[13px] font-bold text-[#101828] leading-none">{user?.name}</p>
                                     <p className="font-medium text-[#667085] mt-1 uppercase tracking-wider text-[9px] leading-none">{user?.role?.replace('_', ' ')}</p>
                                 </div>
-                                <div className="w-9 h-9 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px]">
-                                    {user?.name?.[0]?.toUpperCase()}
+                                <div className="w-9 h-9 rounded-full bg-[#101828] text-white flex items-center justify-center font-bold text-[14px] overflow-hidden relative">
+                                    {user?.profileImage ? (
+                                        <Image src={user.profileImage} alt={user.name} fill style={{ objectFit: 'cover' }} unoptimized />
+                                    ) : (
+                                        user?.name?.[0]?.toUpperCase()
+                                    )}
                                 </div>
                                 <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
                             </button>

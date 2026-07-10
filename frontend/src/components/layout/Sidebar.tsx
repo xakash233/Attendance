@@ -5,12 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 import {
-    Users, LayoutDashboard, Briefcase, User,
-    Settings, LogOut, Globe, Clock, Fingerprint, MapPin, ChevronLeft, ArrowRight, Calendar, TrendingUp, FileText, Target
+    Users, LayoutDashboard, Briefcase,
+    Settings, LogOut, Globe, Clock, ChevronLeft, Calendar, TrendingUp, FileText, Target
 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-
-const NISHANTH_USER_ID = 'c7c74ad0-581f-405d-b47a-7f83590e66a0';
 
 const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const { user, logout } = useAuth();
@@ -29,7 +27,6 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         { label: 'Attendance', href: '/dashboard/attendance', icon: Clock, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
         { label: 'Reports', href: '/dashboard/report', icon: Calendar, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: getLeaveLabel(), href: '/dashboard/leaves', icon: Briefcase, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
-        { label: 'Work Logs', href: '/dashboard/work-logs', icon: Briefcase, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
         { label: 'Settings', href: '/dashboard/settings', icon: Settings, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'EMPLOYEE'] },
         { label: 'Departments', href: '/dashboard/departments', icon: Globe, roles: ['SUPER_ADMIN'] },
         { label: 'Holidays', href: '/dashboard/holidays', icon: Calendar, roles: ['SUPER_ADMIN', 'HR', 'EMPLOYEE'] },
@@ -39,16 +36,7 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
         { label: 'Leave & Attendance Rulebook', href: '/dashboard/policies/leave-attendance-rulebook', icon: FileText, roles: ['SUPER_ADMIN', 'ADMIN', 'HR', 'ACCOUNTANT', 'EMPLOYEE'] },
     ];
 
-    const filteredLinks = links.filter((link) => {
-        const hasRoleAccess = link.roles.includes(user?.role || '');
-        if (!hasRoleAccess) return false;
-
-        if (link.href === '/dashboard/work-logs') {
-            return user?.role === 'SUPER_ADMIN' || user?.id === NISHANTH_USER_ID;
-        }
-
-        return true;
-    });
+    const filteredLinks = links.filter((link) => link.roles.includes(user?.role || ''));
 
     return (
         <aside className="h-full w-full bg-transparent flex flex-col pb-2 transition-all overflow-y-auto no-scrollbar pt-0">

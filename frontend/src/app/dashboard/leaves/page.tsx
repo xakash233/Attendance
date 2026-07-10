@@ -57,17 +57,15 @@ export default function LeavesPage() {
 
     const calculateDays = () => {
         if (!formData.startDate || !formData.endDate) return 0;
-        const start = new Date(formData.startDate);
-        const end = new Date(formData.endDate);
+        const start = new Date(`${formData.startDate}T00:00:00.000Z`);
+        const end = new Date(`${formData.endDate}T00:00:00.000Z`);
+        if (end < start) return 0;
         let count = 0;
         let curDate = new Date(start);
 
         while (curDate <= end) {
-            const dayOfWeek = curDate.getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Skip Sun(0) and Sat(6)
-                count++;
-            }
-            curDate.setDate(curDate.getDate() + 1);
+            count++;
+            curDate.setUTCDate(curDate.getUTCDate() + 1);
         }
 
         if (formData.durationType === 'FIRST_HALF' || formData.durationType === 'SECOND_HALF') {

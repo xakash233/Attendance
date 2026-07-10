@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/axios';
-import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle, Camera, Phone, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import { createPortal } from 'react-dom';
+import { compressProfileImage } from '@/lib/compressProfileImage';
 
 export default function EmployeeProfileView() {
     const { id } = useParams();
@@ -29,6 +30,15 @@ export default function EmployeeProfileView() {
         name: '',
         employeeCode: ''
     });
+    const [selfEditData, setSelfEditData] = useState({
+        name: '',
+        phone: '',
+        bio: ''
+    });
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [removeAvatar, setRemoveAvatar] = useState(false);
+    const avatarInputRef = React.useRef<HTMLInputElement>(null);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -55,6 +65,8 @@ export default function EmployeeProfileView() {
                 email: updatedUser.email ?? prev.email,
                 employeeCode: updatedUser.employeeCode ?? prev.employeeCode,
                 department: updatedUser.department ?? prev.department,
+                phone: updatedUser.phone ?? prev.phone,
+                bio: updatedUser.bio ?? prev.bio,
                 profileImage: updatedUser.profileImage ?? prev.profileImage
             };
         });
@@ -77,6 +89,12 @@ export default function EmployeeProfileView() {
                         name: found.name,
                         employeeCode: found.employeeCode
                     });
+                    setSelfEditData({
+                        name: found.name || '',
+                        phone: found.phone || '',
+                        bio: found.bio || ''
+                    });
+                    setAvatarPreview(found.profileImage || null);
                 }
                 
                 try {
@@ -101,11 +119,93 @@ export default function EmployeeProfileView() {
         fetchInitialData();
     }, [id]);
 
-    const handleUpdate = async (e: React.FormEvent) => {
+    const isSelfProfile = id === 'me' || currentUser?.id === employee?.id;
+    const isAdminEditor = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(currentUser?.role || '') && !isSelfProfile;
+    const canEditProfile = Boolean(employee) && (isSelfProfile || isAdminEditor);
+
+    const resetEditState = (profile = employee) => {
+        if (!profile) return;
+        setEditStep(1);
+        setOtpInput('');
+        setAvatarFile(null);
+        setRemoveAvatar(false);
+        setAvatarPreview(profile.profileImage || null);
+        setEditData({
+            email: profile.email,
+            departmentId: profile.departmentId || '',
+            name: profile.name,
+            employeeCode: profile.employeeCode
+        });
+        setSelfEditData({
+            name: profile.name || '',
+            phone: profile.phone || '',
+            bio: profile.bio || ''
+        });
+    };
+
+    const openEditModal = () => {
+        resetEditState();
+        setIsEditModalOpen(true);
+    };
+
+    const handleAvatarSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+
+        try {
+            const compressed = await compressProfileImage(file);
+            setAvatarFile(compressed);
+            setRemoveAvatar(false);
+            setAvatarPreview(URL.createObjectURL(compressed));
+        } catch (err: any) {
+            toast.error(err.message || 'Unable to process image');
+        }
+    };
+
+    const handleSelfUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
         try {
-            const res = await api.put(`/users/${id}`, editData);
+            let updatedUser = employee;
+
+            if (avatarFile) {
+                const formData = new FormData();
+                formData.append('avatar', avatarFile);
+                const avatarRes = await api.post('/users/profile/avatar', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                updatedUser = avatarRes.data;
+            } else if (removeAvatar) {
+                const avatarRes = await api.put('/users/profile', { profileImage: null });
+                updatedUser = avatarRes.data;
+            }
+
+            const profileRes = await api.put('/users/profile', {
+                name: selfEditData.name,
+                phone: selfEditData.phone,
+                bio: selfEditData.bio
+            });
+
+            updatedUser = profileRes.data;
+            toast.success('Profile updated successfully');
+            setIsEditModalOpen(false);
+            setEmployee(updatedUser);
+            syncAuthUserIfSelf(updatedUser);
+            resetEditState(updatedUser);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Update failed');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!employee) return;
+        setSaving(true);
+        try {
+            const res = await api.put(`/users/${employee.id}`, editData);
             if (res.data.verificationRequired) {
                 setEditStep(2);
                 toast.success('Verification OTP sent to new email');
@@ -164,7 +264,8 @@ export default function EmployeeProfileView() {
         );
     }
 
-    const userAvatarUrl = employee.profileImage || `https://ui-avatars.com/api/?name=${employee.name}&background=000&color=fff&size=200&bold=true`;
+    const userAvatarUrl = employee.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&background=000&color=fff&size=200&bold=true`;
+    const editAvatarUrl = avatarPreview || userAvatarUrl;
 
     return (
         <div className="max-w-7xl mx-auto space-y-6 animate-fade-in pb-10">
@@ -181,9 +282,9 @@ export default function EmployeeProfileView() {
                     <h2 className="text-[24px] font-semibold text-[#101828] leading-none">User Profile</h2>
                     <p className="text-[13px] font-medium text-[#667085] mt-1">View personal details and attendance records.</p>
                 </div>
-                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || currentUser?.id === id || id === 'me') && (
+                {(currentUser?.role === 'SUPER_ADMIN' || currentUser?.role === 'ADMIN' || canEditProfile) && (
                     <button 
-                        onClick={() => setIsEditModalOpen(true)}
+                        onClick={openEditModal}
                         className="btn-secondary py-2.5 px-6"
                     >
                         <Edit2 size={16} />
@@ -216,6 +317,16 @@ export default function EmployeeProfileView() {
                                 <p className="text-[12px] font-medium text-[#667085]">Department</p>
                                 <p className="text-[14px] font-medium text-[#101828]">{employee.department?.name || 'Unassigned'}</p>
                             </div>
+                            <div className="flex flex-col gap-1">
+                                <p className="text-[12px] font-medium text-[#667085]">Phone</p>
+                                <p className="text-[14px] font-medium text-[#101828]">{employee.phone || 'Not added'}</p>
+                            </div>
+                            {employee.bio && (
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-[12px] font-medium text-[#667085]">Bio</p>
+                                    <p className="text-[14px] font-medium text-[#101828] whitespace-pre-wrap">{employee.bio}</p>
+                                </div>
+                            )}
                             <div className="pt-2 border-t border-[#E6E8EC] flex items-center justify-between">
                                 <div className="space-y-1">
                                     <p className="text-[12px] font-medium text-[#667085]">Employee ID</p>
@@ -354,10 +465,12 @@ export default function EmployeeProfileView() {
                         <div className="p-6 border-b border-[#E6E8EC] flex justify-between items-center bg-white">
                             <div>
                                 <h3 className="text-[18px] font-semibold text-[#101828] leading-none">
-                                    {editStep === 1 ? 'Edit Personnel Data' : 'Security Verification'}
+                                    {editStep === 1 ? (isSelfProfile ? 'Edit Profile' : 'Edit Personnel Data') : 'Security Verification'}
                                 </h3>
                                 <p className="text-[13px] font-medium text-[#667085] mt-1">
-                                    {editStep === 1 ? `Updating registry for ${employee.name}.` : 'OTP confirmation required.'}
+                                    {editStep === 1
+                                        ? (isSelfProfile ? 'Update your photo and personal details.' : `Updating registry for ${employee.name}.`)
+                                        : 'OTP confirmation required.'}
                                 </p>
                             </div>
                             <button onClick={() => setIsEditModalOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#667085] hover:bg-slate-100 transition-all">
@@ -366,6 +479,99 @@ export default function EmployeeProfileView() {
                         </div>
 
                         {editStep === 1 ? (
+                            isSelfProfile ? (
+                                <form onSubmit={handleSelfUpdate} className="p-6 space-y-5">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div className="relative">
+                                            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md relative bg-slate-100">
+                                                <Image src={editAvatarUrl} alt={employee.name} fill style={{ objectFit: 'cover' }} unoptimized />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => avatarInputRef.current?.click()}
+                                                className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#101828] text-white flex items-center justify-center shadow-lg hover:bg-black transition-colors"
+                                                title="Change photo"
+                                            >
+                                                <Camera size={16} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            ref={avatarInputRef}
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,image/gif"
+                                            className="hidden"
+                                            onChange={handleAvatarSelect}
+                                        />
+                                        <div className="flex items-center gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => avatarInputRef.current?.click()}
+                                                className="text-[12px] font-semibold text-[#101828] hover:underline"
+                                            >
+                                                Upload photo
+                                            </button>
+                                            {(employee.profileImage || avatarPreview) && !removeAvatar && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAvatarFile(null);
+                                                        setAvatarPreview(null);
+                                                        setRemoveAvatar(true);
+                                                    }}
+                                                    className="text-[12px] font-semibold text-[#D92D20] hover:underline inline-flex items-center gap-1"
+                                                >
+                                                    <Trash2 size={12} />
+                                                    Remove
+                                                </button>
+                                            )}
+                                        </div>
+                                        <p className="text-[11px] text-[#98A2B3]">JPG, PNG or WEBP. Max 2 MB.</p>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Full Name</label>
+                                        <input
+                                            type="text"
+                                            className="input-field"
+                                            value={selfEditData.name}
+                                            onChange={(e) => setSelfEditData({ ...selfEditData, name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Phone Number</label>
+                                        <div className="relative">
+                                            <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98A2B3]" />
+                                            <input
+                                                type="tel"
+                                                className="input-field pl-10"
+                                                value={selfEditData.phone}
+                                                onChange={(e) => setSelfEditData({ ...selfEditData, phone: e.target.value })}
+                                                placeholder="Your contact number"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Bio</label>
+                                        <textarea
+                                            rows={3}
+                                            className="input-field py-3 resize-none"
+                                            value={selfEditData.bio}
+                                            onChange={(e) => setSelfEditData({ ...selfEditData, bio: e.target.value })}
+                                            placeholder="A short note about you (optional)"
+                                        />
+                                    </div>
+
+                                    <div className="pt-4 flex gap-3">
+                                        <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-secondary flex-1 py-3 font-bold uppercase tracking-widest text-[11px]">Cancel</button>
+                                        <button type="submit" disabled={saving} className="btn-primary flex-1 py-3 font-bold uppercase tracking-widest text-[11px]">
+                                            {saving ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Save Profile'}
+                                        </button>
+                                    </div>
+                                </form>
+                            ) : (
                             <form onSubmit={handleUpdate} className="p-6 space-y-5">
                                 <div className="space-y-1.5">
                                     <label className="text-[12px] font-semibold text-[#667085] uppercase tracking-widest ml-1">Full Name</label>
@@ -413,6 +619,7 @@ export default function EmployeeProfileView() {
                                     </button>
                                 </div>
                             </form>
+                            )
                         ) : (
                             <form onSubmit={handleVerifyOtp} className="p-6 space-y-6">
                                 <div className="text-center space-y-2">

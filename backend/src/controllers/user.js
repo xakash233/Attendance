@@ -483,19 +483,34 @@ export const getUserProfile = async (req, res, next) => {
 export const updateUserProfile = async (req, res, next) => {
     try {
         const { name, phone, bio, profileImage } = req.body;
+        const data = {};
+
+        if (typeof name === 'string' && name.trim()) {
+            data.name = name.trim();
+        }
+        if (phone !== undefined) {
+            data.phone = phone ? String(phone).trim() : null;
+        }
+        if (bio !== undefined) {
+            data.bio = bio ? String(bio).trim() : null;
+        }
+        if (profileImage !== undefined) {
+            data.profileImage = profileImage || null;
+        }
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ message: 'No profile fields to update' });
+        }
+
         const user = await prisma.user.update({
             where: { id: req.user.id },
-            data: {
-                name,
-                phone,
-                bio,
-                profileImage
-            },
+            data,
             select: {
                 id: true,
                 email: true,
                 name: true,
                 role: true,
+                employeeCode: true,
                 bio: true,
                 phone: true,
                 profileImage: true,
@@ -503,6 +518,50 @@ export const updateUserProfile = async (req, res, next) => {
                 leaveBalances: { include: { leaveType: true } }
             }
         });
+        res.json(user);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Upload profile avatar for current user
+// @route   POST /api/users/profile/avatar
+// @access  Private
+export const uploadProfileAvatar = async (req, res, next) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Please select a profile photo to upload.' });
+        }
+
+        const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!allowedMimes.includes(req.file.mimetype)) {
+            return res.status(400).json({ message: 'Invalid image type. Use JPG, PNG, WEBP, or GIF.' });
+        }
+
+        const base64 = req.file.buffer.toString('base64');
+        const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+
+        if (dataUrl.length > 2_500_000) {
+            return res.status(400).json({ message: 'Image is too large. Please choose a smaller photo (max 2 MB).' });
+        }
+
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { profileImage: dataUrl },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                employeeCode: true,
+                bio: true,
+                phone: true,
+                profileImage: true,
+                department: true,
+                leaveBalances: { include: { leaveType: true } }
+            }
+        });
+
         res.json(user);
     } catch (error) {
         next(error);

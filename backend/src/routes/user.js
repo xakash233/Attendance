@@ -5,6 +5,7 @@ import {
     verifyUserCreation,
     getUserProfile,
     updateUserProfile,
+    uploadProfileAvatar,
     changePassword,
     getAnalytics,
     globalSearch,
@@ -14,6 +15,7 @@ import {
     getUser
 } from '../controllers/user.js';
 import { protect, authorize } from '../middleware/auth.js';
+import imageUpload from '../middleware/imageUpload.js';
 
 const router = express.Router();
 
@@ -22,6 +24,7 @@ router.post('/init-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), 
 router.post('/verify-creation', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), verifyUserCreation);
 router.get('/profile', protect, getUserProfile);
 router.put('/profile', protect, updateUserProfile);
+router.post('/profile/avatar', protect, imageUpload.single('avatar'), uploadProfileAvatar);
 router.put('/change-password', protect, changePassword);
 router.get('/analytics', protect, getAnalytics);
 router.get('/search', protect, globalSearch);

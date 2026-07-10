@@ -9,14 +9,6 @@ async function main() {
     'sofiyarahamath.a@gmail.com'
   ];
 
-  const workLogs = await prisma.workLog.findMany({
-    where: {
-      user: {
-        email: { in: emails }
-      }
-    }
-  });
-
   const leaveRequests = await prisma.leaveRequest.findMany({
     where: {
       user: {
@@ -25,7 +17,6 @@ async function main() {
     }
   });
 
-  console.log('Work Logs:', workLogs);
   console.log('Leave Requests:', leaveRequests);
 }
 

@@ -17,6 +17,7 @@ import {
     isCompanyWorkingDay
 } from '../utils/payrollCalendar.js';
 import { buildAccountantSummaries } from '../utils/accountantAttendance.js';
+import { resolveHybridWorkDay, isHybridWorkEmployee } from '../utils/hybridWorkSchedule.js';
 import {
     buildAttendanceWorkbookBuffer,
     syncAttendanceToGoogleSheet
@@ -369,7 +370,7 @@ export const getSummary = async (req, res, next) => {
         });
 
         // Get all attendance records for this month
-        const [attendances, holidays, wfhRequests] = await Promise.all([
+        const [attendances, holidays, wfhRequests, monthLeaves] = await Promise.all([
             prisma.attendance.findMany({
                 where: {
                     userId: targetUserId,
@@ -387,6 +388,16 @@ export const getSummary = async (req, res, next) => {
                     wfhDate: { gte: startDate, lte: endDate },
                     status: { in: ['AUTO_APPROVED', 'APPROVED', 'FINAL_APPROVED'] }
                 }
+            }),
+            prisma.leaveRequest.findMany({
+                where: {
+                    userId: targetUserId,
+                    status: { not: 'CANCELLED' },
+                    OR: [
+                        { startDate: { lte: endDate }, endDate: { gte: startDate } }
+                    ]
+                },
+                include: { leaveType: true }
             })
         ]);
         const wfhDateSet = new Set(
@@ -409,9 +420,15 @@ export const getSummary = async (req, res, next) => {
 
             if (!isWeekend && !isHoliday) {
                 const att = attendances.find(a => a.date.toISOString().split('T')[0] === dateStr);
+                const activeLeave = monthLeaves.find((leave) => {
+                    const ls = new Date(leave.startDate); ls.setUTCHours(0, 0, 0, 0);
+                    const le = new Date(leave.endDate); le.setUTCHours(0, 0, 0, 0);
+                    const day = new Date(`${dateStr}T00:00:00.000Z`);
+                    return day >= ls && day <= le;
+                });
                 if (att) {
                     const worked = att.workingHours || 0;
-                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE', 'SHORT_DAY', 'SHORT DAY'].includes(att.status)) {
+                    if (['PRESENT', 'LATE', 'OVERTIME', 'FULL_DAY', 'ON SITE', 'ON-SITE', 'SHORT_DAY', 'SHORT DAY', 'PRESENT_WFH', 'WFH'].includes(att.status)) {
                         presentDays++;
                     } else if (att.status === 'HALF_DAY') {
                         partialAttendanceDays += 0.5;
@@ -421,6 +438,18 @@ export const getSummary = async (req, res, next) => {
                 } else if (wfhDateSet.has(dateStr)) {
                     // Approved WFH day counts as presence even without biometric punches.
                     presentDays++;
+                } else if (isHybridWorkEmployee(userObj?.employeeCode)) {
+                    const hybrid = resolveHybridWorkDay({
+                        employeeCode: userObj.employeeCode,
+                        dateStr,
+                        isHoliday,
+                        hasBiometricPunch: false,
+                        hasOfficeAttendance: false,
+                        leave: activeLeave,
+                    });
+                    if (hybrid.autoWfh) {
+                        presentDays++;
+                    }
                 }
             }
             iterateDate.setDate(iterateDate.getDate() + 1);
@@ -482,18 +511,6 @@ export const getSummary = async (req, res, next) => {
         const totalAccounted = presentDays + partialAttendanceDays + leaveDaysInMonth;
         let calcAbsentDays = elapsedWorkingDays - totalAccounted;
         if (calcAbsentDays < 0) calcAbsentDays = 0;
-
-        // Pre-fetch all leave requests for the month for the user to avoid query-in-loop
-        const monthLeaves = await prisma.leaveRequest.findMany({
-            where: {
-                userId: targetUserId,
-                status: { not: 'CANCELLED' },
-                OR: [
-                    { startDate: { lte: endDate }, endDate: { gte: startDate } }
-                ]
-            },
-            include: { leaveType: true }
-        });
 
         // Build calendar layout (daily map)
         const dailyLog = [];
@@ -582,6 +599,22 @@ export const getSummary = async (req, res, next) => {
                 dayStatus = resolveDayStatusFromHours(workingHours, {
                     preserveStatus: dayStatus
                 }).replace(/ /g, '_');
+            }
+
+            if (isHybridWorkEmployee(userObj?.employeeCode)) {
+                const hybrid = resolveHybridWorkDay({
+                    employeeCode: userObj.employeeCode,
+                    dateStr,
+                    dayCategory: getCompanyDayCategory(dateStr),
+                    isHoliday: Boolean(holiday),
+                    hasBiometricPunch: false,
+                    hasOfficeAttendance: workingHours > 0.1,
+                    leave: activeLeaves[0] || null,
+                });
+                if (hybrid.autoWfh) {
+                    dayStatus = 'WFH';
+                    workingHours = Math.max(workingHours, 8);
+                }
             }
 
             dailyLog.push({
@@ -1412,13 +1445,31 @@ export const getComplianceReport = async (req, res, next) => {
                     hours = Math.max(hours, actualWorkedToday);
                 }
 
+                const hybridDay = resolveHybridWorkDay({
+                    employeeCode: user.employeeCode,
+                    dateStr,
+                    dayCategory,
+                    isHoliday,
+                    isBeforeEffectiveStart,
+                    isFuture,
+                    hasBiometricPunch: hasBiometricPunchToday,
+                    hasOfficeAttendance: actualWorkedToday > 0.1,
+                    leave,
+                });
+                if (hybridDay.autoWfh) {
+                    status = 'WFH';
+                    remarks = hybridDay.remarks;
+                    hours = Math.max(hours, 8.0);
+                    actualWorkedToday = Math.max(actualWorkedToday, 8.0);
+                }
+
                 // Use credited hours for weekly sums to ensure variance and totals include approved leaves/holidays
                 weeklyActualSum += hours;
                 weeklyHoursToDate += hours;
 
                 let dayIcon = actualWorkedToday > 0
                     ? actualWorkedToday.toFixed(1)
-                    : (leave ? 'L' : (isHoliday ? 'H' : (dayCategory === 'SUNDAY' ? 'W' : (dayCategory === 'SAT_LEAVE' ? 'L' : '0'))));
+                    : (leave ? 'L' : (isHoliday ? 'H' : (hybridDay.autoWfh || status === 'WFH' ? 'W' : (dayCategory === 'SUNDAY' ? 'W' : (dayCategory === 'SAT_LEAVE' ? 'L' : '0')))));
                 weeklySeries.push(dayIcon);
 
                 const weeklyVariance = weeklyActualSum - weeklyTarget;
