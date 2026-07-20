@@ -78,39 +78,41 @@ export default function LeavesPage() {
     const totalDays = calculateDays();
     // const isLOP = totalDays > 2; // Removed as per request to stop flagging "more leave"
 
+    const formatLeaveLine = useCallback((leave: any) => {
+        const start = new Date(leave.startDate);
+        const end = new Date(leave.endDate);
+        const dateOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' };
+        const dateLabel = leave.totalDays <= 1
+            ? start.toLocaleDateString('en-GB', dateOpts)
+            : `${start.toLocaleDateString('en-GB', dateOpts)} - ${end.toLocaleDateString('en-GB', dateOpts)}`;
+
+        if (leave.isWFH) return `${dateLabel} - WFH`;
+
+        const duration = String(leave.durationType || '').toUpperCase();
+        if (duration === 'SECOND_HALF') return `${dateLabel} - 0.5 second half`;
+        if (duration === 'FIRST_HALF' || duration === 'HALF_DAY') return `${dateLabel} - 0.5 first half`;
+
+        const days = Number(leave.totalDays) || 0;
+        const dayLabel = days === 1 ? '1 leave' : `${days} leave`;
+        return `${dateLabel} - ${dayLabel}`;
+    }, []);
+
     const [balances, setBalances] = useState<any[]>([]);
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const fetchWFH = async () => {
-                try {
-                    const res = await api.get('/wfh/my-wfh');
-                    // Map WFH into a format similar to leaves for display
-                    return res.data.map((w: any) => ({
-                        id: w.id,
-                        isWFH: true,
-                        userId: w.userId,
-                        user: w.user || { name: user?.name, employeeCode: user?.employeeCode },
-                        leaveType: { name: 'Work From Home' },
-                        durationType: 'FULL_DAY',
-                        startDate: w.wfhDate,
-                        endDate: w.wfhDate,
-                        totalDays: 1,
-                        reason: w.reason || 'WFH',
-                        status: w.status,
-                        createdAt: w.createdAt
-                    }));
-                } catch (err) { return []; }
-            };
-
-            const [history, types, balancesRes, wfhRes] = await Promise.all([
+            const [history, types, balancesRes] = await Promise.all([
                 api.get('/leaves/history').then(r => r.data).catch(() => []),
                 api.get('/leaves/types').then(r => r.data).catch(() => []),
                 api.get('/users/profile').then(r => r.data.leaveBalances || []).catch(() => []),
-                fetchWFH()
             ]);
 
-            setLeaves([...history, ...wfhRes].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+            // Leave section shows leave requests only (WFH is attendance, not leave)
+            setLeaves(
+                [...history].sort(
+                    (a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+                )
+            );
             
             // Restrict leave types to SL, CL, and PL
             const filteredTypes = types.filter((t: any) => {
@@ -524,9 +526,9 @@ export default function LeavesPage() {
                         <table className="w-full text-left">
                             <thead>
                                 <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
+                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave Type</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Duration</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Applied On</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
                                     <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Action</th>
@@ -604,10 +606,21 @@ export default function LeavesPage() {
                                     return paginatedLeaves.map((leave: any) => (
                                         <tr key={leave.id} className="hover:bg-slate-50 transition-all">
                                             <td className="px-6 py-4">
-                                                <div
-                                                    className="flex items-start gap-3 cursor-pointer"
+                                                <button
+                                                    type="button"
+                                                    className="text-left text-[14px] font-semibold text-[#101828] hover:text-indigo-600 transition-all"
                                                     onClick={() => setExpandedLeaveId((prev) => (prev === leave.id ? null : leave.id))}
                                                 >
+                                                    {formatLeaveLine(leave)}
+                                                </button>
+                                                {expandedLeaveId === leave.id && (
+                                                    <div className="mt-2 rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed max-w-sm">
+                                                        {leave.reason?.trim() || 'No reason provided.'}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-start gap-3">
                                                     <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[12px] uppercase relative overflow-hidden border border-[#E6E8EC]">
                                                         {leave.user.profileImage ? (
                                                             <Image
@@ -622,21 +635,10 @@ export default function LeavesPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-[14px] font-medium text-[#101828] hover:text-indigo-600 transition-all"
-                                                        >
-                                                            {leave.user.name}
-                                                        </button>
+                                                        <p className="text-[14px] font-medium text-[#101828]">{leave.user.name}</p>
                                                         <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.employeeCode}</p>
-                                                        {expandedLeaveId === leave.id && (
-                                                            <div className="mt-2 rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed max-w-sm">
-                                                                {leave.reason?.trim() || 'No reason provided.'}
-                                                            </div>
-                                                        )}
                                                         <Link
                                                             href={`/dashboard/users/${leave.userId || leave.user.id}`}
-                                                            onClick={(event) => event.stopPropagation()}
                                                             className="mt-1 inline-flex text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
                                                         >
                                                             Open profile
@@ -645,39 +647,16 @@ export default function LeavesPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-[14px] font-medium text-[#101828]">
-                                                        {leave.leaveType.name}
-                                                    </span>
-                                                    <span className="text-[12px] text-[#667085] mt-0.5">
-                                                        {leave.durationType.replace(/_/g, ' ')}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex flex-col items-center">
-                                                    <span className="text-[14px] font-medium text-[#101828]">
-                                                        {(() => {
-                                                            const start = new Date(leave.startDate);
-                                                            const end = new Date(leave.endDate);
-                                                            const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
-                                                            if (leave.totalDays <= 1) {
-                                                                return start.toLocaleDateString('en-GB', options);
-                                                            }
-                                                            return `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
-                                                        })()}
-                                                    </span>
-                                                    <div className="mt-1 px-2 py-0.5 bg-[#F8F9FB] border border-[#E6E8EC] rounded text-[11px] font-medium text-[#667085]">
-                                                        {leave.totalDays} Days
-                                                    </div>
-                                                </div>
+                                                <span className="text-[14px] font-medium text-[#101828]">
+                                                    {leave.leaveType.name}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-[13px] font-semibold text-[#101828]">
                                                     {new Date(leave.createdAt).toLocaleDateString('en-GB', {
-                                                        day: '2-digit',
+                                                        day: 'numeric',
                                                         month: 'short',
-                                                        year: 'numeric'
+                                                        year: 'numeric',
                                                     })}
                                                 </span>
                                             </td>
@@ -766,60 +745,24 @@ export default function LeavesPage() {
 
                             return paginatedLeaves.map((leave: any) => (
                                 <div key={leave.id} className="p-5 space-y-4 bg-white hover:bg-slate-50/50 transition-colors">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[14px] uppercase relative overflow-hidden border border-[#E6E8EC]">
-                                                {leave.user.profileImage ? (
-                                                    <Image src={leave.user.profileImage} alt={leave.user.name} layout="fill" objectFit="cover" unoptimized />
-                                                ) : (
-                                                    leave.user.name.substring(0, 2)
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h4 className="text-[14px] font-bold text-[#101828]">{leave.user.name}</h4>
-                                                <p className="text-[12px] text-[#667085]">{leave.user.employeeCode}</p>
-                                                <Link
-                                                    href={`/dashboard/users/${leave.userId || leave.user.id}`}
-                                                    className="inline-block mt-1 text-[12px] font-bold text-indigo-600 hover:underline underline-offset-4"
-                                                >
-                                                    View Profile
-                                                </Link>
-                                            </div>
-                                        </div>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
-                                            {leave.status === 'AUTO_APPROVED' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
-                                        </span>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-4 py-3 border-y border-[#E6E8EC]/50">
+                                    <div className="flex items-start justify-between gap-3">
                                         <div>
-                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Leave Type</p>
-                                            <p className="text-[13px] font-semibold text-[#101828] leading-tight">{leave.leaveType.name}</p>
-                                            <p className="text-[11px] text-[#667085] mt-0.5">{leave.durationType.replace(/_/g, ' ')}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Duration</p>
-                                            <p className="text-[13px] font-semibold text-[#101828] leading-tight">
-                                                {(() => {
-                                                    const start = new Date(leave.startDate);
-                                                    const end = new Date(leave.endDate);
-                                                    const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short' };
-                                                    return leave.totalDays <= 1 
-                                                        ? start.toLocaleDateString('en-GB', options)
-                                                        : `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)}`;
-                                                })()}
+                                            <p className="text-[15px] font-bold text-[#101828]">{formatLeaveLine(leave)}</p>
+                                            <p className="text-[12px] text-[#667085] mt-1">{leave.leaveType.name}</p>
+                                            <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.name} · {leave.user.employeeCode}</p>
+                                            <p className="text-[12px] text-[#667085] mt-1">
+                                                Applied on{' '}
+                                                <span className="font-semibold text-[#101828]">
+                                                    {new Date(leave.createdAt).toLocaleDateString('en-GB', {
+                                                        day: 'numeric',
+                                                        month: 'short',
+                                                        year: 'numeric',
+                                                    })}
+                                                </span>
                                             </p>
-                                            <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{leave.totalDays} Days</p>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[11px] text-[#667085]">
-                                        <span className="font-semibold uppercase tracking-wide">Applied On</span>
-                                        <span className="text-[12px] font-semibold text-[#101828]">
-                                            {new Date(leave.createdAt).toLocaleDateString('en-GB', {
-                                                day: '2-digit',
-                                                month: 'short',
-                                                year: 'numeric'
-                                            })}
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm shrink-0 ${getStatusStyle(leave.status)}`}>
+                                            {leave.status === 'AUTO_APPROVED' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
                                         </span>
                                     </div>
 

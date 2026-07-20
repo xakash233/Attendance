@@ -147,7 +147,7 @@ export async function subscribeToOutBreakPush() {
     const registration = await registerOutBreakServiceWorker();
     if (!registration) return false;
 
-    const { data } = await api.get('/push/vapid-public-key');
+    const { data } = await api.get('/web-push/vapid-public-key');
     if (!data?.publicKey) {
         console.warn('[OutBreak] Missing VAPID public key from server');
         return false;
@@ -160,12 +160,12 @@ export async function subscribeToOutBreakPush() {
         applicationServerKey: urlBase64ToUint8Array(data.publicKey)
     });
 
-    await api.post('/push/subscribe', subscription.toJSON());
+    await api.post('/web-push/subscribe', subscription.toJSON());
     return true;
 }
 
 export async function fetchMyLiveStatus() {
-    const { data } = await api.get<LiveStatusResponse>('/push/my-status');
+    const { data } = await api.get<LiveStatusResponse>('/web-push/my-status');
     return data;
 }
 

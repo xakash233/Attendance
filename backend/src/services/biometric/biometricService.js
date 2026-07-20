@@ -5,6 +5,8 @@ import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
 import calculateAttendance, { resolveDayStatusFromHours } from '../../utils/attendanceCalculator.js';
 import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
+import { getCompanyDayCategory } from '../../utils/payrollCalendar.js';
+import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
 import bcrypt from 'bcryptjs';
 
 class BiometricService {
@@ -505,6 +507,35 @@ class BiometricService {
             firstPunch = firstPunchTime;
             lastPunch = lastPunchTime;
             shift = result.shift;
+        }
+
+        // Hybrid schedule fallback: no punch + no blocking leave => mark as WFH.
+        if (finalStatus === 'ABSENT') {
+            const activeLeave = await tx.leaveRequest.findFirst({
+                where: {
+                    userId,
+                    startDate: { lte: date },
+                    endDate: { gte: date },
+                },
+                orderBy: { createdAt: 'desc' },
+            });
+            const holiday = await tx.holiday.findFirst({ where: { date } });
+            const dayCategory = getCompanyDayCategory(dateStr);
+            const hybridDecision = resolveHybridWorkDay({
+                employeeCode: user.employeeCode,
+                dateStr,
+                dayCategory,
+                isHoliday: Boolean(holiday),
+                hasBiometricPunch: punches.length > 0,
+                hasOfficeAttendance: punches.length > 0,
+                leave: activeLeave,
+            });
+
+            if (hybridDecision.autoWfh) {
+                finalStatus = 'PRESENT_WFH';
+                workHrs = 8.0;
+                deficit = 0;
+            }
         }
 
         // 3. Automated Leave Deduction Logic: REMOVED per User Request

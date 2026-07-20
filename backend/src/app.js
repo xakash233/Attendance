@@ -81,7 +81,8 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wfh', wfhRoutes);
 app.use('/api/holidays', holidayRoutes);
-app.use('/api/push', pushRoutes);
+app.use('/api/web-push', pushRoutes);
+app.use('/api/push', pushRoutes); // alias for older clients
 app.use('/health', healthRoutes);
 
 // Root route
