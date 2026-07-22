@@ -97,6 +97,9 @@ model LeaveRequest {
   hrApprovedAt         DateTime?
   superadminApprovedAt DateTime?
   totalDays            Float
+  attachmentUrl        String?     @db.Text
+  attachmentName       String?
+  attachmentMime       String?
   department           Department? @relation(fields: [departmentId], references: [id])
   leaveType            LeaveType   @relation(fields: [leaveTypeId], references: [id])
   user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)

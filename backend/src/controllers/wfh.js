@@ -58,8 +58,10 @@ export const listWFH = async (req, res, next) => {
             include: {
                 user: {
                     select: {
+                        id: true,
                         name: true,
                         employeeCode: true,
+                        profileImage: true,
                         department: { select: { name: true } }
                     }
                 }
@@ -80,9 +82,110 @@ export const getUserWFH = async (req, res, next) => {
         const userId = req.user.id;
         const list = await prisma.wfhRequest.findMany({
             where: { userId },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        employeeCode: true,
+                        profileImage: true,
+                        department: { select: { name: true } }
+                    }
+                }
+            },
             orderBy: { wfhDate: 'desc' }
         });
         res.json(list);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Approve or reject a WFH request
+ * @route PUT /api/wfh/:id/decision
+ */
+export const decideWFH = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const decision = String(req.body.decision || '').toUpperCase();
+        const comments = (req.body.comments || '').toString().trim();
+
+        if (!['APPROVED', 'REJECTED'].includes(decision)) {
+            return res.status(400).json({ message: 'Decision must be APPROVED or REJECTED' });
+        }
+
+        const wfh = await prisma.wfhRequest.findUnique({
+            where: { id },
+            include: {
+                user: {
+                    select: { id: true, name: true, shift: true }
+                }
+            }
+        });
+
+        if (!wfh) {
+            return res.status(404).json({ message: 'WFH request not found' });
+        }
+
+        const currentStatus = String(wfh.status || '').toUpperCase();
+        if (!['PENDING', 'AUTO_APPROVED'].includes(currentStatus)) {
+            return res.status(400).json({ message: 'This WFH request has already been processed' });
+        }
+
+        if (decision === 'REJECTED' && !comments) {
+            return res.status(400).json({ message: 'Please provide a rejection reason' });
+        }
+
+        const updated = await prisma.wfhRequest.update({
+            where: { id },
+            data: {
+                status: decision,
+                reason: decision === 'REJECTED'
+                    ? `${wfh.reason || ''}${wfh.reason ? ' | ' : ''}Rejected: ${comments}`.trim()
+                    : (wfh.reason || 'WFH approved')
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        employeeCode: true,
+                        profileImage: true,
+                        department: { select: { name: true } }
+                    }
+                }
+            }
+        });
+
+        if (decision === 'APPROVED') {
+            const day = new Date(wfh.wfhDate);
+            day.setUTCHours(0, 0, 0, 0);
+            await prisma.attendance.upsert({
+                where: { userId_date: { userId: wfh.userId, date: day } },
+                update: {
+                    status: 'PRESENT_WFH',
+                    workingHours: 8,
+                    deficit: 0,
+                    leaveDeducted: 0,
+                    isManual: true,
+                    shiftType: wfh.user?.shift || 'B'
+                },
+                create: {
+                    userId: wfh.userId,
+                    date: day,
+                    status: 'PRESENT_WFH',
+                    workingHours: 8,
+                    overtime: 0,
+                    deficit: 0,
+                    leaveDeducted: 0,
+                    isManual: true,
+                    shiftType: wfh.user?.shift || 'B'
+                }
+            });
+        }
+
+        res.json(updated);
     } catch (error) {
         next(error);
     }

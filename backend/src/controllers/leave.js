@@ -2,13 +2,53 @@ import leaveService from '../services/leave/leaveService.js';
 import notificationService from '../services/notification/notificationService.js';
 import prisma from '../config/prisma.js';
 
+const buildAttachmentPayload = (file) => {
+    if (!file) return { attachmentUrl: null, attachmentName: null, attachmentMime: null };
+
+    const allowedMimes = ['application/pdf', 'image/jpeg', 'image/jpg'];
+    const mime = (file.mimetype || '').toLowerCase();
+    if (!allowedMimes.includes(mime) && !mime.startsWith('image/jpeg')) {
+        throw new Error('Invalid file type. Only PDF, JPG, and JPEG files are allowed.');
+    }
+
+    const normalizedMime = mime === 'image/jpg' ? 'image/jpeg' : mime;
+    const base64 = file.buffer.toString('base64');
+    const attachmentUrl = `data:${normalizedMime};base64,${base64}`;
+
+    if (attachmentUrl.length > 7_000_000) {
+        throw new Error('Attachment is too large. Please upload a file under 5 MB.');
+    }
+
+    return {
+        attachmentUrl,
+        attachmentName: file.originalname || 'attachment',
+        attachmentMime: normalizedMime
+    };
+};
+
 export const applyLeave = async (req, res, next) => {
     try {
+        const leaveTypeId = req.body.leaveTypeId;
+        const startDate = req.body.startDate;
+        const endDate = req.body.endDate;
+        const reason = req.body.reason;
+        const durationType = req.body.durationType || 'FULL_DAY';
+
+        if (!leaveTypeId || !startDate || !endDate || !reason) {
+            return res.status(400).json({ message: 'Leave type, dates, and reason are required.' });
+        }
+
+        const attachment = buildAttachmentPayload(req.file);
         const leaveRequest = await leaveService.applyLeave({
             userId: req.user.id,
             departmentId: req.user.departmentId,
             userRole: req.user.role,
-            ...req.body
+            leaveTypeId,
+            durationType,
+            startDate,
+            endDate,
+            reason,
+            ...attachment
         });
 
         // Notify authorities (Both HR and Super Admin)
@@ -46,8 +86,19 @@ export const applyLeave = async (req, res, next) => {
 
         res.status(201).json(leaveRequest);
     } catch (error) {
-        if (error.message.includes('overlap') || error.message.includes('Insufficient') || error.message.includes('weekends') || error.message.includes('consecutive')) {
-            return res.status(400).json({ message: error.message });
+        const message = error?.message || 'Failed to submit leave request';
+        if (
+            message.includes('overlap')
+            || message.includes('Insufficient')
+            || message.includes('weekends')
+            || message.includes('consecutive')
+            || message.includes('Invalid file')
+            || message.includes('too large')
+            || message.includes('Invalid date')
+            || message.includes('Invalid duration')
+            || message.includes('Leave type')
+        ) {
+            return res.status(400).json({ message });
         }
         next(error);
     }

@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     Plus, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
-    CheckCircle2, XCircle, Database, AlertCircle, Trash2
+    CheckCircle2, XCircle, Database, AlertCircle, Trash2, Paperclip, FileText
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
@@ -34,6 +34,7 @@ export default function LeavesPage() {
         reason: '',
         durationType: 'FULL_DAY'
     });
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
     const resetLeaveForm = useCallback((wfh = false) => {
         setFormData({
@@ -43,6 +44,7 @@ export default function LeavesPage() {
             reason: '',
             durationType: wfh ? 'WORK_FROM_HOME' : 'FULL_DAY'
         });
+        setAttachmentFile(null);
     }, []);
 
     useEffect(() => {
@@ -98,19 +100,44 @@ export default function LeavesPage() {
     }, []);
 
     const [balances, setBalances] = useState<any[]>([]);
+    const mapWfhToLeaveShape = useCallback((w: any) => ({
+        id: w.id,
+        isWFH: true,
+        userId: w.userId,
+        user: w.user || { id: user?.id, name: user?.name, employeeCode: user?.employeeCode, profileImage: user?.profileImage },
+        leaveType: { name: 'Work From Home' },
+        durationType: 'FULL_DAY',
+        startDate: w.wfhDate,
+        endDate: w.wfhDate,
+        totalDays: 1,
+        reason: w.reason || 'WFH',
+        status: w.status,
+        createdAt: w.createdAt
+    }), [user]);
+
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const [history, types, balancesRes] = await Promise.all([
+            const isApprover = ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '');
+            const fetchWFH = async () => {
+                try {
+                    const res = await api.get(isApprover ? '/wfh/list' : '/wfh/my-wfh');
+                    return (res.data || []).map(mapWfhToLeaveShape);
+                } catch {
+                    return [];
+                }
+            };
+
+            const [history, types, balancesRes, wfhRes] = await Promise.all([
                 api.get('/leaves/history').then(r => r.data).catch(() => []),
                 api.get('/leaves/types').then(r => r.data).catch(() => []),
                 api.get('/users/profile').then(r => r.data.leaveBalances || []).catch(() => []),
+                fetchWFH()
             ]);
 
-            // Leave section shows leave requests only (WFH is attendance, not leave)
             setLeaves(
-                [...history].sort(
-                    (a: any, b: any) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+                [...history, ...wfhRes].sort(
+                    (a: any, b: any) => new Date(b.createdAt || b.startDate).getTime() - new Date(a.createdAt || a.startDate).getTime()
                 )
             );
             
@@ -127,7 +154,7 @@ export default function LeavesPage() {
         } finally {
             setLoading(false);
         }
-    }, [user]);
+    }, [user, mapWfhToLeaveShape]);
 
     useEffect(() => {
         fetchData();
@@ -153,7 +180,32 @@ export default function LeavesPage() {
                 });
                 toast.success('WFH Request submitted');
             } else {
-                await api.post('/leaves/apply', formData);
+                if (attachmentFile) {
+                    const allowed = ['application/pdf', 'image/jpeg', 'image/jpg'];
+                    const ext = attachmentFile.name.split('.').pop()?.toLowerCase();
+                    if (!allowed.includes(attachmentFile.type) && !['pdf', 'jpg', 'jpeg'].includes(ext || '')) {
+                        toast.error('Only PDF, JPG, and JPEG files are allowed');
+                        setLoading(false);
+                        return;
+                    }
+                    if (attachmentFile.size > 5 * 1024 * 1024) {
+                        toast.error('Attachment must be under 5 MB');
+                        setLoading(false);
+                        return;
+                    }
+                }
+
+                const payload = new FormData();
+                payload.append('leaveTypeId', formData.leaveTypeId);
+                payload.append('startDate', formData.startDate);
+                payload.append('endDate', formData.endDate);
+                payload.append('reason', formData.reason);
+                payload.append('durationType', formData.durationType);
+                if (attachmentFile) {
+                    payload.append('attachment', attachmentFile);
+                }
+
+                await api.post('/leaves/apply', payload);
                 toast.success('Leave Request submitted');
             }
             setIsApplyModalOpen(false);
@@ -193,6 +245,21 @@ export default function LeavesPage() {
             fetchData();
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Structural finalization failed');
+        }
+    };
+
+    const handleWFHDecision = async (id: string, decision: 'APPROVED' | 'REJECTED') => {
+        let comments = '';
+        if (decision === 'REJECTED') {
+            comments = window.prompt('Please provide a reason for rejecting this WFH request:') || '';
+            if (!comments) return;
+        }
+        try {
+            await api.put(`/wfh/${id}/decision`, { decision, comments });
+            toast.success(decision === 'APPROVED' ? 'WFH approved' : 'WFH rejected');
+            fetchData();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'WFH decision failed');
         }
     };
 
@@ -244,12 +311,15 @@ export default function LeavesPage() {
 
     const getStatusStyle = (status: string) => {
         switch (status) {
-            case 'FINAL_APPROVED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            case 'FINAL_APPROVED':
+            case 'APPROVED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
             case 'HR_APPROVED': return 'bg-slate-900 text-white border-slate-800';
+            case 'PENDING':
             case 'PENDING_HR':
             case 'PENDING_SUPERADMIN': return 'bg-amber-50 text-amber-700 border-amber-200';
             case 'AUTO_APPROVED': return 'bg-amber-50 text-amber-700 border-amber-200'; // legacy values
             case 'CANCELLED': return 'bg-slate-50 text-slate-400 border-slate-200';
+            case 'REJECTED':
             case 'REJECTED_BY_HR':
             case 'REJECTED_BY_SUPERADMIN': return 'bg-rose-50 text-rose-700 border-rose-200';
             default: return 'bg-slate-50 text-slate-500 border-slate-200';
@@ -263,9 +333,9 @@ export default function LeavesPage() {
             if (!showCancelledLeaves && isCancelled) return false;
 
             const matchesSearch = !normalizedQuery
-                || leave.user.name.toLowerCase().includes(normalizedQuery)
-                || leave.user.employeeCode.toLowerCase().includes(normalizedQuery)
-                || leave.leaveType.name.toLowerCase().includes(normalizedQuery);
+                || leave.user?.name?.toLowerCase().includes(normalizedQuery)
+                || String(leave.user?.employeeCode || '').toLowerCase().includes(normalizedQuery)
+                || leave.leaveType?.name?.toLowerCase().includes(normalizedQuery);
 
             const matchesLeaveType = leaveTypeFilter === 'all'
                 || leave.leaveType.name === leaveTypeFilter;
@@ -614,8 +684,22 @@ export default function LeavesPage() {
                                                     {formatLeaveLine(leave)}
                                                 </button>
                                                 {expandedLeaveId === leave.id && (
-                                                    <div className="mt-2 rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed max-w-sm">
-                                                        {leave.reason?.trim() || 'No reason provided.'}
+                                                    <div className="mt-2 space-y-2 max-w-sm">
+                                                        <div className="rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed">
+                                                            {leave.reason?.trim() || 'No reason provided.'}
+                                                        </div>
+                                                        {leave.attachmentUrl && (
+                                                            <a
+                                                                href={leave.attachmentUrl}
+                                                                download={leave.attachmentName || 'leave-attachment'}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-2 rounded-md border border-[#E6E8EC] bg-white px-3 py-2 text-[12px] font-semibold text-[#101828] hover:border-[#101828] transition-all"
+                                                            >
+                                                                <FileText size={14} className="text-[#667085]" />
+                                                                {leave.attachmentName || 'View attachment'}
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 )}
                                             </td>
@@ -647,9 +731,17 @@ export default function LeavesPage() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="text-[14px] font-medium text-[#101828]">
-                                                    {leave.leaveType.name}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-[14px] font-medium text-[#101828]">
+                                                        {leave.leaveType.name}
+                                                    </span>
+                                                    {leave.attachmentUrl && (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#667085]">
+                                                            <Paperclip size={11} />
+                                                            Attachment
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className="text-[13px] font-semibold text-[#101828]">
@@ -662,7 +754,7 @@ export default function LeavesPage() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
-                                                    {leave.status === 'AUTO_APPROVED' ? (
+                                                    {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? (
                                                         <span className="flex items-center gap-1.5">
                                                             <ShieldCheck size={13} className="text-amber-500" />
                                                             Pending Approval
@@ -672,13 +764,19 @@ export default function LeavesPage() {
                                             </td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex justify-end items-center gap-2">
-                                                    {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                                    {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                                                        <>
+                                                            <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
+                                                            <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
+                                                        </>
+                                                    )}
+                                                    {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                         <>
                                                             <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
                                                             <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
                                                         </>
                                                     )}
-                                                    {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                                    {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                         <>
                                                             <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
                                                             <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
@@ -762,31 +860,51 @@ export default function LeavesPage() {
                                             </p>
                                         </div>
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm shrink-0 ${getStatusStyle(leave.status)}`}>
-                                            {leave.status === 'AUTO_APPROVED' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
+                                            {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
                                         </span>
                                     </div>
 
-                                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100">
-                                        <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Reason for Leave</p>
-                                        <p className="text-[13px] text-[#344054] leading-relaxed italic font-medium">
-                                            &quot;{leave.reason?.trim() || 'No reason provided.'}&quot;
-                                        </p>
+                                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 space-y-2">
+                                        <div>
+                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Reason for Leave</p>
+                                            <p className="text-[13px] text-[#344054] leading-relaxed italic font-medium">
+                                                &quot;{leave.reason?.trim() || 'No reason provided.'}&quot;
+                                            </p>
+                                        </div>
+                                        {leave.attachmentUrl && (
+                                            <a
+                                                href={leave.attachmentUrl}
+                                                download={leave.attachmentName || 'leave-attachment'}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
+                                            >
+                                                <FileText size={14} />
+                                                {leave.attachmentName || 'View attachment'}
+                                            </a>
+                                        )}
                                     </div>
 
                                     <div className="flex items-center justify-between pt-1 w-full">
                                         <div className="flex items-center gap-2">
-                                            {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                            {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                                                <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
+                                            )}
+                                            {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                 <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
                                             )}
-                                            {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                            {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                 <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                            {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                                                <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
+                                            )}
+                                            {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                 <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
                                             )}
-                                            {(leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                            {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                 <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
                                             )}
                                             {canDeleteOwnLeaveRequest(leave) && (
@@ -844,6 +962,7 @@ export default function LeavesPage() {
                                             <label className="text-[13px] font-medium text-[#344054]">Leave Type</label>
                                             <select
                                                 className="input-field py-2.5"
+                                                value={formData.leaveTypeId}
                                                 onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
                                                 required={!isWFHRequest}
                                             >
@@ -923,10 +1042,41 @@ export default function LeavesPage() {
                                         placeholder="Enter reason for leave"
                                         onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                                         required
+                                        value={formData.reason}
                                     ></textarea>
                                 </div>
 
-
+                                {!isWFHRequest && (
+                                    <div className="space-y-1.5">
+                                        <label className="text-[13px] font-medium text-[#344054]">
+                                            Attachment <span className="text-[#98A2B3] font-normal">(optional)</span>
+                                        </label>
+                                        <label className="flex items-center gap-3 w-full px-4 py-3 border border-dashed border-[#D0D5DD] rounded-xl cursor-pointer hover:border-[#101828] hover:bg-slate-50/60 transition-all">
+                                            <Paperclip size={16} className="text-[#667085] shrink-0" />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-[13px] font-semibold text-[#101828] truncate">
+                                                    {attachmentFile ? attachmentFile.name : 'Upload PDF, JPG, or JPEG'}
+                                                </p>
+                                                <p className="text-[11px] text-[#667085] mt-0.5">Max 5 MB</p>
+                                            </div>
+                                            <input
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,application/pdf,image/jpeg"
+                                                className="hidden"
+                                                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+                                            />
+                                        </label>
+                                        {attachmentFile && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setAttachmentFile(null)}
+                                                className="text-[12px] font-semibold text-rose-600 hover:text-rose-700"
+                                            >
+                                                Remove file
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="pt-4 border-t border-[#E6E8EC] flex justify-end gap-3 pb-2">
                                     <button

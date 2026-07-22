@@ -61,7 +61,7 @@ class LeaveService {
         return count;
     }
 
-    async applyLeave({ userId, departmentId, userRole, leaveTypeId, durationType, startDate, endDate, reason }) {
+    async applyLeave({ userId, departmentId, userRole, leaveTypeId, durationType, startDate, endDate, reason, attachmentUrl = null, attachmentName = null, attachmentMime = null }) {
         // Only invoked from POST /leaves/apply — no automatic half-day or full-day leave creation elsewhere.
         const normalizedDuration = (durationType || 'FULL_DAY').toString().toUpperCase();
         const mappedDuration = normalizedDuration === 'HALF_DAY' ? 'FIRST_HALF' : normalizedDuration;
@@ -150,9 +150,12 @@ class LeaveService {
                     endDate: end,
                     totalDays,
                     reason,
-                    status: initialStatus
+                    status: initialStatus,
+                    attachmentUrl: attachmentUrl || null,
+                    attachmentName: attachmentName || null,
+                    attachmentMime: attachmentMime || null
                 },
-                include: { user: { include: { department: true } } }
+                include: { user: { include: { department: true } }, leaveType: true }
             });
 
             // 4. Audit Log
@@ -161,7 +164,14 @@ class LeaveService {
                 action: 'LEAVE_APPLIED',
                 entity: 'LeaveRequest',
                 entityId: leaveRequest.id,
-                details: { durationType: mappedDuration, startDate, endDate, totalDays, reason }
+                details: {
+                    durationType: mappedDuration,
+                    startDate,
+                    endDate,
+                    totalDays,
+                    reason,
+                    hasAttachment: Boolean(attachmentUrl)
+                }
             }, tx);
 
             return leaveRequest;
