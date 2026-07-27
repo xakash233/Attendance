@@ -27,7 +27,7 @@
     },
     {
       "path": "/api/system/check-out-breaks?secret=sync-all-records-2026",
-      "schedule": "*/2 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
