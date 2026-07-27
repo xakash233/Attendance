@@ -85,14 +85,16 @@ const getPunchDisplay = (row: any, field: 'FirstPunch' | 'LastPunch') => {
     const statusText = formatStatus(row).toUpperCase();
     if (statusText === 'WEEKEND') return 'Weekend';
     if (statusText.startsWith('HOLIDAY')) return 'Holiday';
+    if (statusText === 'LEAVE' || row.DayCategory === 'SAT_LEAVE') return 'Leave';
+    if (statusText === 'WFH' || row.DayCategory === 'SAT_WFH') return 'WFH';
 
     const value = row[field];
     if (!value || value === '---') {
-        if (statusText === 'WFH') return 'WFH';
-        return 'Absent';
+        return '—';
     }
     if (String(value).toUpperCase() === 'LEAVE') return 'Leave';
     if (String(value).toUpperCase() === 'WFH') return 'WFH';
+    if (String(value).toUpperCase() === 'WEEKEND') return 'Weekend';
     return value;
 };
 
@@ -1196,7 +1198,15 @@ export default function ReportPage() {
                                                             <td className="px-6 py-4 text-[14px] text-[#101828] font-medium">{getPunchDisplay(row, 'LastPunch')}</td>
                                                             <td className="px-6 py-4 text-[14px] font-bold text-[#101828]">{formatDuration(row.TotalWorkedHours)}</td>
                                                             <td className="px-6 py-4 text-[14px] text-[#667085]">
-                                                                {(date.getDay() === 0 || row.Status === 'HOLIDAY') ? '00:00' : formatDuration(MIN_FULL_DAY_HOURS)}
+                                                                {(
+                                                                    date.getDay() === 0
+                                                                    || row.Status === 'HOLIDAY'
+                                                                    || row.Status === 'WEEKEND'
+                                                                    || row.DayCategory === 'SAT_LEAVE'
+                                                                    || row.DayCategory === 'SUNDAY'
+                                                                    || String(statusText).toUpperCase() === 'LEAVE'
+                                                                    || String(statusText).toUpperCase() === 'WEEKEND'
+                                                                ) ? '00:00' : formatDuration(MIN_FULL_DAY_HOURS)}
                                                             </td>
                                                             <td className="px-6 py-4 text-[13px] text-center font-semibold text-amber-700">
                                                                 {Number(row.LopPortion || 0) > 0 ? Number(row.LopPortion).toFixed(1) : '-'}

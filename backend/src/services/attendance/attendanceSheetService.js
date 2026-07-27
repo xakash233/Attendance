@@ -9,6 +9,7 @@ import {
     getEffectiveAttendanceStart,
     isCompanyWorkingDay
 } from '../../utils/payrollCalendar.js';
+import { MIN_FULL_DAY_HOURS } from '../../utils/attendanceCalculator.js';
 
 function isApprovedLeave(leave) {
     const status = String(leave?.status || '').toUpperCase();
@@ -145,6 +146,9 @@ export async function buildTectraAttendanceSheetData(prisma, { month = null, ist
             } else if (dayCategory === 'SAT_WFH' || wfh) {
                 status = 'WFH';
                 remarks = wfh ? 'WFH (Approved)' : '1st/3rd/5th Saturday (WFH)';
+                if (workedHours < MIN_FULL_DAY_HOURS) {
+                    workedHours = MIN_FULL_DAY_HOURS;
+                }
             }
 
             if (att && isCompanyWorkingDay(dateStr, { isHoliday }) && !wfh && dayCategory !== 'SAT_LEAVE') {

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/axios';
-import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle, Camera, Phone, Trash2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle, Camera, Phone, Trash2, CalendarDays } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
@@ -95,13 +95,17 @@ export default function EmployeeProfileView() {
                         bio: found.bio || ''
                     });
                     setAvatarPreview(found.profileImage || null);
-                }
-                
-                try {
-                    const leavesRes = await api.get('/leaves/history');
-                    setLeaves(leavesRes.data.filter((l: any) => l.userId === id));
-                } catch (e) {
-                    // Ignore leaves fail
+
+                    // Use resolved user id (not route "me") so leave usage/history show on profile.
+                    try {
+                        const leavesRes = await api.get('/leaves/history', {
+                            params: { userId: found.id }
+                        });
+                        const rows = Array.isArray(leavesRes.data) ? leavesRes.data : [];
+                        setLeaves(rows.filter((l: any) => l.userId === found.id));
+                    } catch (e) {
+                        setLeaves([]);
+                    }
                 }
 
                 try {
@@ -375,17 +379,47 @@ export default function EmployeeProfileView() {
                                     if (l.status !== 'FINAL_APPROVED') return;
                                     const leaveDays = Number(l.totalDays) || 0;
                                     const dt = (l.durationType || '').toUpperCase();
+                                    const typeName = String(l.leaveType?.name || '').toUpperCase();
                                     if (dt === 'HALF_DAY' || dt === 'FIRST_HALF' || dt === 'SECOND_HALF') HD += leaveDays;
-                                    else if (l.leaveType?.name.includes('Sick')) SL += leaveDays;
-                                    else if (l.leaveType?.name.includes('Casual')) CL += leaveDays;
-                                    else if (l.leaveType?.name.includes('Paid')) PL += leaveDays;
+                                    else if (typeName.includes('SICK') || typeName.includes('(SL)')) SL += leaveDays;
+                                    else if (typeName.includes('CASUAL') || typeName.includes('(CL)')) CL += leaveDays;
+                                    else if (typeName.includes('PAID') || typeName.includes('(PL)')) PL += leaveDays;
+                                    else PL += leaveDays;
                                 });
 
                                 const used = Number((SL + CL + PL + HD).toFixed(1));
                                 const allocated = Number(systemSettings?.totalLeaveAllocation) || 18;
                                 const remaining = Number(Math.max(0, allocated - used).toFixed(1));
 
+                                const formatLeaveLine = (leave: any) => {
+                                    const start = new Date(leave.startDate);
+                                    const end = new Date(leave.endDate);
+                                    const dateOpts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' };
+                                    const dateLabel = Number(leave.totalDays) <= 1
+                                        ? start.toLocaleDateString('en-GB', dateOpts)
+                                        : `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('en-GB', dateOpts)}`;
+
+                                    const duration = String(leave.durationType || '').toUpperCase();
+                                    if (duration === 'SECOND_HALF') return `${dateLabel} - 0.5 second half`;
+                                    if (duration === 'FIRST_HALF' || duration === 'HALF_DAY') return `${dateLabel} - 0.5 first half`;
+
+                                    const days = Number(leave.totalDays) || 0;
+                                    return `${dateLabel} - ${days === 1 ? '1 leave' : `${days} leave`}`;
+                                };
+
+                                const statusLabel = (status: string) => {
+                                    const s = String(status || '').toUpperCase();
+                                    if (s === 'FINAL_APPROVED') return 'Approved';
+                                    if (s.includes('PENDING')) return 'Pending';
+                                    if (s.includes('REJECTED')) return 'Rejected';
+                                    if (s === 'CANCELLED') return 'Cancelled';
+                                    return s.replace(/_/g, ' ');
+                                };
+
+                                const visibleLeaves = leaves.filter((l: any) => l.status !== 'CANCELLED');
+
                                 return (
+                                    <>
                                     <div className="border border-[#E6E8EC] rounded-xl overflow-hidden shadow-sm">
                                         <div className="grid grid-cols-3 divide-x divide-[#E6E8EC] border-b border-[#E6E8EC]">
                                             <div className="p-4 bg-slate-50 text-center">
@@ -423,6 +457,44 @@ export default function EmployeeProfileView() {
                                             </div>
                                         </div>
                                     </div>
+
+                                    <div className="mt-6">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <CalendarDays size={16} className="text-[#667085]" />
+                                            <p className="text-[13px] font-semibold text-[#101828]">Leave History</p>
+                                        </div>
+                                        {visibleLeaves.length === 0 ? (
+                                            <p className="text-[13px] text-[#667085] border border-dashed border-[#E6E8EC] rounded-xl px-4 py-6 text-center">
+                                                No leave requests yet.
+                                            </p>
+                                        ) : (
+                                            <div className="border border-[#E6E8EC] rounded-xl overflow-hidden divide-y divide-[#E6E8EC]">
+                                                {visibleLeaves.map((leave: any) => (
+                                                    <div key={leave.id} className="px-4 py-3 flex items-start justify-between gap-3 bg-white">
+                                                        <div className="min-w-0">
+                                                            <p className="text-[13px] font-semibold text-[#101828]">
+                                                                {formatLeaveLine(leave)}
+                                                            </p>
+                                                            <p className="text-[12px] text-[#667085] mt-0.5 truncate">
+                                                                {leave.leaveType?.name || 'Leave'}
+                                                                {leave.reason ? ` · ${leave.reason}` : ''}
+                                                            </p>
+                                                        </div>
+                                                        <span className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-md ${
+                                                            String(leave.status).includes('APPROVED') && !String(leave.status).includes('PENDING')
+                                                                ? 'bg-emerald-50 text-emerald-700'
+                                                                : String(leave.status).includes('REJECTED')
+                                                                    ? 'bg-rose-50 text-rose-600'
+                                                                    : 'bg-amber-50 text-amber-700'
+                                                        }`}>
+                                                            {statusLabel(leave.status)}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    </>
                                 );
                             })()}
                         </div>

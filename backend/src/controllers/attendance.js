@@ -519,13 +519,19 @@ export const getSummary = async (req, res, next) => {
             if (iter > todayLocal) break;
 
             const dateStr = iter.toISOString().split('T')[0];
-            const dow = iter.getDay();
-            const isSunday = dow === 0;
-            const isSaturday = dow === 6;
+            const dayCategory = getCompanyDayCategory(dateStr);
             const holiday = holidays.find(h => h.date.toISOString().split('T')[0] === dateStr);
 
-            let dayStatus = (isSunday || isSaturday) ? 'WEEKEND' : (holiday ? 'HOLIDAY' : 'ABSENT');
-            let leaveType = holiday ? holiday.name : null;
+            let dayStatus = holiday
+                ? 'HOLIDAY'
+                : (dayCategory === 'SUNDAY'
+                    ? 'WEEKEND'
+                    : (dayCategory === 'SAT_LEAVE'
+                        ? 'LEAVE'
+                        : (dayCategory === 'SAT_WFH' ? 'WFH' : 'ABSENT')));
+            let leaveType = holiday
+                ? holiday.name
+                : (dayCategory === 'SAT_LEAVE' ? '2nd/4th Saturday (Scheduled Leave)' : null);
 
             // Check attendance memory
             let checkIn = null;
@@ -595,17 +601,35 @@ export const getSummary = async (req, res, next) => {
                 }
             }
 
-            if (!isSunday && !isSaturday && !holiday && !isApprovedLeaveDay) {
+            if (
+                dayCategory === 'WEEKDAY'
+                && !holiday
+                && !isApprovedLeaveDay
+            ) {
                 dayStatus = resolveDayStatusFromHours(workingHours, {
                     preserveStatus: dayStatus
                 }).replace(/ /g, '_');
+            }
+
+            // Scheduled 2nd/4th Saturday leave must not be overwritten by an empty/ABSENT attendance row.
+            if (dayCategory === 'SAT_LEAVE' && !holiday && !(workingHours > 0.1)) {
+                dayStatus = 'LEAVE';
+                leaveType = leaveType || '2nd/4th Saturday (Scheduled Leave)';
+            } else if (dayCategory === 'SAT_WFH' && !holiday && !(workingHours > 0.1) && !wfhDateSet.has(dateStr)) {
+                // Keep WFH label for 1st/3rd/5th Sat even without punches.
+                if (!String(dayStatus).toUpperCase().includes('LEAVE')) {
+                    dayStatus = 'WFH';
+                    workingHours = Math.max(workingHours, MIN_FULL_DAY_HOURS);
+                }
+            } else if ((dayCategory === 'SAT_WFH' || wfhDateSet.has(dateStr)) && dayStatus === 'WFH') {
+                workingHours = Math.max(workingHours, MIN_FULL_DAY_HOURS);
             }
 
             if (isHybridWorkEmployee(userObj?.employeeCode)) {
                 const hybrid = resolveHybridWorkDay({
                     employeeCode: userObj.employeeCode,
                     dateStr,
-                    dayCategory: getCompanyDayCategory(dateStr),
+                    dayCategory,
                     isHoliday: Boolean(holiday),
                     hasBiometricPunch: false,
                     hasOfficeAttendance: workingHours > 0.1,
@@ -620,8 +644,9 @@ export const getSummary = async (req, res, next) => {
             dailyLog.push({
                 date: dateStr,
                 status: dayStatus,
-                isWeekend: isSunday || isSaturday,
-                isSunday: isSunday,
+                isWeekend: dayCategory === 'SUNDAY',
+                isSunday: dayCategory === 'SUNDAY',
+                dayCategory,
                 leaveType,
                 durationType,
                 leaveAppliedAt,
@@ -1388,6 +1413,8 @@ export const getComplianceReport = async (req, res, next) => {
                     if (!leaveMarkedForPayroll) {
                         status = 'WFH';
                         remarks = wfh ? 'WFH (Approved)' : '1st/3rd/5th Saturday (WFH)';
+                        // Credit a full day for scheduled WFH Saturdays (no punch required).
+                        hours = Math.max(hours, MIN_FULL_DAY_HOURS);
                     }
                 }
 
@@ -1422,6 +1449,25 @@ export const getComplianceReport = async (req, res, next) => {
                         actualWorkedToday,
                         calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dateStr)
                     );
+                }
+
+                // WFH days (scheduled Sat WFH or approved WFH) count as a full worked day when no punches.
+                const statusUpperForWfh = String(status || '').toUpperCase();
+                const remarksUpperForWfh = String(remarks || '').toUpperCase();
+                const isCreditedWfhDay =
+                    !isFuture
+                    && !isHoliday
+                    && dayCategory !== 'SAT_LEAVE'
+                    && (
+                        dayCategory === 'SAT_WFH'
+                        || statusUpperForWfh.includes('WFH')
+                        || remarksUpperForWfh.includes('WFH')
+                    )
+                    && !remarksUpperForWfh.includes('APPROVED LEAVE')
+                    && !remarksUpperForWfh.includes('HALF DAY LEAVE');
+                if (isCreditedWfhDay && actualWorkedToday < MIN_FULL_DAY_HOURS) {
+                    actualWorkedToday = MIN_FULL_DAY_HOURS;
+                    hours = Math.max(hours, MIN_FULL_DAY_HOURS);
                 }
 
                 if (!isFuture && isCompanyWorkday) {
@@ -1480,7 +1526,11 @@ export const getComplianceReport = async (req, res, next) => {
                     weeklySummaryStatus = (weeklyActualSum >= 40) ? "Weekly requirement met" : "Weekly hours incomplete";
                 }
 
-                let firstPunchDisplay = leave ? 'LEAVE' : (holiday ? 'HOLIDAY' : (wfh || status === 'WFH' ? 'WFH' : '---'));
+                let firstPunchDisplay = leave ? 'LEAVE'
+                    : (holiday ? 'HOLIDAY'
+                        : (dayCategory === 'SAT_LEAVE' || status === 'LEAVE' ? 'LEAVE'
+                            : (wfh || status === 'WFH' || dayCategory === 'SAT_WFH' ? 'WFH'
+                                : (dayCategory === 'SUNDAY' || status === 'WEEKEND' ? 'WEEKEND' : '---'))));
                 let lastPunchDisplay = firstPunchDisplay;
                 if (dayPunchTimestamps && dayPunchTimestamps.length > 0) {
                     firstPunchDisplay = formatIstPunchTime(dayPunchTimestamps[0]);

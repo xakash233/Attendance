@@ -240,6 +240,7 @@ export const finalDecision = async (req, res, next) => {
 export const getHistory = async (req, res, next) => {
     try {
         const { role, id, departmentId } = req.user;
+        const filterUserId = typeof req.query.userId === 'string' ? req.query.userId.trim() : '';
         let query = {};
 
         if (role === 'EMPLOYEE') {
@@ -252,6 +253,11 @@ export const getHistory = async (req, res, next) => {
             }
             orConditions.push({ department: { hrId: id } });
             query = { OR: orConditions };
+        }
+
+        // Admins/HR can scope history to one employee (used by user profile).
+        if (filterUserId && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(role)) {
+            query = { ...query, userId: filterUserId };
         }
 
         const history = await prisma.leaveRequest.findMany({
