@@ -100,8 +100,9 @@ export default function DatePicker({ date, onChange, label, placeholder = "Selec
     const renderCells = () => {
         const monthStart = startOfMonth(viewDate);
         const monthEnd = endOfMonth(monthStart);
-        const startDate = startOfWeek(monthStart);
-        const endDate = endOfWeek(monthEnd);
+        // Match header (Su–Sa). Explicit weekStartsOn avoids locale shifting Wed/Thu under weekend columns.
+        const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
+        const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
 
         const calendarDays = eachDayOfInterval({
             start: startDate,

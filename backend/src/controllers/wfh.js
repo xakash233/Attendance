@@ -13,21 +13,31 @@ export const applyWFH = async (req, res, next) => {
             return res.status(400).json({ message: 'Start and end dates are required' });
         }
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const data = [];
+        // Parse YYYY-MM-DD as UTC midnight so all weekdays (incl. Wed/Thu/weekends) are kept.
+        const toUtcDateOnly = (value) => {
+            const match = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!match) throw new Error('Invalid date. Use YYYY-MM-DD format.');
+            const date = new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`);
+            if (Number.isNaN(date.getTime())) throw new Error('Invalid date. Use YYYY-MM-DD format.');
+            return date;
+        };
 
+        const start = toUtcDateOnly(startDate);
+        const end = toUtcDateOnly(endDate);
+        if (end < start) {
+            return res.status(400).json({ message: 'Invalid date range. End date must be on or after start date.' });
+        }
+
+        const data = [];
         let iter = new Date(start);
         while (iter <= end) {
-            const d = new Date(iter);
-            d.setUTCHours(0, 0, 0, 0);
-            
             data.push({
                 userId: targetUserId,
-                wfhDate: d,
+                wfhDate: new Date(iter),
                 reason: reason || '',
                 status: 'PENDING'
             });
+            iter = new Date(iter);
             iter.setUTCDate(iter.getUTCDate() + 1);
         }
 

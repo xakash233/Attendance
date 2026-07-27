@@ -29,13 +29,17 @@ const buildAttachmentPayload = (file) => {
 export const applyLeave = async (req, res, next) => {
     try {
         const leaveTypeId = req.body.leaveTypeId;
-        const startDate = req.body.startDate;
-        const endDate = req.body.endDate;
+        // Normalize to YYYY-MM-DD so timezone/datetime payloads cannot shift weekdays onto weekends.
+        const startDate = String(req.body.startDate || '').trim().slice(0, 10);
+        const endDate = String(req.body.endDate || '').trim().slice(0, 10);
         const reason = req.body.reason;
         const durationType = req.body.durationType || 'FULL_DAY';
 
         if (!leaveTypeId || !startDate || !endDate || !reason) {
             return res.status(400).json({ message: 'Leave type, dates, and reason are required.' });
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+            return res.status(400).json({ message: 'Invalid date. Use YYYY-MM-DD format.' });
         }
 
         const attachment = buildAttachmentPayload(req.file);
@@ -90,13 +94,15 @@ export const applyLeave = async (req, res, next) => {
         if (
             message.includes('overlap')
             || message.includes('Insufficient')
-            || message.includes('weekends')
             || message.includes('consecutive')
             || message.includes('Invalid file')
             || message.includes('too large')
             || message.includes('Invalid date')
             || message.includes('Invalid duration')
             || message.includes('Leave type')
+            || message.includes('Invalid date range')
+            || message.includes('WFH request')
+            || message.includes('leave request covering')
         ) {
             return res.status(400).json({ message });
         }

@@ -5,6 +5,31 @@ import biometricService from '../biometric/biometricService.js';
 
 
 class LeaveService {
+    /**
+     * Parse a calendar date (YYYY-MM-DD or Date) as UTC midnight.
+     * Avoids timezone shifts that can move Wed/Thu onto weekend days.
+     */
+    toUtcDateOnly(value) {
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            // Use IST calendar day so local midnights are not shifted onto the previous UTC day.
+            const dateStr = value.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+            return new Date(`${dateStr}T00:00:00.000Z`);
+        }
+
+        const raw = String(value || '').trim();
+        const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (!match) {
+            throw new Error('Invalid date. Use YYYY-MM-DD format.');
+        }
+
+        const [, y, m, d] = match;
+        const date = new Date(`${y}-${m}-${d}T00:00:00.000Z`);
+        if (Number.isNaN(date.getTime())) {
+            throw new Error('Invalid date. Use YYYY-MM-DD format.');
+        }
+        return date;
+    }
+
     async reconcileLeaveBalancesForUser(userId, tx = prisma) {
         const leaveTypes = await tx.leaveType.findMany();
         const approvedLeaves = await tx.leaveRequest.findMany({
@@ -47,15 +72,18 @@ class LeaveService {
         }
     }
 
+    /**
+     * Count inclusive calendar days. Leave may be applied on any day
+     * (Mon–Sun, including weekends) — do not skip Saturdays/Sundays.
+     */
     calculateWorkingDays(startDate, endDate) {
         let count = 0;
-        let curDate = new Date(startDate);
-        curDate.setUTCHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setUTCHours(0, 0, 0, 0);
+        let curDate = this.toUtcDateOnly(startDate);
+        const end = this.toUtcDateOnly(endDate);
 
         while (curDate <= end) {
-            count++;
+            count += 1;
+            curDate = new Date(curDate);
             curDate.setUTCDate(curDate.getUTCDate() + 1);
         }
         return count;
@@ -70,17 +98,20 @@ class LeaveService {
             throw new Error('Invalid duration type selected.');
         }
 
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = this.toUtcDateOnly(startDate);
+        let end = this.toUtcDateOnly(endDate);
         let totalDays = 0;
 
         if (mappedDuration === 'FIRST_HALF' || mappedDuration === 'SECOND_HALF') {
             totalDays = 0.5;
-            end.setTime(start.getTime());
-        } else if (mappedDuration === 'WORK_FROM_HOME') {
-            totalDays = this.calculateWorkingDays(start, end);
+            end = new Date(start.getTime());
         } else {
+            // Full day / WFH: every calendar day in range is allowed (including weekends).
             totalDays = this.calculateWorkingDays(start, end);
+        }
+
+        if (end < start) {
+            throw new Error('Invalid date range. End date must be on or after start date.');
         }
 
         if (totalDays <= 0) {
@@ -92,7 +123,7 @@ class LeaveService {
             const overlapping = await tx.leaveRequest.findFirst({
                 where: {
                     userId,
-                    status: { notIn: ['REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN'] },
+                    status: { notIn: ['REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'CANCELLED'] },
                     OR: [
                         { startDate: { lte: end }, endDate: { gte: start } }
                     ]
