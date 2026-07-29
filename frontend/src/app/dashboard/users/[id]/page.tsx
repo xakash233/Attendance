@@ -3,13 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import api from '@/lib/axios';
-import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle, Camera, Phone, Trash2, CalendarDays } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, Hash, Shield, Briefcase, User, Edit2, X, ChevronDown, CheckCircle, Camera, Phone, Trash2, CalendarDays, FileText, Download } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import Image from 'next/image';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import { createPortal } from 'react-dom';
 import { compressProfileImage, fileToDataUrl } from '@/lib/compressProfileImage';
+import { openAttachment, downloadAttachment } from '@/lib/attachment';
 
 export default function EmployeeProfileView() {
     const { id } = useParams();
@@ -150,6 +151,18 @@ export default function EmployeeProfileView() {
     const openEditModal = () => {
         resetEditState();
         setIsEditModalOpen(true);
+    };
+
+    const handleViewAttachment = (leave: any) => {
+        if (!openAttachment(leave?.attachmentUrl)) {
+            toast.error('Could not open the attachment. Allow pop-ups and try downloading it instead.');
+        }
+    };
+
+    const handleDownloadAttachment = (leave: any) => {
+        if (!downloadAttachment(leave?.attachmentUrl, leave?.attachmentName || 'leave-attachment')) {
+            toast.error('Could not download the attachment.');
+        }
     };
 
     const handleAvatarSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -477,8 +490,30 @@ export default function EmployeeProfileView() {
                                                             </p>
                                                             <p className="text-[12px] text-[#667085] mt-0.5 truncate">
                                                                 {leave.leaveType?.name || 'Leave'}
-                                                                {leave.reason ? ` · ${leave.reason}` : ''}
                                                             </p>
+                                                            <p className="text-[12px] text-[#344054] mt-1 leading-relaxed">
+                                                                {leave.reason?.trim() || 'No reason provided.'}
+                                                            </p>
+                                                            {leave.attachmentUrl && (
+                                                                <div className="flex items-center gap-3 mt-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleViewAttachment(leave)}
+                                                                        className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
+                                                                    >
+                                                                        <FileText size={13} />
+                                                                        <span className="max-w-[160px] truncate">{leave.attachmentName || 'View attachment'}</span>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDownloadAttachment(leave)}
+                                                                        className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#667085] hover:text-[#101828]"
+                                                                    >
+                                                                        <Download size={13} />
+                                                                        Download
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <span className={`shrink-0 text-[11px] font-semibold px-2 py-1 rounded-md ${
                                                             String(leave.status).includes('APPROVED') && !String(leave.status).includes('PENDING')

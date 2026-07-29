@@ -7,12 +7,13 @@ import { toast } from 'react-hot-toast';
 import {
     Plus, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
-    CheckCircle2, XCircle, Database, AlertCircle, Trash2, Paperclip, FileText
+    CheckCircle2, XCircle, Database, AlertCircle, Trash2, Paperclip, FileText, Download
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
+import { openAttachment, downloadAttachment } from '@/lib/attachment';
 
 export default function LeavesPage() {
     const LEAVE_REQUESTS_PER_PAGE = 10;
@@ -97,6 +98,18 @@ export default function LeavesPage() {
         const days = Number(leave.totalDays) || 0;
         const dayLabel = days === 1 ? '1 leave' : `${days} leave`;
         return `${dateLabel} - ${dayLabel}`;
+    }, []);
+
+    const handleViewAttachment = useCallback((leave: any) => {
+        if (!openAttachment(leave?.attachmentUrl)) {
+            toast.error('Could not open the attachment. Allow pop-ups and try downloading it instead.');
+        }
+    }, []);
+
+    const handleDownloadAttachment = useCallback((leave: any) => {
+        if (!downloadAttachment(leave?.attachmentUrl, leave?.attachmentName || 'leave-attachment')) {
+            toast.error('Could not download the attachment.');
+        }
     }, []);
 
     const [balances, setBalances] = useState<any[]>([]);
@@ -683,25 +696,34 @@ export default function LeavesPage() {
                                                 >
                                                     {formatLeaveLine(leave)}
                                                 </button>
-                                                {expandedLeaveId === leave.id && (
-                                                    <div className="mt-2 space-y-2 max-w-sm">
-                                                        <div className="rounded-md border border-indigo-100 bg-indigo-50/40 px-3 py-2 text-[12px] text-indigo-900 leading-relaxed">
-                                                            {leave.reason?.trim() || 'No reason provided.'}
-                                                        </div>
-                                                        {leave.attachmentUrl && (
-                                                            <a
-                                                                href={leave.attachmentUrl}
-                                                                download={leave.attachmentName || 'leave-attachment'}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="inline-flex items-center gap-2 rounded-md border border-[#E6E8EC] bg-white px-3 py-2 text-[12px] font-semibold text-[#101828] hover:border-[#101828] transition-all"
+                                                <div className="mt-2 space-y-2 max-w-sm">
+                                                    <p
+                                                        className={`text-[12px] text-[#667085] leading-relaxed ${expandedLeaveId === leave.id ? '' : 'line-clamp-2'}`}
+                                                        title={leave.reason?.trim() || ''}
+                                                    >
+                                                        {leave.reason?.trim() || 'No reason provided.'}
+                                                    </p>
+                                                    {leave.attachmentUrl && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleViewAttachment(leave)}
+                                                                className="inline-flex items-center gap-2 rounded-md border border-[#E6E8EC] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#101828] hover:border-[#101828] transition-all"
                                                             >
                                                                 <FileText size={14} className="text-[#667085]" />
-                                                                {leave.attachmentName || 'View attachment'}
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                                <span className="max-w-[140px] truncate">{leave.attachmentName || 'View attachment'}</span>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDownloadAttachment(leave)}
+                                                                title="Download attachment"
+                                                                className="w-8 h-8 flex items-center justify-center rounded-md border border-[#E6E8EC] bg-white text-[#667085] hover:border-[#101828] hover:text-[#101828] transition-all"
+                                                            >
+                                                                <Download size={14} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-start gap-3">
@@ -872,16 +894,24 @@ export default function LeavesPage() {
                                             </p>
                                         </div>
                                         {leave.attachmentUrl && (
-                                            <a
-                                                href={leave.attachmentUrl}
-                                                download={leave.attachmentName || 'leave-attachment'}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
-                                            >
-                                                <FileText size={14} />
-                                                {leave.attachmentName || 'View attachment'}
-                                            </a>
+                                            <div className="flex items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleViewAttachment(leave)}
+                                                    className="inline-flex items-center gap-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
+                                                >
+                                                    <FileText size={14} />
+                                                    <span className="max-w-[180px] truncate">{leave.attachmentName || 'View attachment'}</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadAttachment(leave)}
+                                                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#667085] hover:text-[#101828]"
+                                                >
+                                                    <Download size={14} />
+                                                    Download
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
 
