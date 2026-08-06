@@ -1,6 +1,7 @@
 // src/index.js
 import http from 'http';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import app from './app.js';
 import { initSocket } from './config/socket.js';
 import path from 'path';
@@ -46,4 +47,4 @@ process.on('unhandledRejection', (err, promise) => {
 });
 
 export default app;
-// Force nodemon restart
+// Force nodemon restart to load updated DATABASE_URL

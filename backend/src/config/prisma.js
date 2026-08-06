@@ -1,4 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import dotenv from 'dotenv';
+
+dotenv.config({ override: true });
 
 const rawDbUrl = process.env.DATABASE_URL || '';
 let dbUrl = rawDbUrl;
