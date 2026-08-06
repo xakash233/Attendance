@@ -45,8 +45,8 @@ export const triggerAutoSync = async (req, res, next) => {
         console.log('[CRON] Biometric Auto-Sync triggered via endpoint.');
 
         const settings = await prisma.systemSettings.findFirst();
-        const ip = settings?.biometricDeviceIP || '192.168.1.2';
-        const port = 4370;
+        const ip = process.env.BIOMETRIC_DEVICE_IP || settings?.biometricDeviceIP || '192.168.68.60';
+        const port = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10);
 
         const result = await biometricService.syncFromDevice(ip, port, 'SYSTEM_CRON');
         res.status(200).json({ success: true, ...result });

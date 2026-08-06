@@ -35,14 +35,14 @@ const runDeviceSync = async () => {
 
     try {
         isSyncing = true;
-        // Fetch settings occasionally; fallback to cached/default to reduce DB pressure.
-        let ip = cachedDeviceIp;
+        // Fetch settings; allow process.env override, fallback to DB setting or default
+        let ip = process.env.BIOMETRIC_DEVICE_IP || cachedDeviceIp;
         if (!ip) {
             const settings = await prisma.systemSettings.findFirst();
-            ip = settings?.biometricDeviceIP || '192.168.68.60';
+            ip = process.env.BIOMETRIC_DEVICE_IP || settings?.biometricDeviceIP || '192.168.68.60';
             cachedDeviceIp = ip;
         }
-        const port = 4370; // Common default ZKTeco port
+        const port = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10);
 
         console.log(`[BiometricSyncTask] Auto-syncing from device ${ip}:${port}...`);
 

@@ -253,7 +253,10 @@ class BiometricService {
     /**
      * Fetch all users from the biometric device and create them in the database if missing
      */
-    async syncUsersFromDevice(ip = '192.168.68.60', port = 4370) {
+    async syncUsersFromDevice(
+        ip = process.env.BIOMETRIC_DEVICE_IP || '192.168.68.60',
+        port = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10)
+    ) {
         let zkInstance = null;
         try {
             zkInstance = new ZKLib(ip, port, 10000, 4000);
@@ -295,7 +298,11 @@ class BiometricService {
      * @param {number} port - Device Port
      * @param {string} userId - ID of user triggering the sync
      */
-    async syncFromDevice(ip = '192.168.68.60', port = 4370, userId = null) {
+    async syncFromDevice(
+        ip = process.env.BIOMETRIC_DEVICE_IP || '192.168.68.60',
+        port = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10),
+        userId = null
+    ) {
         let zkInstance = null;
         try {
             zkInstance = new ZKLib(ip, port, 10000, 4000);
