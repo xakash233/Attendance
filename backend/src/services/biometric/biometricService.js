@@ -370,7 +370,11 @@ class BiometricService {
         } catch (error) {
             console.error('Biometric Device Sync Error:', error);
             const msg = (error.err?.message || error.message || 'Unknown error');
-            throw new Error(`Failed to connect to biometric device at ${ip}: ${msg}`);
+            const isPrivateIp = /^192\.168\.|^10\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip);
+            if (isPrivateIp && (msg.includes('ETIMEDOUT') || msg.includes('EHOSTUNREACH') || msg.includes('timeout') || msg.includes('ECONNREFUSED'))) {
+                throw new Error(`Device IP ${ip} is a private LAN address and unreachable from this environment. Use the local office bridge script (scripts/biometric-local-bridge.mjs) or expose a public gateway.`);
+            }
+            throw new Error(`Failed to connect to biometric device at ${ip}:${port}: ${msg}`);
         } finally {
             if (zkInstance && zkInstance.disconnect) {
                 try {

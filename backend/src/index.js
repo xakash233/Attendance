@@ -6,7 +6,7 @@ import app from './app.js';
 import { initSocket } from './config/socket.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { startBiometricAutoSync } from './services/biometric/biometricSyncTask.js';
+
 import { startOutBreakMonitor } from './services/attendance/outBreakMonitorService.js';
 
 const PORT = process.env.PORT || 5001;
@@ -24,13 +24,8 @@ if (isMain || process.env.NODE_ENV === 'development') {
   server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 
-    const shouldRunBiometricSync = process.env.ENABLE_BIOMETRIC_AUTO_SYNC === 'true';
-    if (shouldRunBiometricSync) {
-      startBiometricAutoSync(30);
-      console.log('[Startup] Biometric auto-sync enabled.');
-    } else {
-      console.log('[Startup] Biometric auto-sync disabled. Set ENABLE_BIOMETRIC_AUTO_SYNC=true to enable.');
-    }
+    // Biometric auto-sync is disabled on production because the machine is on a private office LAN.
+    // Syncs are instead pushed by the local office Mac via the agent-sync bridge endpoint.
 
     if (process.env.ENABLE_OUT_BREAK_MONITOR !== 'false') {
       startOutBreakMonitor(60);
@@ -47,4 +42,5 @@ process.on('unhandledRejection', (err, promise) => {
 });
 
 export default app;
-// Force nodemon restart to load updated DATABASE_URL
+// Force nodemon restart to load updated DATABASE_URL and envs
+

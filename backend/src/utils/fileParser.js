@@ -39,9 +39,15 @@ const parseCsvBuffer = async (buffer) => {
         stream
             .pipe(csv())
             .on('data', (data) => {
-                // Typical eSSL/Biometric mapping: EmployeeCode, LogDate
-                const empCode = data['EmployeeCode'] || data['emp_code'] || data['userId'];
-                const ts = data['LogDate'] || data['timestamp'] || data['date_time'];
+                // Flexible eSSL/ZK/Biometric mapping: EmployeeCode, LogDate, UserID, CardNo, AC-No.
+                const keys = Object.keys(data);
+                const findVal = (terms) => {
+                    const match = keys.find(k => terms.some(t => k.toLowerCase().trim().includes(t)));
+                    return match ? data[match] : null;
+                };
+
+                const empCode = data['EmployeeCode'] || data['emp_code'] || data['userId'] || data['EmpID'] || findVal(['emp', 'user', 'code', 'card', 'ac-no']);
+                const ts = data['LogDate'] || data['timestamp'] || data['date_time'] || data['DateTime'] || findVal(['logdate', 'date', 'time']);
 
                 if (empCode && ts) {
                     try {
@@ -69,8 +75,8 @@ const parseJsonBuffer = (buffer) => {
         const records = Array.isArray(data) ? data : (data.records || data.data || []);
 
         return records.map(rec => ({
-            employeeCode: String(rec.employeeCode || rec.emp_code || rec.Userid).trim(),
-            timestamp: normalizeTimestamp(rec.timestamp || rec.LogDate || rec.time)
+            employeeCode: String(rec.employeeCode || rec.emp_code || rec.Userid || rec.empId || rec.userId || '').trim(),
+            timestamp: normalizeTimestamp(rec.timestamp || rec.LogDate || rec.time || rec.dateTime)
         })).filter(r => r.employeeCode && r.timestamp);
     } catch (e) {
         throw new Error(`JSON parsing error: ${e.message}`);
@@ -101,8 +107,8 @@ const parseXmlBuffer = (buffer) => {
 
         return records.map(rec => ({
             // Attributes or standard tags mapping
-            employeeCode: String(rec.EmployeeCode || rec['@_emp_code'] || rec.UserID || '').trim(),
-            timestamp: normalizeTimestamp(rec.LogDate || rec['@_timestamp'] || rec.DateTime)
+            employeeCode: String(rec.EmployeeCode || rec['@_emp_code'] || rec.UserID || rec.EmpID || '').trim(),
+            timestamp: normalizeTimestamp(rec.LogDate || rec['@_timestamp'] || rec.DateTime || rec.Time)
         })).filter(r => r.employeeCode && r.timestamp);
     } catch (e) {
         throw new Error(`XML parsing error: ${e.message}`);
@@ -117,18 +123,18 @@ const parseExcelBuffer = async (buffer) => {
 
     // Header validation
     const headerRow = worksheet.getRow(1);
-    const headers = headerRow.values.map(v => String(v).toLowerCase());
+    const headers = headerRow.values.map(v => String(v || '').toLowerCase().trim());
     
     // We look for flexible mapping
     const colMap = {
-        emp: headers.findIndex(h => h.includes('empid') || h.includes('employee') || h.includes('code')),
-        date: headers.findIndex(h => h.includes('date') || h.includes('log') || h.includes('time')),
-        in: headers.findIndex(h => h.includes('in')),
-        out: headers.findIndex(h => h.includes('out'))
+        emp: headers.findIndex(h => h.includes('empid') || h.includes('employee') || h.includes('code') || h.includes('emp') || h.includes('user') || h.includes('card')),
+        date: headers.findIndex(h => h.includes('date') || h.includes('log') || h.includes('time') || h.includes('punch')),
+        in: headers.findIndex(h => h === 'in' || h.includes('checkin') || h.includes('in time') || h.includes('in_time')),
+        out: headers.findIndex(h => h === 'out' || h.includes('checkout') || h.includes('out time') || h.includes('out_time'))
     };
 
     if (colMap.emp === -1 || colMap.date === -1) {
-        throw new Error('Invalid Excel structure. Required columns: EmpID (or EmployeeCode) and Date/Timestamp.');
+        throw new Error('Invalid Excel structure. Required headers: Employee Code/EmpID and Date/Timestamp.');
     }
 
     worksheet.eachRow((row, rowNumber) => {
