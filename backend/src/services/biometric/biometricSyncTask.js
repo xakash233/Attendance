@@ -5,7 +5,7 @@ let syncInterval = null;
 let cooldownUntil = 0;
 let cachedDeviceIp = null;
 
-export const startBiometricAutoSync = (intervalInSeconds = 10) => {
+export const startBiometricAutoSync = (intervalInSeconds = 1) => {
     // Vercel / serverless environment check
     if (process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME) {
         console.log('[BiometricSyncTask] Serverless environment detected (Vercel/Lambda). In-memory auto-sync disabled. Use local bridge script or scheduled cron.');
@@ -57,8 +57,8 @@ const runDeviceSync = async () => {
         console.error(`[BiometricSyncTask] Auto-sync failed: ${error.message}`);
         const errStr = String(error.message).toLowerCase();
         if (errStr.includes('too many database connections') || errStr.includes('unreachable') || errStr.includes('etimedout')) {
-            cooldownUntil = Date.now() + (5 * 60 * 1000);
-            console.warn('[BiometricSyncTask] Device unreachable or DB pool maxed. Cooling down auto-sync for 5 minutes.');
+            cooldownUntil = Date.now() + (10 * 1000);
+            console.warn('[BiometricSyncTask] Device unreachable or DB pool maxed. Cooling down auto-sync for 10 seconds.');
         } else {
             // Retry settings read in next cycle for non-connection errors.
             cachedDeviceIp = null;

@@ -1,4 +1,5 @@
 import biometricService from '../services/biometric/biometricService.js';
+import { getIo } from '../config/socket.js';
 
 /**
  * Handle GET /iclock/cdata (Heartbeat / Handshake)
@@ -54,12 +55,22 @@ export const handleCdataPost = async (req, res) => {
 
         if (formattedRecords.length > 0) {
             console.log(`[ADMS] SN:${SN} Pushing ${formattedRecords.length} records to Cloud...`);
-            await biometricService.processSync({
+            const result = await biometricService.processSync({
                 rawRecords: formattedRecords,
                 deviceIP: req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'CLOUD-ADMS',
                 userId: null, // System-triggered
                 filename: `ADMS_PUSH_${SN}_${new Date().toISOString()}`
             });
+
+            const io = getIo();
+            if (io) {
+                io.emit('biometricSyncUpdate', {
+                    status: result.status,
+                    total: result.totalProcessed,
+                    success: result.successCount,
+                    timestamp: new Date().toISOString()
+                });
+            }
         }
 
     } catch (error) {

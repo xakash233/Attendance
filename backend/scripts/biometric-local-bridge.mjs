@@ -13,7 +13,7 @@
  *   BIOMETRIC_DEVICE_PORT=4370
  *   CLOUD_API_URL=https://hrms.tectratechnologies.com/api/biometric/agent-sync
  *   SYNC_SECRET=sync-all-records-2026
- *   INTERVAL_MINUTES=5
+ *   SYNC_INTERVAL_SECONDS=1
  */
 
 import ZKLib from 'node-zklib';
@@ -22,7 +22,7 @@ const DEVICE_IP = process.env.BIOMETRIC_DEVICE_IP || '192.168.68.60';
 const DEVICE_PORT = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10);
 const CLOUD_API_URL = process.env.CLOUD_API_URL || 'https://hrms.tectratechnologies.com/api/biometric/agent-sync';
 const SYNC_SECRET = process.env.SYNC_SECRET || process.env.CRON_SECRET || 'sync-all-records-2026';
-const INTERVAL_SECONDS = parseInt(process.env.SYNC_INTERVAL_SECONDS || '5', 10);
+const INTERVAL_SECONDS = parseInt(process.env.SYNC_INTERVAL_SECONDS || '1', 10);
 
 const SYNC_BACK_DAYS = parseInt(process.env.SYNC_BACK_DAYS || '30', 10);
 const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE || '100', 10);

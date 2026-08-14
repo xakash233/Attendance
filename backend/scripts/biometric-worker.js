@@ -18,8 +18,8 @@ const main = async () => {
         await prisma.$connect();
         console.log('✅ Connected to database registry.');
         
-        // Start the auto-sync loop (Default: every 15 seconds for standalone)
-        const INTERVAL_SECONDS = process.env.SYNC_INTERVAL_SECONDS || 15;
+        // Start the auto-sync loop (Default: every 1 second for standalone)
+        const INTERVAL_SECONDS = process.env.SYNC_INTERVAL_SECONDS || 1;
         startBiometricAutoSync(INTERVAL_SECONDS);
 
         // Keep process alive

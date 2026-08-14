@@ -1,5 +1,6 @@
 import biometricService from '../services/biometric/biometricService.js';
 import auditService from '../services/audit/auditService.js';
+import { getIo } from '../config/socket.js';
 
 /**
  * Handle manual file upload (CSV, JSON, XML) and start sync
@@ -108,6 +109,16 @@ export const agentSyncBiometric = async (req, res, next) => {
             deviceIP,
             filename: `LOCAL_BRIDGE_SYNC_${new Date().toISOString()}`
         });
+
+        const io = getIo();
+        if (io) {
+            io.emit('biometricSyncUpdate', {
+                status: result.status,
+                total: result.totalProcessed,
+                success: result.successCount,
+                timestamp: new Date().toISOString()
+            });
+        }
 
         res.status(200).json({ 
             success: true, 
