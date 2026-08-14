@@ -144,6 +144,9 @@ model BiometricAttendance {
   verificationMode Int?               @default(1)
   syncLog          AttendanceSyncLog? @relation(fields: [syncLogId], references: [id])
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, timestamp])
+  @@index([createdAt])
 }
 
 model Notification {

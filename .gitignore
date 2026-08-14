@@ -39,3 +39,6 @@ coverage/
 # Misc
 .vercel/
 uploads/
+
+# Biometric bridge checkpoint (per-machine; delete to force a full re-import)
+.biometric-sync-state.json

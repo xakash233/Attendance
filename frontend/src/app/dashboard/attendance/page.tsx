@@ -7,6 +7,7 @@ import { Loader2, Activity, User, Calendar, History, Search, Filter } from 'luci
 import { useRouter } from 'next/navigation';
 import UserAvatar from '@/components/users/UserAvatar';
 import ProfileImageLightbox from '@/components/users/ProfileImageLightbox';
+import { useBiometricHeartbeat } from '@/hooks/useBiometricHeartbeat';
 
 export default function AttendancePage() {
     const { user, loading } = useAuth();
@@ -42,10 +43,18 @@ export default function AttendancePage() {
     useEffect(() => {
         if (!loading && user) {
             fetchLiveAttendance();
-            const interval = setInterval(fetchLiveAttendance, 10000);
+            // Safety net only. New punches arrive via the heartbeat below, so this
+            // slow tick just keeps derived values (working hours, IN/OUT) ticking over.
+            const interval = setInterval(fetchLiveAttendance, 60000);
             return () => clearInterval(interval);
         }
     }, [user, loading, fetchLiveAttendance]);
+
+    // Refetch within ~3s of a punch landing, instead of waiting for the slow tick.
+    useBiometricHeartbeat({
+        enabled: !loading && Boolean(user),
+        onChange: fetchLiveAttendance
+    });
 
     const formatTime = (date: any) => {
         if (!date) return '--:--';

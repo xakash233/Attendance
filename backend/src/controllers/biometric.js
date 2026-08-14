@@ -47,6 +47,26 @@ export const getLatestRecords = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Cheap change-marker for clients to poll.
+ * GET /api/biometric/heartbeat
+ *
+ * Socket.io cannot run on Vercel's serverless functions, so browsers poll this
+ * instead. It reads a single indexed row, which is cheap enough to hit every few
+ * seconds; clients only run their real (expensive) refetch when `marker` changes.
+ */
+export const getSyncHeartbeat = async (req, res, next) => {
+    try {
+        const latest = await biometricService.getSyncHeartbeat();
+
+        // Marker must never be cached by a CDN/proxy or the poll goes blind.
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.status(200).json(latest);
+    } catch (error) {
+        next(error);
+    }
+};
 export const syncFromDevice = async (req, res, next) => {
     try {
         const { ip, port } = req.body;

@@ -604,6 +604,27 @@ class BiometricService {
         });
     }
 
+    /**
+     * Single-row change marker used by the browser poll.
+     * `marker` changes whenever a new punch row lands, and nothing else.
+     */
+    async getSyncHeartbeat() {
+        const latest = await prisma.biometricAttendance.findFirst({
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            select: { id: true, createdAt: true, timestamp: true }
+        });
+
+        if (!latest) {
+            return { marker: null, lastPunchAt: null, lastSyncedAt: null };
+        }
+
+        return {
+            marker: `${latest.createdAt.toISOString()}:${latest.id}`,
+            lastPunchAt: latest.timestamp.toISOString(),
+            lastSyncedAt: latest.createdAt.toISOString()
+        };
+    }
+
     async getLatestRecords(limit = 10) {
         return prisma.biometricAttendance.findMany({
             orderBy: { timestamp: 'desc' },

@@ -11,7 +11,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import socket from '@/lib/socket';
+import { useBiometricHeartbeat } from '@/hooks/useBiometricHeartbeat';
 
 export default function BiometricPage() {
     const { user } = useAuth();
@@ -46,21 +46,17 @@ export default function BiometricPage() {
         fetchLogs();
         fetchRecords();
         fetchSettings();
+    }, []);
 
-        // Listen for real-time updates
-        socket.connect();
-        socket.on('biometricSyncUpdate', (payload: unknown) => {
-            const data = payload as { status?: string; success?: number };
-            toast.success(`Sync ${data.status ?? 'done'}: ${data.success ?? 0} records updated`);
+    // Refresh within ~3s of a new punch. The hook polls the cheap heartbeat marker
+    // (works on Vercel) and also uses the socket when one is available (local dev).
+    useBiometricHeartbeat({
+        onChange: () => {
+            toast.success('New biometric punch synced');
             fetchLogs();
             fetchRecords();
-        });
-
-        return () => {
-            socket.off('biometricSyncUpdate');
-            socket.disconnect();
-        };
-    }, []);
+        }
+    });
 
 
     const handleDeviceSync = async () => {

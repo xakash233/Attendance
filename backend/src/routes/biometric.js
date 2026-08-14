@@ -1,5 +1,5 @@
 import express from 'express';
-import { syncBiometricUpload, getSyncLogs, getLatestRecords, syncFromDevice, syncUsersFromDevice, agentSyncBiometric } from '../controllers/biometric.js';
+import { syncBiometricUpload, getSyncLogs, getLatestRecords, syncFromDevice, syncUsersFromDevice, agentSyncBiometric, getSyncHeartbeat } from '../controllers/biometric.js';
 import { protect, authorize } from '../middleware/auth.js';
 import upload from '../middleware/upload.js';
 
@@ -11,5 +11,6 @@ router.post('/sync-device', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), sy
 router.post('/sync-users', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), syncUsersFromDevice);
 router.get('/logs', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), getSyncLogs);
 router.get('/records', protect, getLatestRecords);
+router.get('/heartbeat', protect, getSyncHeartbeat);
 
 export default router;
