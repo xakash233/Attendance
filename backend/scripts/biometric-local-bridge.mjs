@@ -23,31 +23,39 @@
  *   BIOMETRIC_DEVICE_IP=192.168.68.60
  *   BIOMETRIC_DEVICE_PORT=4370
  *   CLOUD_API_URL=https://hrms.tectratechnologies.com/api/biometric/agent-sync
- *   SYNC_SECRET=sync-all-records-2026
+ *   SYNC_SECRET=sync-all-records-2026   # or BIOMETRIC_SYNC_SECRET (must match cloud)
  *   SYNC_BACK_DAYS=30              # initial import window only. 0 = entire device history
  *   CHUNK_SIZE=100                 # records per POST during the initial import
- *   SWEEP_INTERVAL_MINUTES=10      # safety re-check of the device log
+ *   SWEEP_INTERVAL_MINUTES=5       # safety re-check of the device log
  *   SWEEP_OVERLAP_SECONDS=120      # re-send this much overlap; the server de-duplicates
  *   RECONNECT_DELAY_SECONDS=5
  *   DEVICE_TZ_OFFSET=+05:30        # timezone the device clock is set to
  *   SYNC_STATE_FILE=<repo>/backend/.biometric-sync-state.json
  */
 
+import dotenv from 'dotenv';
 import ZKLib from 'node-zklib';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '..', '.env.bridge') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const DEVICE_IP = process.env.BIOMETRIC_DEVICE_IP || '192.168.68.60';
 const DEVICE_PORT = parseInt(process.env.BIOMETRIC_DEVICE_PORT || '4370', 10);
 const CLOUD_API_URL = process.env.CLOUD_API_URL || 'https://hrms.tectratechnologies.com/api/biometric/agent-sync';
-const SYNC_SECRET = process.env.SYNC_SECRET || process.env.CRON_SECRET || 'sync-all-records-2026';
+const CLOUD_HEALTH_URL = process.env.CLOUD_HEALTH_URL
+    || CLOUD_API_URL.replace(/\/agent-sync\/?$/, '/bridge-health');
+const SYNC_SECRET = process.env.BIOMETRIC_SYNC_SECRET
+    || process.env.SYNC_SECRET
+    || process.env.CRON_SECRET
+    || 'sync-all-records-2026';
 
 const SYNC_BACK_DAYS = parseInt(process.env.SYNC_BACK_DAYS || '30', 10);
 const CHUNK_SIZE = parseInt(process.env.CHUNK_SIZE || '100', 10);
-const SWEEP_INTERVAL_MS = parseFloat(process.env.SWEEP_INTERVAL_MINUTES || '10') * 60 * 1000;
+const SWEEP_INTERVAL_MS = parseFloat(process.env.SWEEP_INTERVAL_MINUTES || '5') * 60 * 1000;
 const SWEEP_OVERLAP_MS = parseInt(process.env.SWEEP_OVERLAP_SECONDS || '120', 10) * 1000;
 const RECONNECT_DELAY_MS = parseInt(process.env.RECONNECT_DELAY_SECONDS || '5', 10) * 1000;
 const CONNECT_TIMEOUT_MS = parseInt(process.env.CONNECT_TIMEOUT_SECONDS || '15', 10) * 1000;
@@ -60,6 +68,7 @@ function printBanner() {
     console.log('==================================================');
     console.log(`Device Address  : ${DEVICE_IP}:${DEVICE_PORT}`);
     console.log(`Cloud Endpoint  : ${CLOUD_API_URL}`);
+    console.log(`Cloud Health    : ${CLOUD_HEALTH_URL}`);
     console.log(`Mode            : one-time import, then real-time push`);
     console.log(`Initial Window  : ${SYNC_BACK_DAYS > 0 ? SYNC_BACK_DAYS + ' days' : 'all history'}`);
     console.log(`Safety Sweep    : every ${SWEEP_INTERVAL_MS / 60000} minute(s)`);
@@ -69,6 +78,12 @@ function printBanner() {
 
 const stamp = () => new Date().toLocaleTimeString();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** node-zklib rejects with a ZKError wrapper whose message lives at .err.message. */
+function describeError(err) {
+    if (!err) return 'Unknown error';
+    return err.err?.message || err.message || (typeof err === 'string' ? err : JSON.stringify(err));
+}
 
 function normalizeEmployeeCode(code) {
     return String(code || '').trim();
@@ -164,24 +179,57 @@ function toIsoFromDevice(raw) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * POST records to the cloud. Returns the number of records accepted, or -1 on failure
- * so the caller knows not to advance the checkpoint past unsent data.
+ * POST records to the cloud. Retries transient failures so a brief network blip
+ * does not leave the checkpoint behind unsent punches.
  */
-async function postChunk(chunk) {
-    const response = await fetch(CLOUD_API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-sync-secret': SYNC_SECRET
-        },
-        body: JSON.stringify({ records: chunk })
-    });
+async function postChunk(chunk, attempt = 1) {
+    const maxAttempts = 4;
+    try {
+        const response = await fetch(CLOUD_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-sync-secret': SYNC_SECRET
+            },
+            body: JSON.stringify({ records: chunk })
+        });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.success) {
-        throw new Error(data.message || response.statusText || `HTTP ${response.status}`);
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+            throw new Error('Cloud rejected the sync secret. Set BIOMETRIC_SYNC_SECRET on Vercel to match this bridge.');
+        }
+        if (response.status === 422) {
+            throw new Error(data.message || 'Cloud rejected this punch batch (invalid timestamps or empty payload).');
+        }
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || response.statusText || `HTTP ${response.status}`);
+        }
+        return data;
+    } catch (err) {
+        if (attempt >= maxAttempts) throw err;
+        const delayMs = attempt * 2000;
+        console.warn(`[${stamp()}] Cloud upload failed (attempt ${attempt}/${maxAttempts}): ${err.message}. Retrying in ${delayMs / 1000}s...`);
+        await sleep(delayMs);
+        return postChunk(chunk, attempt + 1);
     }
-    return data;
+}
+
+async function validateCloudConnection() {
+    console.log(`[${stamp()}] Verifying cloud bridge credentials...`);
+    const response = await fetch(CLOUD_HEALTH_URL, {
+        headers: { 'x-sync-secret': SYNC_SECRET }
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (response.status === 401) {
+        throw new Error('Cloud rejected the sync secret. Set BIOMETRIC_SYNC_SECRET on Vercel to match BIOMETRIC_SYNC_SECRET/SYNC_SECRET on this PC.');
+    }
+    if (!response.ok || !data.ok) {
+        throw new Error(data.message || `Bridge health check failed (${response.status})`);
+    }
+
+    const lastPunch = data.lastPunchAt ? new Date(data.lastPunchAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'none';
+    console.log(`[${stamp()}] Cloud bridge OK. Last punch in cloud: ${lastPunch}. Bridge status: ${data.status || 'unknown'}.`);
 }
 
 /** Post a batch, chunked. Returns the newest ISO timestamp that was fully accepted. */
@@ -392,6 +440,18 @@ async function startRealtime(zkInstance, deviceUserMap) {
         });
     });
 
+    // Debug tap: when enabled, log every raw frame the device sends on the live
+    // socket. This runs ALONGSIDE the library's own event handler (multiple 'data'
+    // listeners are fine); it must be attached AFTER getRealTimeLogs so we never
+    // trip its `listenerCount === 0` arming guard.
+    if (process.env.DEBUG_RAW_EVENTS === 'true') {
+        const socket = zkInstance.zklibTcp?.socket;
+        socket?.on('data', (buf) => {
+            console.log(`[${stamp()}] RAW FRAME (${buf.length} bytes): ${buf.toString('hex')}`);
+        });
+        console.log(`[${stamp()}] Raw event debug tap enabled.`);
+    }
+
     console.log(`[${stamp()}] Live punch stream is active. Waiting for scans...`);
 }
 
@@ -412,7 +472,7 @@ async function openDevice(onDrop) {
 
     const connecting = zkInstance.createSocket(
         (err) => {
-            console.error(`[${stamp()}] Device socket error: ${err?.message || err}`);
+            console.error(`[${stamp()}] Device socket error: ${describeError(err)}`);
             onDrop?.('error');
         },
         () => onDrop?.('closed')
@@ -508,9 +568,20 @@ async function main() {
 
     while (true) {
         try {
+            await validateCloudConnection();
+            break;
+        } catch (err) {
+            console.error(`[${stamp()}] Cloud check failed: ${err.message}`);
+            console.log(`[${stamp()}] Retrying cloud check in 10s...`);
+            await sleep(10000);
+        }
+    }
+
+    while (true) {
+        try {
             await runSession();
         } catch (err) {
-            console.error(`[${stamp()}] LOCAL BRIDGE ERROR: ${err?.message || err}`);
+            console.error(`[${stamp()}] LOCAL BRIDGE ERROR: ${describeError(err)}`);
             console.log(`[${stamp()}] Retrying in ${RECONNECT_DELAY_MS / 1000}s...`);
             await sleep(RECONNECT_DELAY_MS);
         }

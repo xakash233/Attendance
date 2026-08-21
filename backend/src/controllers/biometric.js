@@ -1,6 +1,6 @@
 import biometricService from '../services/biometric/biometricService.js';
-import auditService from '../services/audit/auditService.js';
 import { getIo } from '../config/socket.js';
+import { verifyBiometricSyncSecret } from '../utils/biometricSyncSecret.js';
 
 /**
  * Handle manual file upload (CSV, JSON, XML) and start sync
@@ -92,17 +92,48 @@ export const syncUsersFromDevice = async (req, res, next) => {
  * POST /api/biometric/agent-sync
  * Header: x-sync-secret: <BIOMETRIC_SYNC_SECRET>
  */
+/**
+ * Lightweight health check for the office bridge on startup.
+ * GET /api/biometric/bridge-health
+ * Header: x-sync-secret
+ */
+export const getBridgeHealth = async (req, res, next) => {
+    try {
+        const providedSecret = req.headers['x-sync-secret'];
+        if (!verifyBiometricSyncSecret(providedSecret)) {
+            return res.status(401).json({ ok: false, message: 'Invalid or missing bridge sync secret' });
+        }
+
+        const status = await biometricService.getBridgeStatus();
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.status(200).json({ ok: true, ...status });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getBridgeStatus = async (req, res, next) => {
+    try {
+        const status = await biometricService.getBridgeStatus();
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.status(200).json(status);
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getPushConfig = async (req, res, next) => {
+    try {
+        res.status(200).json(biometricService.getPushConfig());
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const agentSyncBiometric = async (req, res, next) => {
     try {
         const providedSecret = req.headers['x-sync-secret'];
-        const expectedSecret = process.env.BIOMETRIC_SYNC_SECRET;
-
-        if (!expectedSecret) {
-            console.error('[agentSyncBiometric] Critical: BIOMETRIC_SYNC_SECRET is not configured on the server.');
-            return res.status(500).json({ success: false, message: 'Server configuration error' });
-        }
-
-        if (!providedSecret || providedSecret !== expectedSecret) {
+        if (!verifyBiometricSyncSecret(providedSecret)) {
             return res.status(401).json({ success: false, message: 'Invalid or missing bridge sync secret' });
         }
 
@@ -129,6 +160,14 @@ export const agentSyncBiometric = async (req, res, next) => {
             deviceIP,
             filename: `LOCAL_BRIDGE_SYNC_${new Date().toISOString()}`
         });
+
+        if (result.status === 'SKIPPED') {
+            return res.status(422).json({
+                success: false,
+                message: result.message || 'No valid punch records in this batch',
+                ...result
+            });
+        }
 
         const io = getIo();
         if (io) {

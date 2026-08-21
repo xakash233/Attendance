@@ -36,6 +36,9 @@ const app = express();
 // Trust Vercel Proxy for correct client IP detection (needed for rate limiting)
 app.set('trust proxy', 1);
 
+// ADMS WiFi push must stay BEFORE JSON/urlencoded body parsers.
+app.use('/iclock', admsRoutes);
+
 // Security and other middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
@@ -65,9 +68,6 @@ app.use(compression());
 
 // Static folder for file uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
-// ADMS Biometric Support (IClock Push Protocol)
-app.use('/iclock', admsRoutes);
 
 // Mount Routes
 app.use('/api/auth', authRoutes);

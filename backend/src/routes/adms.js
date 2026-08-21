@@ -1,16 +1,28 @@
 import express from 'express';
-import { handleCdataGet, handleCdataPost, handleGetRequest, handleDeviceCmd } from '../controllers/adms.js';
+import {
+    handleCdataGet,
+    handleCdataPost,
+    handleGetRequest,
+    handleDeviceCmd,
+    handleRegistry
+} from '../controllers/adms.js';
 
 const router = express.Router();
 
-// Middleware to capture RAW text body from biometric devices (needed for legacy ADMS protocol)
-router.use(express.text({ type: '*/*', limit: '10mb' }));
+// Raw body must be captured before JSON/urlencoded parsers elsewhere in the app.
+router.use(express.raw({ type: '*/*', limit: '10mb' }));
+router.use((req, _res, next) => {
+    if (Buffer.isBuffer(req.body)) {
+        req.body = req.body.toString('utf8');
+    }
+    next();
+});
 
-// IClock/ADMS standard endpoints (Supporting both /cdata and /cdata.aspx formats)
-router.get(['/cdata', '/cdata.aspx'], handleCdataGet);      
-router.post(['/cdata', '/cdata.aspx'], handleCdataPost);    
-
-router.get(['/getrequest', '/getrequest.aspx'], handleGetRequest); 
+router.get(['/cdata', '/cdata.aspx'], handleCdataGet);
+router.post(['/cdata', '/cdata.aspx'], handleCdataPost);
+router.get(['/getrequest', '/getrequest.aspx'], handleGetRequest);
 router.post(['/devicecmd', '/devicecmd.aspx'], handleDeviceCmd);
+router.get(['/registry', '/registry.aspx'], handleRegistry);
+router.post(['/registry', '/registry.aspx'], handleRegistry);
 
 export default router;

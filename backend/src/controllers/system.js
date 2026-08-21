@@ -42,7 +42,23 @@ export const triggerAutoSync = async (req, res, next) => {
     try {
         if (!verifyCronSecret(req, res)) return;
 
-        console.log('[CRON] Biometric Auto-Sync triggered via endpoint.');
+        const isServerless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV || process.env.AWS_LAMBDA_FUNCTION_NAME);
+        if (isServerless) {
+            console.log('[CRON] Serverless host detected. Running bridge health check instead of LAN device pull.');
+            const status = await biometricService.getBridgeStatus();
+            const stale = status.status !== 'online';
+            return res.status(200).json({
+                success: true,
+                mode: 'bridge_health_check',
+                stale,
+                message: stale
+                    ? 'Office bridge may be offline or stale. Ensure biometric-local-bridge.mjs is running on the office LAN PC.'
+                    : 'Office bridge appears active.',
+                ...status
+            });
+        }
+
+        console.log('[CRON] Biometric auto-sync triggered via endpoint.');
 
         const settings = await prisma.systemSettings.findFirst();
         const ip = process.env.BIOMETRIC_DEVICE_IP || settings?.biometricDeviceIP || '192.168.68.60';

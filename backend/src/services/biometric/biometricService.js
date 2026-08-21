@@ -7,6 +7,7 @@ import calculateAttendance, { resolveDayStatusFromHours } from '../../utils/atte
 import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
 import { getCompanyDayCategory } from '../../utils/payrollCalendar.js';
 import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
+import admsService from './admsService.js';
 import bcrypt from 'bcryptjs';
 
 class BiometricService {
@@ -97,17 +98,19 @@ class BiometricService {
             recordsToProcess = await parseBiometricFile(fileBuffer, mimeType, filename);
         }
 
-        // Protection: Filter out extremely old or future records if needed, but allow current year
-        const currentYear = new Date().getUTCFullYear();
-        const relevantRecords = (recordsToProcess || []).filter(r => {
-            const d = new Date(r.timestamp);
-            // Allow 2026 records (or current year)
-            return d.getUTCFullYear() === currentYear;
+        // Keep a rolling window so punches are never dropped at year boundaries or due to
+        // minor device clock drift. Rejects only clearly stale or far-future timestamps.
+        const now = Date.now();
+        const oldestAllowed = now - (400 * 24 * 60 * 60 * 1000);
+        const newestAllowed = now + (24 * 60 * 60 * 1000);
+        const relevantRecords = (recordsToProcess || []).filter((record) => {
+            const timestamp = new Date(record.timestamp).getTime();
+            return Number.isFinite(timestamp) && timestamp >= oldestAllowed && timestamp <= newestAllowed;
         });
-        
-        if (!relevantRecords || !relevantRecords.length) {
-            console.log(`[BiometricService] No valid records found for ${currentYear} in this sync.`);
-            return { status: 'SKIPPED', message: `No ${currentYear} records found` };
+
+        if (!relevantRecords.length) {
+            console.log('[BiometricService] No valid records in the accepted date window for this sync.');
+            return { status: 'SKIPPED', message: 'No valid punch records in the accepted date window' };
         }
         
         recordsToProcess = relevantRecords;
@@ -623,6 +626,35 @@ class BiometricService {
             lastPunchAt: latest.timestamp.toISOString(),
             lastSyncedAt: latest.createdAt.toISOString()
         };
+    }
+
+    async getBridgeStatus() {
+        const wifi = await admsService.getWifiStatus();
+        const heartbeat = await this.getSyncHeartbeat();
+        const lastPunchAt = wifi.lastPunchAt || heartbeat.lastPunchAt;
+        const minutesSinceLastPunch = lastPunchAt
+            ? Math.round((Date.now() - new Date(lastPunchAt).getTime()) / 60000)
+            : wifi.minutesSinceLastSeen;
+
+        let status = wifi.status;
+        if (status === 'offline' && lastPunchAt) {
+            if (minutesSinceLastPunch !== null && minutesSinceLastPunch <= 20) status = 'online';
+            else if (minutesSinceLastPunch !== null && minutesSinceLastPunch <= 180) status = 'stale';
+        }
+
+        return {
+            syncMode: 'wifi_push',
+            status,
+            deviceSerial: wifi.deviceSerial,
+            lastSeenAt: wifi.lastSeenAt,
+            lastPunchAt,
+            lastSyncedAt: heartbeat.lastSyncedAt,
+            minutesSinceLastPunch
+        };
+    }
+
+    getPushConfig() {
+        return admsService.getPushConfig();
     }
 
     async getLatestRecords(limit = 10) {

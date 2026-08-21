@@ -18,9 +18,15 @@
     "seed": "node prisma/seed.js",
     "sync:tectra-sheet": "node scripts/sync-tectra-attendance-sheet.mjs",
     "sync:tectra-sheet:xlsx": "node scripts/sync-tectra-attendance-sheet.mjs --xlsx-only",
+    "bridge": "node scripts/biometric-local-bridge.mjs",
+    "bridge:auto": "node scripts/auto-fix-biometric-bridge.mjs",
+    "bridge:boot": "node scripts/install-bridge-boot.mjs",
+    "bridge:vercel-env": "node scripts/push-bridge-env-vercel.mjs",
+    "bridge:stop": "pm2 stop biometric-bridge || npx pm2 stop biometric-bridge",
+    "bridge:logs": "pm2 logs biometric-bridge || npx pm2 logs biometric-bridge",
     "db:migrate-vps": "prisma db push --accept-data-loss && npm run seed",
     "lint": "eslint .",
-    "vercel-build": "prisma generate",
+    "vercel-build": "prisma generate && prisma db push --skip-generate",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "prisma": {

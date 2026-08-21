@@ -228,6 +228,14 @@ model SystemSettings {
   totalLeaveAllocation Int      @default(18)
 }
 
+model AdmsDevice {
+  serialNumber String   @id
+  lastSeenAt   DateTime @default(now())
+  lastPushAt   DateTime?
+  attlogStamp  Int      @default(0)
+  lastIp       String?
+}
+
 model AttendanceSyncLog {
   id           String                @id @default(uuid())
   syncedAt     DateTime              @default(now())

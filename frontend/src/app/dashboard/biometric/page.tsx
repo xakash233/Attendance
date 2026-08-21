@@ -1,25 +1,57 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '@/lib/axios';
-import { useAuth } from '@/context/AuthContext';
 import { toast } from 'react-hot-toast';
 import {
-    Cpu, History, RefreshCcw, Wifi, Server, Activity,
-    X, CheckCircle2, AlertCircle, Loader2, ArrowLeft, Home
+    Cpu, History, RefreshCcw, Server, Activity,
+    CheckCircle2, AlertCircle, Loader2, ArrowLeft, Home, Wifi
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useBiometricHeartbeat } from '@/hooks/useBiometricHeartbeat';
 
+type SyncStatus = {
+    syncMode?: 'wifi_push' | 'lan_bridge';
+    status: 'online' | 'stale' | 'offline';
+    deviceSerial?: string | null;
+    lastPunchAt?: string | null;
+    lastSeenAt?: string | null;
+    minutesSinceLastPunch?: number | null;
+};
+
+type PushConfig = {
+    serverHost: string;
+    serverPort: number;
+    pushUrl: string;
+    instructions: string[];
+};
+
 export default function BiometricPage() {
-    const { user } = useAuth();
     const router = useRouter();
     const [logs, setLogs] = useState([]);
     const [records, setRecords] = useState([]);
-    const [settings, setSettings] = useState<any>(null);
-    const [deviceSyncing, setDeviceSyncing] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<SyncStatus>({ status: 'offline' });
+    const [pushConfig, setPushConfig] = useState<PushConfig | null>(null);
+
+    const fetchSyncStatus = useCallback(async () => {
+        try {
+            const response = await api.get('/biometric/status');
+            setSyncStatus(response.data);
+        } catch (err) {
+            console.error(err);
+        }
+    }, []);
+
+    const fetchPushConfig = useCallback(async () => {
+        try {
+            const response = await api.get('/biometric/push-config');
+            setPushConfig(response.data);
+        } catch (err) {
+            console.error(err);
+        }
+    }, []);
 
     const fetchLogs = async () => {
         try {
@@ -35,52 +67,47 @@ export default function BiometricPage() {
         } catch (err) { console.error(err); }
     };
 
-    const fetchSettings = async () => {
-        try {
-            const response = await api.get('/system/settings');
-            setSettings(response.data.data);
-        } catch (err) { console.error(err); }
-    };
-
     useEffect(() => {
         fetchLogs();
         fetchRecords();
-        fetchSettings();
-    }, []);
+        fetchSyncStatus();
+        fetchPushConfig();
+        const intervalId = window.setInterval(fetchSyncStatus, 30000);
+        return () => window.clearInterval(intervalId);
+    }, [fetchSyncStatus, fetchPushConfig]);
 
-    // Refresh within ~3s of a new punch. The hook polls the cheap heartbeat marker
-    // (works on Vercel) and also uses the socket when one is available (local dev).
     useBiometricHeartbeat({
         onChange: () => {
             toast.success('New biometric punch synced');
             fetchLogs();
             fetchRecords();
+            fetchSyncStatus();
         }
     });
 
-
-    const handleDeviceSync = async () => {
-        try {
-            setDeviceSyncing(true);
-            const ip = settings?.biometricDeviceIP || '192.168.1.2';
-            const res = await api.post('/biometric/sync-device', { ip, port: 4370 });
-            if (res.data.success) {
-                toast.success(res.data.message);
-                fetchLogs();
-                fetchRecords();
-            } else {
-                toast.error(res.data.message);
-            }
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Failed to connect to device');
-        } finally {
-            setDeviceSyncing(false);
+    const statusMeta = {
+        online: {
+            label: 'WiFi Sync Active',
+            dot: 'bg-emerald-500',
+            text: 'text-emerald-700',
+            description: 'The eSSL device is pushing punches over WiFi.'
+        },
+        stale: {
+            label: 'WiFi Sync Stale',
+            dot: 'bg-amber-500',
+            text: 'text-amber-700',
+            description: 'No recent device contact. Check WiFi and ADMS settings on the machine.'
+        },
+        offline: {
+            label: 'WiFi Sync Offline',
+            dot: 'bg-red-500',
+            text: 'text-red-700',
+            description: 'Configure the eSSL device once using the WiFi push settings below.'
         }
-    };
+    }[syncStatus.status];
 
     return (
         <div className="space-y-6 animate-fade-in pb-10">
-            {/* Breadcrumb Navigation */}
             <div className="flex items-center gap-2 text-[12px] font-medium text-[#667085] ml-1">
                 <Link href="/dashboard" className="hover:text-[#101828] transition-colors flex items-center gap-1">
                     <Home size={14} />
@@ -94,10 +121,9 @@ export default function BiometricPage() {
                 <span className="text-[#101828] font-semibold">Biometric Logs</span>
             </div>
 
-            {/* SaaS Header */}
             <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <button 
+                    <button
                         onClick={() => router.push('/dashboard/settings')}
                         className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-[#E6E8EC] text-[#667085] hover:text-[#101828] hover:bg-slate-50 transition-all shadow-sm active:scale-95"
                     >
@@ -106,25 +132,47 @@ export default function BiometricPage() {
                     <div>
                         <h1 className="text-[24px] font-semibold text-[#101828] leading-none">Biometric Logs</h1>
                         <p className="text-[13px] font-medium text-[#667085] mt-1">
-                            View and manage device synchronization records.
+                            WiFi push sync from the eSSL device. No office PC required.
                         </p>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-3 w-full lg:w-auto">
-                    <button
-                        onClick={handleDeviceSync}
-                        disabled={deviceSyncing}
-                        className="btn-primary w-full lg:w-auto py-2.5 px-6"
-                    >
-                        {deviceSyncing ? <Loader2 size={16} className="animate-spin text-white mr-2" /> : <RefreshCcw size={16} className="mr-2" />}
-                        {deviceSyncing ? 'Connecting...' : 'Sync from Device'}
-                    </button>
-                </div>
             </header>
 
+            {syncStatus.status !== 'online' && pushConfig && (
+                <div className="card border-indigo-200 bg-indigo-50/60 p-5">
+                    <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                            <Wifi size={18} />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[15px] font-semibold text-[#101828]">One-time WiFi setup on the eSSL device</p>
+                            <p className="text-[13px] text-[#667085] mt-1">
+                                Connect the biometric machine to office WiFi, then enter these cloud server settings in the device menu.
+                            </p>
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {[
+                                    { label: 'Server Address', value: pushConfig.serverHost },
+                                    { label: 'Server Port', value: String(pushConfig.serverPort) },
+                                    { label: 'Server Path', value: '/iclock/cdata' },
+                                    { label: 'Mode', value: 'ADMS / Cloud Server' }
+                                ].map((item) => (
+                                    <div key={item.label} className="rounded-lg border border-indigo-100 bg-white px-3 py-2">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[#667085]">{item.label}</p>
+                                        <p className="text-[13px] font-mono font-semibold text-[#101828] mt-1 break-all">{item.value}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <ol className="mt-4 space-y-1.5 text-[13px] text-[#344054] list-decimal list-inside">
+                                {pushConfig.instructions.map((step) => (
+                                    <li key={step}>{step}</li>
+                                ))}
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Gateway Status Card */}
                 <div className="card p-6 flex flex-col justify-between border-[#E6E8EC] bg-white h-auto">
                     <div className="space-y-6">
                         <div className="w-12 h-12 bg-[#F8F9FB] border border-[#E6E8EC] text-[#344054] rounded-xl flex items-center justify-center">
@@ -132,29 +180,32 @@ export default function BiometricPage() {
                         </div>
 
                         <div>
-                            <h3 className="text-[18px] font-semibold text-[#101828]">Biometric Device</h3>
+                            <h3 className="text-[18px] font-semibold text-[#101828]">eSSL WiFi Device</h3>
                             <div className="flex items-center gap-2 mt-2">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                <p className="text-[12px] font-medium text-[#667085]">Online</p>
+                                <div className={`w-2 h-2 rounded-full ${statusMeta.dot}`} />
+                                <p className={`text-[12px] font-semibold ${statusMeta.text}`}>{statusMeta.label}</p>
                             </div>
+                            <p className="text-[12px] text-[#667085] mt-2 leading-relaxed">{statusMeta.description}</p>
                         </div>
 
                         <div className="space-y-3 pt-6 border-t border-[#E6E8EC]">
                             {[
-                                { label: 'IP Address', value: settings?.biometricDeviceIP || '192.168.1.2' },
-                                { label: 'Sync Interval', value: '30 mins' },
-                                { label: 'Protocol', value: 'TCP/IP' }
+                                { label: 'Sync Mode', value: 'WiFi Push (ADMS)' },
+                                { label: 'Device Serial', value: syncStatus.deviceSerial || 'Not connected yet' },
+                                { label: 'Last Punch', value: syncStatus.lastPunchAt
+                                    ? new Date(syncStatus.lastPunchAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: true })
+                                    : 'No punches yet' },
+                                { label: 'Cloud URL', value: pushConfig?.pushUrl || 'Loading...' }
                             ].map((item, i) => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <span className="text-[12px] font-medium text-[#667085]">{item.label}</span>
-                                    <span className="text-[12px] font-semibold text-[#101828]">{item.value}</span>
+                                <div key={i} className="flex justify-between items-start gap-3">
+                                    <span className="text-[12px] font-medium text-[#667085] shrink-0">{item.label}</span>
+                                    <span className="text-[12px] font-semibold text-[#101828] text-right break-all">{item.value}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
                 </div>
 
-                {/* History Matrix Registry */}
                 <div className="lg:col-span-3 card border-[#E6E8EC] overflow-hidden flex flex-col bg-white">
                     <div className="p-5 border-b border-[#E6E8EC] flex justify-between items-center">
                         <div className="flex items-center gap-3">
@@ -165,6 +216,13 @@ export default function BiometricPage() {
                                 <h3 className="text-[16px] font-semibold text-[#101828]">Sync History</h3>
                             </div>
                         </div>
+                        <button
+                            onClick={() => { fetchLogs(); fetchRecords(); fetchSyncStatus(); }}
+                            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#667085] hover:text-[#101828]"
+                        >
+                            <RefreshCcw size={14} />
+                            Refresh
+                        </button>
                     </div>
 
                     <div className="overflow-x-auto no-scrollbar">
@@ -196,17 +254,17 @@ export default function BiometricPage() {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium border ${
-                                                    log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                                                    log.status === 'SUCCESS' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                                                     log.status === 'PROCESSING' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                                                     log.status === 'PARTIAL_SUCCESS' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
                                                     'bg-red-50 text-red-700 border-red-200'}`}>
-                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={14} /> : 
-                                                     log.status === 'PROCESSING' ? <Activity size={14} className="animate-pulse" /> : 
+                                                    {log.status === 'SUCCESS' ? <CheckCircle2 size={14} /> :
+                                                     log.status === 'PROCESSING' ? <Activity size={14} className="animate-pulse" /> :
                                                      log.status === 'PARTIAL_SUCCESS' ? <Loader2 size={14} /> :
                                                      <AlertCircle size={14} />}
-                                                    {log.status === 'SUCCESS' ? 'Success' : 
-                                                     log.status === 'PROCESSING' ? 'Processing...' : 
-                                                     log.status === 'PARTIAL_SUCCESS' ? 'Partial' : 
+                                                    {log.status === 'SUCCESS' ? 'Success' :
+                                                     log.status === 'PROCESSING' ? 'Processing...' :
+                                                     log.status === 'PARTIAL_SUCCESS' ? 'Partial' :
                                                      'Failed'}
                                                 </span>
                                             </td>
@@ -224,7 +282,6 @@ export default function BiometricPage() {
                 </div>
             </div>
 
-            {/* Latest Punches Details Section */}
             <div className="card border-[#E6E8EC] overflow-hidden flex flex-col bg-white">
                 <div className="p-5 border-b border-[#E6E8EC] flex justify-between items-center">
                     <div className="flex items-center gap-3">
@@ -245,7 +302,7 @@ export default function BiometricPage() {
                                 <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee Name</th>
                                 <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">ID Code</th>
                                 <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Punch Time</th>
-                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Device IP</th>
+                                <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Source</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
@@ -259,9 +316,7 @@ export default function BiometricPage() {
                                 records.map((record: any) => (
                                     <tr key={record.id} className="hover:bg-slate-50 transition-all">
                                         <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-[14px] font-semibold text-[#101828]">{record.user?.name || 'Unknown'}</span>
-                                            </div>
+                                            <span className="text-[14px] font-semibold text-[#101828]">{record.user?.name || 'Unknown'}</span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-[13px] font-medium px-2 py-1 bg-slate-100 rounded text-[#344054]">

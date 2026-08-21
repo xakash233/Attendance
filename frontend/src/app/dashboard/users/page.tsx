@@ -156,7 +156,7 @@ export default function UsersPage() {
         setIsSyncing(true);
         const toastId = toast.loading('Connecting to biometric device...');
         try {
-            const ip = settings?.biometricDeviceIP || '192.168.1.2';
+            const ip = settings?.biometricDeviceIP || '192.168.68.60';
             const res = await api.post('/biometric/sync-users', { ip, port: 4370 });
             
             if (res.data.success) {

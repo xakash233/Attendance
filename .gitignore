@@ -40,5 +40,8 @@ coverage/
 .vercel/
 uploads/
 
+# Biometric bridge (office LAN PC only)
+.env.bridge
+
 # Biometric bridge checkpoint (per-machine; delete to force a full re-import)
 .biometric-sync-state.json
