@@ -15,6 +15,28 @@ class BiometricService {
         return String(code || '').trim();
     }
 
+    employeeCodeVariants(code) {
+        const normalized = this.normalizeEmployeeCode(code);
+        if (!normalized) return [];
+
+        const variants = new Set([normalized]);
+        if (/^\d+$/.test(normalized)) {
+            variants.add(String(Number(normalized)));
+            variants.add(normalized.padStart(2, '0'));
+            variants.add(normalized.padStart(3, '0'));
+        }
+        return [...variants];
+    }
+
+    resolveEmployeeCode(rawCode, userMap) {
+        for (const variant of this.employeeCodeVariants(rawCode)) {
+            if (userMap.has(variant)) {
+                return variant;
+            }
+        }
+        return this.normalizeEmployeeCode(rawCode);
+    }
+
     sanitizeDisplayName(name, fallbackCode) {
         const normalizedName = String(name || '').trim();
         if (normalizedName) {
@@ -113,7 +135,10 @@ class BiometricService {
             return { status: 'SKIPPED', message: 'No valid punch records in the accepted date window' };
         }
         
-        recordsToProcess = relevantRecords;
+        recordsToProcess = relevantRecords.map((record) => ({
+            ...record,
+            employeeCode: this.normalizeEmployeeCode(record.employeeCode)
+        }));
 
         const syncLog = await prisma.attendanceSyncLog.create({
             data: {
@@ -124,36 +149,43 @@ class BiometricService {
 
         let successCount = 0;
         let failCount = 0;
-        const processedSignatures = new Set(); // For idempotency in the current batch
+        const processedSignatures = new Set();
 
-        const createdUsersCount = await this.ensureUsersExistFromRecords(recordsToProcess);
+        await this.ensureUsersExistFromRecords(recordsToProcess);
 
-        // Optimization: Pre-fetch all relevant users in one query
-        const employeeCodes = [...new Set(recordsToProcess.map(r => this.normalizeEmployeeCode(r.employeeCode)).filter(Boolean))];
+        const lookupCodes = [...new Set(recordsToProcess.flatMap((record) => this.employeeCodeVariants(record.employeeCode)))];
         const users = await prisma.user.findMany({
-            where: { employeeCode: { in: employeeCodes } },
+            where: { employeeCode: { in: lookupCodes } },
             select: { id: true, employeeCode: true }
         });
-        const userMap = new Map(users.map(u => [u.employeeCode, u]));
-        const validUserIds = users.map(u => u.id);
+        const userMap = new Map();
+        for (const user of users) {
+            for (const variant of this.employeeCodeVariants(user.employeeCode)) {
+                userMap.set(variant, user);
+            }
+        }
+        const validUserIds = users.map((user) => user.id);
 
-        console.log(`[BiometricService] Total records in batch: ${recordsToProcess.length}. Pre-fetched ${users.length} matching users.`);
-
-        // Optimization: Smart Filter
-        // 1. Only include records for users that exist in our database
-        // 2. Only include records for the current batch (idempotency in memory)
-        let filteredRecords = recordsToProcess.filter(r => userMap.has(r.employeeCode));
+        console.log(`[BiometricService] Batch size: ${recordsToProcess.length}. Matched ${users.length} employee(s).`);
 
         const finalRecordsToProcess = [];
-        for (const record of filteredRecords) {
-            const signature = `${record.employeeCode}_${record.timestamp}`;
+        let unknownCodeCount = 0;
+        for (const record of recordsToProcess) {
+            const resolvedCode = this.resolveEmployeeCode(record.employeeCode, userMap);
+            if (!userMap.has(resolvedCode)) {
+                unknownCodeCount += 1;
+                continue;
+            }
+
+            const normalizedRecord = { ...record, employeeCode: resolvedCode };
+            const signature = `${normalizedRecord.employeeCode}_${normalizedRecord.timestamp}`;
             if (!processedSignatures.has(signature)) {
                 processedSignatures.add(signature);
-                finalRecordsToProcess.push(record);
+                finalRecordsToProcess.push(normalizedRecord);
             }
         }
 
-        console.log(`[BiometricService] Filtered down to ${finalRecordsToProcess.length} relevant records for our users.`);
+        console.log(`[BiometricService] ${finalRecordsToProcess.length} record(s) mapped to known employees (${unknownCodeCount} unknown code(s)).`);
 
         // 3. Batch check against database to skip already processed logs
         // This prevents 12,000 database checks!
@@ -171,9 +203,10 @@ class BiometricService {
             return !existingLogSet.has(`${user.id}_${new Date(r.timestamp).toISOString()}`);
         });
 
-        console.log(`[BiometricService] Final count of truly new records to process: ${trulyNewRecords.length}`);
+        const insertedCount = trulyNewRecords.length;
+        console.log(`[BiometricService] Inserting ${insertedCount} new punch record(s).`);
 
-        if (trulyNewRecords.length > 0) {
+        if (insertedCount > 0) {
             // 1. Batch insert all new biometric logs
             await prisma.biometricAttendance.createMany({
                 data: trulyNewRecords.map(r => ({
@@ -218,14 +251,21 @@ class BiometricService {
             }
         }
 
-        const finalStatus = failCount === 0 ? 'SUCCESS' : (successCount > 0 ? 'PARTIAL_SUCCESS' : 'FAILED');
+        const duplicateCount = Math.max(finalRecordsToProcess.length - insertedCount, 0);
+        const summaryMessage = insertedCount === 0
+            ? `Received ${recordsToProcess.length}, inserted 0 (${duplicateCount} duplicate, ${unknownCodeCount} unknown employee code).`
+            : null;
 
-        const updatedSyncLog = await prisma.attendanceSyncLog.update({
+        const finalStatus = insertedCount > 0
+            ? (failCount === 0 ? 'SUCCESS' : 'PARTIAL_SUCCESS')
+            : (recordsToProcess.length > 0 ? 'SUCCESS' : 'FAILED');
+
+        await prisma.attendanceSyncLog.update({
             where: { id: syncLog.id },
             data: {
                 status: finalStatus,
-                recordsCount: successCount, // Update to actual processed count
-                errorMessage: failCount > 0 ? `${failCount} records failed. Check logs.` : null
+                recordsCount: insertedCount,
+                errorMessage: summaryMessage || (failCount > 0 ? `${failCount} record(s) failed. Check logs.` : null)
             }
         });
 
@@ -246,10 +286,12 @@ class BiometricService {
         return {
             syncId: syncLog.id,
             status: finalStatus,
-            totalProcessed: successCount + failCount,
-            successCount,
+            totalProcessed: insertedCount,
+            successCount: insertedCount,
             failCount,
-            createdUsersCount
+            duplicateCount,
+            unknownCodeCount,
+            message: summaryMessage
         };
     }
 

@@ -34,6 +34,16 @@ export default function BiometricPage() {
     const [records, setRecords] = useState([]);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>({ status: 'offline' });
     const [pushConfig, setPushConfig] = useState<PushConfig | null>(null);
+    const [admsDeployReady, setAdmsDeployReady] = useState<boolean | null>(null);
+
+    const fetchAdmsDeployStatus = useCallback(async () => {
+        try {
+            const response = await api.get('/biometric/adms/ping');
+            setAdmsDeployReady(Boolean(response.data?.ok));
+        } catch {
+            setAdmsDeployReady(false);
+        }
+    }, []);
 
     const fetchSyncStatus = useCallback(async () => {
         try {
@@ -72,9 +82,10 @@ export default function BiometricPage() {
         fetchRecords();
         fetchSyncStatus();
         fetchPushConfig();
+        fetchAdmsDeployStatus();
         const intervalId = window.setInterval(fetchSyncStatus, 30000);
         return () => window.clearInterval(intervalId);
-    }, [fetchSyncStatus, fetchPushConfig]);
+    }, [fetchSyncStatus, fetchPushConfig, fetchAdmsDeployStatus]);
 
     useBiometricHeartbeat({
         onChange: () => {
@@ -138,6 +149,27 @@ export default function BiometricPage() {
                 </div>
             </header>
 
+            {admsDeployReady === false && (
+                <div className="card border-red-200 bg-red-50 p-5">
+                    <div className="flex items-start gap-3">
+                        <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={20} />
+                        <div>
+                            <p className="text-[15px] font-semibold text-red-900">Backend not updated — WiFi sync cannot work yet</p>
+                            <p className="text-[13px] text-red-800 mt-1 leading-relaxed">
+                                The production server is still running old code. Push the latest backend changes to GitHub, then on the VPS run:
+                                <code className="block mt-2 text-[12px] font-mono bg-white border border-red-100 rounded px-2 py-1">
+                                    cd /path/to/Attendance && git pull && cd backend && docker compose up -d --build backend && npx prisma db push
+                                </code>
+                                After deploy, this page should show the WiFi endpoint as ready. Test in browser:
+                                <code className="block mt-2 text-[12px] font-mono bg-white border border-red-100 rounded px-2 py-1 break-all">
+                                    /api/biometric/adms/ping
+                                </code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {syncStatus.status !== 'online' && pushConfig && (
                 <div className="card border-indigo-200 bg-indigo-50/60 p-5">
                     <div className="flex items-start gap-3">
@@ -153,7 +185,7 @@ export default function BiometricPage() {
                                 {[
                                     { label: 'Server Address', value: pushConfig.serverHost },
                                     { label: 'Server Port', value: String(pushConfig.serverPort) },
-                                    { label: 'Server Path', value: '/iclock/cdata' },
+                                    { label: 'Server Path', value: '/api/biometric/adms/cdata' },
                                     { label: 'Mode', value: 'ADMS / Cloud Server' }
                                 ].map((item) => (
                                     <div key={item.label} className="rounded-lg border border-indigo-100 bg-white px-3 py-2">
@@ -269,9 +301,16 @@ export default function BiometricPage() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <span className="text-[14px] font-semibold text-[#101828]">
-                                                    {log.recordsCount.toLocaleString()} <span className="text-[#667085] font-normal">records</span>
-                                                </span>
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <span className="text-[14px] font-semibold text-[#101828]">
+                                                        {log.recordsCount.toLocaleString()} <span className="text-[#667085] font-normal">records</span>
+                                                    </span>
+                                                    {log.errorMessage && (
+                                                        <span className="text-[11px] text-[#667085] max-w-xs text-right leading-relaxed">
+                                                            {log.errorMessage}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

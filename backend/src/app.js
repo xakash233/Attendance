@@ -38,6 +38,8 @@ app.set('trust proxy', 1);
 
 // ADMS WiFi push must stay BEFORE JSON/urlencoded body parsers.
 app.use('/iclock', admsRoutes);
+app.use('/api/iclock', admsRoutes);
+app.use('/api/biometric/adms', admsRoutes);
 
 // Security and other middleware
 app.use(helmet({ contentSecurityPolicy: false }));

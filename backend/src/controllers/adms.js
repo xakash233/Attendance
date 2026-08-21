@@ -61,7 +61,12 @@ export const handleCdataGet = async (req, res) => {
         }
 
         if (options === 'all' && serialNumber) {
-            const attlogStamp = await admsService.getAttlogStamp(serialNumber);
+            let attlogStamp = 0;
+            try {
+                attlogStamp = await admsService.getAttlogStamp(serialNumber);
+            } catch (error) {
+                console.warn('[ADMS] Stamp lookup failed, using 0:', error.message);
+            }
             console.log(`[ADMS] Init config for SN:${serialNumber} stamp=${attlogStamp}`);
             return sendPlain(res, admsService.buildOptionsResponse(serialNumber, attlogStamp));
         }

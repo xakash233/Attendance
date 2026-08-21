@@ -165,21 +165,22 @@ class AdmsService {
             if (device?.attlogStamp) {
                 return device.attlogStamp;
             }
+
+            const latest = await prisma.biometricAttendance.findFirst({
+                where: {
+                    deviceIP: {
+                        contains: 'ADMS'
+                    }
+                },
+                orderBy: { timestamp: 'desc' },
+                select: { timestamp: true }
+            });
+
+            return stampFromIso(latest?.timestamp?.toISOString());
         } catch (error) {
             console.warn('[ADMS] Could not read device stamp:', error.message);
+            return 0;
         }
-
-        const latest = await prisma.biometricAttendance.findFirst({
-            where: {
-                deviceIP: {
-                    contains: 'ADMS'
-                }
-            },
-            orderBy: { timestamp: 'desc' },
-            select: { timestamp: true }
-        });
-
-        return stampFromIso(latest?.timestamp?.toISOString());
     }
 
     buildOptionsResponse(serialNumber, attlogStamp = 0) {
@@ -244,15 +245,16 @@ class AdmsService {
     getPushConfig() {
         const frontendUrl = process.env.FRONTEND_URL || 'https://hrms.tectratechnologies.com';
         const host = new URL(frontendUrl).host;
+        const pushPath = '/api/biometric/adms/cdata';
 
         return {
             syncMode: 'wifi_push',
             serverHost: host,
             serverPort: 443,
             serverProtocol: 'https',
-            pushPath: '/iclock/cdata',
-            pushUrl: `https://${host}/iclock/cdata`,
-            heartbeatPath: '/iclock/getrequest',
+            pushPath,
+            pushUrl: `https://${host}${pushPath}`,
+            heartbeatPath: '/api/biometric/adms/getrequest',
             realtime: true,
             instructions: [
                 'Connect the eSSL device to office WiFi.',
@@ -260,7 +262,7 @@ class AdmsService {
                 'Set Server Mode to ADMS or Cloud Server.',
                 `Set Server Address to ${host}`,
                 'Set Server Port to 443 and enable HTTPS if available.',
-                'Set Server Path to /iclock/cdata (or leave blank if only host is asked).',
+                `Set Server Path to ${pushPath}`,
                 'Save settings and reboot the device once.'
             ]
         };

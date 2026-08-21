@@ -9,9 +9,14 @@ const nextConfig = {
         ],
     },
     async rewrites() {
-        const target = process.env.SOCKET_PROXY_TARGET?.replace(/\/$/, '');
+        const target = process.env.API_PROXY_TARGET?.replace(/\/$/, '')
+            || process.env.SOCKET_PROXY_TARGET?.replace(/\/$/, '');
         if (!target) return [];
         return [
+            {
+                source: '/iclock/:path*',
+                destination: `${target}/iclock/:path*`,
+            },
             {
                 source: '/socket.io/:path*',
                 destination: `${target}/socket.io/:path*`,
