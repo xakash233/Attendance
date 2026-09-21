@@ -9,7 +9,8 @@ import {
     getSyncHeartbeat,
     getBridgeHealth,
     getBridgeStatus,
-    getPushConfig
+    getPushConfig,
+    resetAdmsStamp
 } from '../controllers/biometric.js';
 import { protect, authorize } from '../middleware/auth.js';
 import upload from '../middleware/upload.js';
@@ -54,5 +55,6 @@ router.get('/records', protect, getLatestRecords);
 router.get('/heartbeat', protect, getSyncHeartbeat);
 router.get('/status', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), getBridgeStatus);
 router.get('/push-config', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), getPushConfig);
+router.post('/adms/reset-stamp', protect, authorize('SUPER_ADMIN', 'ADMIN', 'HR'), resetAdmsStamp);
 
 export default router;

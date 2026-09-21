@@ -130,6 +130,25 @@ export const getPushConfig = async (req, res, next) => {
     }
 };
 
+/**
+ * Reset ADMS ATTLOGStamp so the device re-uploads punches (WiFi, no laptop).
+ * POST /api/biometric/adms/reset-stamp
+ */
+export const resetAdmsStamp = async (req, res, next) => {
+    try {
+        const serialNumber = String(req.body?.serialNumber || req.query?.SN || '').trim() || null;
+        const result = await biometricService.resetAdmsStamp(serialNumber);
+        res.status(200).json({
+            ok: true,
+            resetCount: result.count,
+            serialNumber: serialNumber || 'ALL',
+            message: 'ATTLOGStamp reset. Reboot the eSSL device so it re-uploads punches over WiFi.'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const agentSyncBiometric = async (req, res, next) => {
     try {
         const providedSecret = req.headers['x-sync-secret'];

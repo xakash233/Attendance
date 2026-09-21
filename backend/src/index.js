@@ -20,12 +20,12 @@ initSocket(server);
 // Start listening only when this file is run directly (local development)
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 
-if (isMain || process.env.NODE_ENV === 'development') {
-  server.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-
-    // Biometric auto-sync is disabled on production because the machine is on a private office LAN.
-    // Syncs are instead pushed by the local office Mac via the agent-sync bridge endpoint.
+if (isMain || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
+  // Bind all interfaces so the eSSL device can push over WiFi to this public IP:PORT
+  // without any office laptop / LAN bridge in the middle.
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on 0.0.0.0:${PORT}`);
+    console.log('[ADMS] WiFi push ready at /iclock/cdata (no laptop bridge required)');
 
     if (process.env.ENABLE_OUT_BREAK_MONITOR !== 'false') {
       startOutBreakMonitor(60);

@@ -162,8 +162,9 @@ class AdmsService {
                 ? await prisma.admsDevice.findUnique({ where: { serialNumber } })
                 : null;
 
-            if (device?.attlogStamp) {
-                return device.attlogStamp;
+            // 0 is a valid stamp (means "re-upload from beginning"). Do not treat it as missing.
+            if (device && device.attlogStamp != null) {
+                return Number(device.attlogStamp) || 0;
             }
 
             const latest = await prisma.biometricAttendance.findFirst({
@@ -184,24 +185,38 @@ class AdmsService {
     }
 
     buildOptionsResponse(serialNumber, attlogStamp = 0) {
+        // Include both Stamp and ATTLOGStamp — older eSSL firmware reads Stamp= only.
         return [
             `GET OPTION FROM: ${serialNumber}`,
+            `Stamp=${attlogStamp}`,
             `ATTLOGStamp=${attlogStamp}`,
             `OPERLOGStamp=0`,
             `BIODATAStamp=0`,
             `ATTPHOTOStamp=0`,
-            `ErrorDelay=60`,
-            `Delay=5`,
-            `TransTimes=00:00;14:00`,
+            `ErrorDelay=30`,
+            `Delay=1`,
+            `TransTimes=00:00;23:59`,
             `TransInterval=1`,
-            `TransFlag=TransData AttLog OpLog AttPhoto EnrollUser ChgUser EnrollFP ChgFP`,
+            `TransFlag=1111000000`,
             `TimeZone=5:30`,
             `Realtime=1`,
             `Encrypt=0`,
-            `ServerVer=3.0.1`,
+            `ServerVer=2.4.1`,
             `PushProtVer=2.4.1`,
             `SupportPing=1`
         ].join('\n');
+    }
+
+    async resetAttlogStamp(serialNumber = null) {
+        if (serialNumber) {
+            return prisma.admsDevice.updateMany({
+                where: { serialNumber },
+                data: { attlogStamp: 0, lastPushAt: null }
+            });
+        }
+        return prisma.admsDevice.updateMany({
+            data: { attlogStamp: 0, lastPushAt: null }
+        });
     }
 
     async getWifiStatus() {
@@ -243,27 +258,38 @@ class AdmsService {
     }
 
     getPushConfig() {
+        // Direct eSSL WiFi → VPS (no laptop). IP + 5001 works on devices that cannot type a domain.
         const frontendUrl = process.env.FRONTEND_URL || 'https://hrms.tectratechnologies.com';
-        const host = new URL(frontendUrl).host;
-        const pushPath = '/api/biometric/adms/cdata';
+        const host = process.env.ADMS_SERVER_HOST?.trim() || '157.173.218.57';
+        const port = Number(process.env.ADMS_SERVER_PORT || 80);
+        const useHttps = process.env.ADMS_USE_HTTPS === 'true';
+        const pushPath = process.env.ADMS_PUSH_PATH?.trim() || '/iclock/cdata';
+        const protocol = useHttps ? 'https' : 'http';
+        const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
 
         return {
             syncMode: 'wifi_push',
+            connectionMode: isIp ? 'ip_direct' : (useHttps ? 'domain_https' : 'domain_http'),
             serverHost: host,
-            serverPort: 443,
-            serverProtocol: 'https',
+            serverPort: port,
+            serverProtocol: protocol,
+            enableDomainName: !isIp,
+            enableProxy: false,
             pushPath,
-            pushUrl: `https://${host}${pushPath}`,
-            heartbeatPath: '/api/biometric/adms/getrequest',
+            pushUrl: `${protocol}://${host}${port === 80 || port === 443 ? '' : `:${port}`}${pushPath}`,
+            heartbeatPath: '/iclock/getrequest',
             realtime: true,
             instructions: [
-                'Connect the eSSL device to office WiFi.',
-                'Open device menu → Communication → Cloud Server / ADMS.',
-                'Set Server Mode to ADMS or Cloud Server.',
-                `Set Server Address to ${host}`,
-                'Set Server Port to 443 and enable HTTPS if available.',
-                `Set Server Path to ${pushPath}`,
-                'Save settings and reboot the device once.'
+                'Stop any laptop/office bridge (pm2 stop biometric-bridge). Device must talk to the cloud alone.',
+                'Connect the eSSL device to office WiFi with internet access.',
+                'Open Communication → Cloud Server Setting.',
+                'Set Server Mode = ADMS.',
+                `Set Enable Domain Name = ${isIp ? 'OFF' : 'ON'}.`,
+                `Set Server Address = ${host}`,
+                `Set Server Port = ${port}`,
+                'Set Enable Proxy Server = OFF (never leave Proxy IP as 0.0.0.0).',
+                'Leave path blank / default (/iclock/cdata).',
+                'Save, reboot the device, punch once — no laptop required.'
             ]
         };
     }

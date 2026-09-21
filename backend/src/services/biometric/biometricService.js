@@ -699,6 +699,10 @@ class BiometricService {
         return admsService.getPushConfig();
     }
 
+    async resetAdmsStamp(serialNumber = null) {
+        return admsService.resetAttlogStamp(serialNumber);
+    }
+
     async getLatestRecords(limit = 10) {
         return prisma.biometricAttendance.findMany({
             orderBy: { timestamp: 'desc' },

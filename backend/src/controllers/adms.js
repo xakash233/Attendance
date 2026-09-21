@@ -31,8 +31,20 @@ async function processPunchRecords(records, req, serialNumber, tableName) {
         filename: `ADMS_PUSH_${serialNumber || 'UNKNOWN'}_${tableName}_${new Date().toISOString()}`
     });
 
-    if (serialNumber) {
+    // Only advance ATTLOGStamp when punches were saved or already existed.
+    // If all codes are unknown, keep stamp so the device retries after HRMS mapping is fixed.
+    const shouldAdvanceStamp = Boolean(serialNumber)
+        && result.status !== 'SKIPPED'
+        && ((result.successCount || 0) > 0 || (result.duplicateCount || 0) > 0);
+
+    if (shouldAdvanceStamp) {
         await admsService.markPush(serialNumber, latestTimestamp);
+    } else if (serialNumber) {
+        console.warn(
+            `[ADMS] SN:${serialNumber} received ${records.length} punch(es) but stamp not advanced`
+            + ` (inserted=${result.successCount || 0}, duplicates=${result.duplicateCount || 0}, unknown=${result.unknownCodeCount || 0})`
+        );
+        await admsService.touchDevice(serialNumber, clientIp(req));
     }
 
     const io = getIo();
@@ -85,26 +97,38 @@ export const handleCdataGet = async (req, res) => {
  */
 export const handleCdataPost = async (req, res) => {
     const serialNumber = String(req.query.SN || '').trim();
-    const table = String(req.query.table || req.query.Table || '').trim().toUpperCase();
+    let table = String(req.query.table || req.query.Table || '').trim().toUpperCase();
     const ip = clientIp(req);
+    const body = req.body;
 
     // Devices expect an immediate OK before the server processes the payload.
     sendPlain(res, 'OK');
-
-    if (!table) return;
 
     try {
         if (serialNumber) {
             await admsService.touchDevice(serialNumber, ip);
         }
 
-        const body = req.body;
+        // Some eSSL firmware posts ATTLOG without ?table=ATTLOG — detect from body shape.
+        if (!table) {
+            const guessed = parseAttlogRecords(body);
+            if (guessed.length > 0) {
+                table = 'ATTLOG';
+                console.log(`[ADMS] SN:${serialNumber} inferred ATTLOG from body (${guessed.length} row(s))`);
+                await processPunchRecords(guessed, req, serialNumber, table);
+                return;
+            }
+            console.log(`[ADMS] SN:${serialNumber} POST with empty table (body ${String(body || '').length} bytes)`);
+            return;
+        }
 
         if (table === 'ATTLOG') {
             const records = parseAttlogRecords(body);
             if (records.length > 0) {
                 console.log(`[ADMS] SN:${serialNumber} uploaded ${records.length} ATTLOG record(s)`);
                 await processPunchRecords(records, req, serialNumber, table);
+            } else {
+                console.log(`[ADMS] SN:${serialNumber} ATTLOG body parsed to 0 records`);
             }
             return;
         }
@@ -137,6 +161,8 @@ export const handleGetRequest = async (req, res) => {
         if (serialNumber) {
             await admsService.touchDevice(serialNumber, clientIp(req));
         }
+        // Returning OK with no command is correct; some firmware also accepts an empty INFO.
+        console.log(`[ADMS] getrequest from SN:${serialNumber || 'unknown'}`);
     } catch (error) {
         console.error('[ADMS] getrequest touch failed:', error.message);
     }

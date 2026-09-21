@@ -63,6 +63,23 @@ export default function BiometricPage() {
         }
     }, []);
 
+    const [resettingStamp, setResettingStamp] = useState(false);
+
+    const forceWifiResync = async () => {
+        try {
+            setResettingStamp(true);
+            await api.post('/biometric/adms/reset-stamp', {
+                serialNumber: syncStatus.deviceSerial || undefined
+            });
+            toast.success('WiFi stamp reset. Reboot the eSSL device, then punch once.');
+            fetchSyncStatus();
+        } catch (err: any) {
+            toast.error(err?.response?.data?.message || 'Could not reset WiFi stamp');
+        } finally {
+            setResettingStamp(false);
+        }
+    };
+
     const fetchLogs = async () => {
         try {
             const response = await api.get('/biometric/logs');
@@ -183,10 +200,12 @@ export default function BiometricPage() {
                             </p>
                             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {[
+                                    { label: 'Server Mode', value: 'ADMS' },
+                                    { label: 'Enable Domain Name', value: pushConfig.enableDomainName === false ? 'OFF' : 'ON' },
+                                    { label: 'Enable Proxy', value: 'OFF' },
                                     { label: 'Server Address', value: pushConfig.serverHost },
-                                    { label: 'Server Port', value: String(pushConfig.serverPort) },
-                                    { label: 'Server Path', value: '/api/biometric/adms/cdata' },
-                                    { label: 'Mode', value: 'ADMS / Cloud Server' }
+                                    { label: 'Server Port', value: String(pushConfig.serverPort || 80) },
+                                    { label: 'Server Path', value: pushConfig.pushPath || '/iclock/cdata' }
                                 ].map((item) => (
                                     <div key={item.label} className="rounded-lg border border-indigo-100 bg-white px-3 py-2">
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-[#667085]">{item.label}</p>
@@ -254,6 +273,15 @@ export default function BiometricPage() {
                         >
                             <RefreshCcw size={14} />
                             Refresh
+                        </button>
+                        <button
+                            onClick={forceWifiResync}
+                            disabled={resettingStamp}
+                            className="inline-flex items-center gap-2 text-[12px] font-semibold text-indigo-700 hover:text-indigo-900 disabled:opacity-50"
+                            title="Ask the eSSL device to re-upload punches over WiFi (no laptop)"
+                        >
+                            {resettingStamp ? <Loader2 size={14} className="animate-spin" /> : <Wifi size={14} />}
+                            Force WiFi re-sync
                         </button>
                     </div>
 
