@@ -27,7 +27,7 @@
     "db:migrate-vps": "prisma db push --accept-data-loss && npm run seed",
     "lint": "eslint .",
     "vercel-build": "prisma generate && prisma db push --skip-generate",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test \"test/*.test.js\""
   },
   "prisma": {
     "seed": "node prisma/seed.js"

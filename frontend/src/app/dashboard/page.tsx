@@ -79,6 +79,12 @@ export default function DashboardPage() {
         return { total, present, absent };
     }, [liveData]);
 
+    // Admin/HR get every employee in liveData, so pick the viewer's own row, never liveData[0].
+    const myTodayStatus = useMemo(() => {
+        const myLive = liveData.find((u: any) => u.id === user?.id);
+        return myLive?.currentStatus || report?.today?.currentStatus || 'ABSENT';
+    }, [liveData, user?.id, report?.today?.currentStatus]);
+
     // Update time every second
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -387,20 +393,20 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="flex items-end justify-between">
                                         <div className="flex flex-col">
-                                            <h4 className={`text-base font-semibold ${liveData[0]?.currentStatus === 'ABSENT' ? 'text-rose-500' : (liveData[0]?.currentStatus === 'IN' ? 'text-emerald-500' : 'text-indigo-600')}`}>
-                                                {liveData[0]?.currentStatus || report?.today?.currentStatus || 'ABSENT'}
+                                            <h4 className={`text-base font-semibold ${myTodayStatus === 'ABSENT' ? 'text-rose-500' : (myTodayStatus === 'IN' ? 'text-emerald-500' : 'text-indigo-600')}`}>
+                                                {myTodayStatus}
                                                 {report?.today?.workHours > 0 && (
                                                     <span className="text-[14px] text-slate-400 font-bold ml-2 tracking-normal uppercase">
                                                         • {formatDuration(report.today.workHours)}
                                                     </span>
                                                 )}
                                             </h4>
-                                            {liveData[0]?.currentStatus === 'IN' && (
+                                            {myTodayStatus === 'IN' && (
                                                 <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Active Workflow Tracked</p>
                                             )}
                                         </div>
                                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center">
-                                            {liveData[0]?.currentStatus === 'IN' ? <UserCheck className="text-emerald-400" size={20} /> : <UserMinus className="text-rose-400" size={20} />}
+                                            {myTodayStatus === 'IN' ? <UserCheck className="text-emerald-400" size={20} /> : <UserMinus className="text-rose-400" size={20} />}
                                         </div>
                                     </div>
                                 </motion.div>

@@ -1,5 +1,9 @@
 import biometricService from '../services/biometric/biometricService.js';
-import admsService, { parseAttlogRecords, parseUserInfoRecords } from '../services/biometric/admsService.js';
+import admsService, {
+    parseAttlogRecords,
+    parseDeviceStamp,
+    parseUserInfoRecords
+} from '../services/biometric/admsService.js';
 import { getIo } from '../config/socket.js';
 
 const clientIp = (req) => req.headers['x-forwarded-for']?.split(',')[0]?.trim()
@@ -17,12 +21,9 @@ const sendPlain = (res, body, status = 200) => {
 async function processPunchRecords(records, req, serialNumber, tableName) {
     if (!records.length) return;
 
-    const latestTimestamp = records.reduce((max, record) => {
-        if (!max || new Date(record.timestamp) > new Date(max)) {
-            return record.timestamp;
-        }
-        return max;
-    }, null);
+    // The device sends its own upload position as ?Stamp=; that is what it expects
+    // back as ATTLOGStamp on the next init, not a punch time we compute.
+    const deviceStamp = parseDeviceStamp(req.query.Stamp ?? req.query.stamp);
 
     const result = await biometricService.processSync({
         rawRecords: records,
@@ -38,7 +39,7 @@ async function processPunchRecords(records, req, serialNumber, tableName) {
         && ((result.successCount || 0) > 0 || (result.duplicateCount || 0) > 0);
 
     if (shouldAdvanceStamp) {
-        await admsService.markPush(serialNumber, latestTimestamp);
+        await admsService.markPush(serialNumber, deviceStamp);
     } else if (serialNumber) {
         console.warn(
             `[ADMS] SN:${serialNumber} received ${records.length} punch(es) but stamp not advanced`
@@ -79,6 +80,9 @@ export const handleCdataGet = async (req, res) => {
             } catch (error) {
                 console.warn('[ADMS] Stamp lookup failed, using 0:', error.message);
             }
+            // Force clock correction every init — options TimeZone alone is often ignored
+            // until the device receives SET OPTIONS via getrequest.
+            admsService.enqueueClockSync(serialNumber, { force: true });
             console.log(`[ADMS] Init config for SN:${serialNumber} stamp=${attlogStamp}`);
             return sendPlain(res, admsService.buildOptionsResponse(serialNumber, attlogStamp));
         }
@@ -96,60 +100,65 @@ export const handleCdataGet = async (req, res) => {
  * POST /iclock/cdata?SN=...&table=ATTLOG
  */
 export const handleCdataPost = async (req, res) => {
+    // Save first, then answer. "OK" tells the device the rows are stored and it will
+    // never resend them; on failure a non-OK reply makes it retry after ErrorDelay.
+    try {
+        await ingestCdataPost(req);
+        return sendPlain(res, 'OK');
+    } catch (error) {
+        console.error('[ADMS] POST error (device will retry):', error.message);
+        return sendPlain(res, 'ERROR', 500);
+    }
+};
+
+async function ingestCdataPost(req) {
     const serialNumber = String(req.query.SN || '').trim();
     let table = String(req.query.table || req.query.Table || '').trim().toUpperCase();
     const ip = clientIp(req);
     const body = req.body;
 
-    // Devices expect an immediate OK before the server processes the payload.
-    sendPlain(res, 'OK');
-
-    try {
-        if (serialNumber) {
-            await admsService.touchDevice(serialNumber, ip);
-        }
-
-        // Some eSSL firmware posts ATTLOG without ?table=ATTLOG — detect from body shape.
-        if (!table) {
-            const guessed = parseAttlogRecords(body);
-            if (guessed.length > 0) {
-                table = 'ATTLOG';
-                console.log(`[ADMS] SN:${serialNumber} inferred ATTLOG from body (${guessed.length} row(s))`);
-                await processPunchRecords(guessed, req, serialNumber, table);
-                return;
-            }
-            console.log(`[ADMS] SN:${serialNumber} POST with empty table (body ${String(body || '').length} bytes)`);
-            return;
-        }
-
-        if (table === 'ATTLOG') {
-            const records = parseAttlogRecords(body);
-            if (records.length > 0) {
-                console.log(`[ADMS] SN:${serialNumber} uploaded ${records.length} ATTLOG record(s)`);
-                await processPunchRecords(records, req, serialNumber, table);
-            } else {
-                console.log(`[ADMS] SN:${serialNumber} ATTLOG body parsed to 0 records`);
-            }
-            return;
-        }
-
-        if (table === 'USER' || table === 'USERINFO') {
-            const users = parseUserInfoRecords(body);
-            if (users.length > 0) {
-                const created = await biometricService.ensureUsersExistFromRecords(users);
-                console.log(`[ADMS] SN:${serialNumber} synced ${users.length} user row(s), created ${created}`);
-            }
-            return;
-        }
-
-        if (table === 'OPTIONS' || table === 'OPERLOG') {
-            const payload = typeof body === 'string' ? body : JSON.stringify(body || {});
-            console.log(`[ADMS] SN:${serialNumber} posted ${table} payload (${payload.length} bytes)`);
-        }
-    } catch (error) {
-        console.error('[ADMS] POST error:', error.message);
+    if (serialNumber) {
+        await admsService.touchDevice(serialNumber, ip);
     }
-};
+
+    // Some eSSL firmware posts ATTLOG without ?table=ATTLOG — detect from body shape.
+    if (!table) {
+        const guessed = parseAttlogRecords(body);
+        if (guessed.length > 0) {
+            table = 'ATTLOG';
+            console.log(`[ADMS] SN:${serialNumber} inferred ATTLOG from body (${guessed.length} row(s))`);
+            await processPunchRecords(guessed, req, serialNumber, table);
+            return;
+        }
+        console.log(`[ADMS] SN:${serialNumber} POST with empty table (body ${String(body || '').length} bytes)`);
+        return;
+    }
+
+    if (table === 'ATTLOG') {
+        const records = parseAttlogRecords(body);
+        if (records.length > 0) {
+            console.log(`[ADMS] SN:${serialNumber} uploaded ${records.length} ATTLOG record(s)`);
+            await processPunchRecords(records, req, serialNumber, table);
+        } else {
+            console.log(`[ADMS] SN:${serialNumber} ATTLOG body parsed to 0 records`);
+        }
+        return;
+    }
+
+    if (table === 'USER' || table === 'USERINFO') {
+        const users = parseUserInfoRecords(body);
+        if (users.length > 0) {
+            const created = await biometricService.ensureUsersExistFromRecords(users);
+            console.log(`[ADMS] SN:${serialNumber} synced ${users.length} user row(s), created ${created}`);
+        }
+        return;
+    }
+
+    if (table === 'OPTIONS' || table === 'OPERLOG') {
+        const payload = typeof body === 'string' ? body : JSON.stringify(body || {});
+        console.log(`[ADMS] SN:${serialNumber} posted ${table} payload (${payload.length} bytes)`);
+    }
+}
 
 /**
  * Device polls for server-side commands.
@@ -160,6 +169,12 @@ export const handleGetRequest = async (req, res) => {
     try {
         if (serialNumber) {
             await admsService.touchDevice(serialNumber, clientIp(req));
+            admsService.ensureClockSync(serialNumber);
+        }
+        const commands = admsService.dequeueCommands(serialNumber);
+        if (commands) {
+            console.log(`[ADMS] getrequest SN:${serialNumber || 'unknown'} → sending commands`);
+            return sendPlain(res, commands);
         }
         // Returning OK with no command is correct; some firmware also accepts an empty INFO.
         console.log(`[ADMS] getrequest from SN:${serialNumber || 'unknown'}`);

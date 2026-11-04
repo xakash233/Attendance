@@ -1,24 +1,10 @@
 import calculateAttendance from './attendanceCalculator.js';
 import { applyUserHourAdjustment } from './userHourAdjustments.js';
 import { isHybridWorkEmployee } from './hybridWorkSchedule.js';
+import { collapsePunchBursts } from './punchDedup.js';
 
 export function dedupeBiometricPunches(biometricPunches) {
-    const allPunches = [...biometricPunches].sort((a, b) => a.getTime() - b.getTime());
-    const rawPunches = [];
-
-    for (const punch of allPunches) {
-        if (rawPunches.length === 0) {
-            rawPunches.push(punch);
-            continue;
-        }
-
-        const last = rawPunches[rawPunches.length - 1];
-        if (punch.getTime() - last.getTime() > 10000) {
-            rawPunches.push(punch);
-        }
-    }
-
-    return rawPunches;
+    return collapsePunchBursts(biometricPunches);
 }
 
 export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr }) {
@@ -49,7 +35,7 @@ export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr }) {
     }
 
     const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
-    const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours);
+    const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours, dateStr);
 
     if (!isWfh && isHybridWorkEmployee(user.employeeCode) && rawPunches.length === 0) {
         isWfh = true;

@@ -1,6 +1,35 @@
 import prisma from '../../config/prisma.js';
 
-const DEVICE_TZ = '+05:30';
+/**
+ * Device wall-clock times are IST (GMT+5:30). Parse ATTLOG digits as +05:30
+ * so HRMS stores the correct absolute UTC.
+ * If the device clock reverts to GMT+5 only, set ADMS_DEVICE_TZ=+05:00.
+ */
+const DEVICE_TZ = process.env.ADMS_DEVICE_TZ?.trim() || '+05:30';
+/** ZK/eSSL Push Protocol: TimeZone is offset from GMT in minutes (India = 330). */
+const DEVICE_TZ_MINUTES = Number(process.env.ADMS_DEVICE_TZ_MINUTES || 330);
+
+/** In-memory per-SN command queue delivered on the next getrequest poll. */
+const pendingCommands = new Map();
+/** SNs that already received a boot-time clock sync in this process. */
+const clockSyncedThisBoot = new Set();
+let commandSeq = 1;
+
+function formatIstDateTime(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    }).formatToParts(date);
+
+    const get = (type) => parts.find((part) => part.type === type)?.value || '00';
+    return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+}
 
 function normalizeBody(raw) {
     if (raw == null) return '';
@@ -17,14 +46,18 @@ function toIsoTimestamp(raw) {
     const value = String(raw || '').trim();
     if (!value) return null;
 
-    const normalized = value.includes('T')
-        ? value
-        : value.replace(' ', 'T');
+    // Drop any embedded offset/Z — device often tags +05:00 while digits are wall clock.
+    // We always re-apply DEVICE_TZ so HRMS lands on correct IST.
+    const withoutTz = value.replace(/[zZ]|[+-]\d{2}:?\d{2}$/, '').trim();
+    const normalized = withoutTz.includes('T')
+        ? withoutTz
+        : withoutTz.replace(' ', 'T');
 
-    const parsed = /[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)
-        ? new Date(normalized)
-        : new Date(`${normalized}${DEVICE_TZ}`);
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(normalized)) {
+        return null;
+    }
 
+    const parsed = new Date(`${normalized}${DEVICE_TZ}`);
     return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
@@ -104,6 +137,20 @@ export function parseUserInfoRecords(body) {
     return records;
 }
 
+/** attlogStamp is a 32-bit Int column. */
+const MAX_STAMP = 2147483647;
+
+/**
+ * Parse the device's own upload position from POST /iclock/cdata?Stamp=...
+ * Returns null when absent or not a valid non-negative integer.
+ */
+export function parseDeviceStamp(raw) {
+    const value = String(raw ?? '').trim();
+    if (!/^\d+$/.test(value)) return null;
+    const stamp = Number(value);
+    return Number.isSafeInteger(stamp) && stamp <= MAX_STAMP ? stamp : null;
+}
+
 function stampFromIso(isoTimestamp) {
     if (!isoTimestamp) return 0;
     return Math.floor(new Date(isoTimestamp).getTime() / 1000);
@@ -132,23 +179,27 @@ class AdmsService {
         }
     }
 
-    async markPush(serialNumber, latestTimestampIso = null) {
+    /**
+     * Record a stored push. `deviceStamp` is the device's own ?Stamp= value (see
+     * parseDeviceStamp); null leaves the saved stamp unchanged.
+     */
+    async markPush(serialNumber, deviceStamp = null) {
         if (!serialNumber) return;
 
-        const attlogStamp = stampFromIso(latestTimestampIso);
+        const hasStamp = deviceStamp !== null;
         try {
             await prisma.admsDevice.upsert({
                 where: { serialNumber },
                 update: {
                     lastPushAt: new Date(),
                     lastSeenAt: new Date(),
-                    ...(attlogStamp ? { attlogStamp } : {})
+                    ...(hasStamp ? { attlogStamp: deviceStamp } : {})
                 },
                 create: {
                     serialNumber,
                     lastPushAt: new Date(),
                     lastSeenAt: new Date(),
-                    attlogStamp
+                    attlogStamp: hasStamp ? deviceStamp : 0
                 }
             });
         } catch (error) {
@@ -186,6 +237,8 @@ class AdmsService {
 
     buildOptionsResponse(serialNumber, attlogStamp = 0) {
         // Include both Stamp and ATTLOGStamp — older eSSL firmware reads Stamp= only.
+        // TimeZone MUST be minutes (330), not "5:30" — the latter is read as GMT+5 and
+        // leaves punches 30 minutes behind IST.
         return [
             `GET OPTION FROM: ${serialNumber}`,
             `Stamp=${attlogStamp}`,
@@ -198,13 +251,51 @@ class AdmsService {
             `TransTimes=00:00;23:59`,
             `TransInterval=1`,
             `TransFlag=1111000000`,
-            `TimeZone=5:30`,
+            `TimeZone=${DEVICE_TZ_MINUTES}`,
             `Realtime=1`,
             `Encrypt=0`,
             `ServerVer=2.4.1`,
             `PushProtVer=2.4.1`,
             `SupportPing=1`
         ].join('\n');
+    }
+
+    /**
+     * Queue a one-shot IST clock + timezone correction for the device.
+     * Delivered on the next GET /iclock/getrequest poll.
+     */
+    enqueueClockSync(serialNumber, { force = false } = {}) {
+        if (!serialNumber) return;
+        if (!force && clockSyncedThisBoot.has(serialNumber)) return;
+        clockSyncedThisBoot.add(serialNumber);
+        const idBase = commandSeq;
+        commandSeq += 2;
+        const dateTime = formatIstDateTime();
+        const commands = [
+            `C:${idBase}:SET OPTIONS TimeZone=${DEVICE_TZ_MINUTES}`,
+            `C:${idBase + 1}:SET OPTIONS DateTime=${dateTime}`
+        ];
+        const existing = pendingCommands.get(serialNumber) || [];
+        pendingCommands.set(serialNumber, [...existing, ...commands]);
+        console.log(`[ADMS] Queued clock sync for SN:${serialNumber} DateTime=${dateTime} TZ=${DEVICE_TZ_MINUTES}`);
+    }
+
+    /**
+     * Ensure the device gets a timezone/clock correction at least once per process boot.
+     */
+    ensureClockSync(serialNumber) {
+        this.enqueueClockSync(serialNumber, { force: false });
+    }
+
+    /**
+     * Pop and return pending device commands (newline-joined), or null if none.
+     */
+    dequeueCommands(serialNumber) {
+        if (!serialNumber) return null;
+        const commands = pendingCommands.get(serialNumber);
+        if (!commands?.length) return null;
+        pendingCommands.delete(serialNumber);
+        return commands.join('\n');
     }
 
     async resetAttlogStamp(serialNumber = null) {

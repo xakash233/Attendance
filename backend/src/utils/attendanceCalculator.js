@@ -1,6 +1,7 @@
 /**
  * ESSL Biometric Attendance Calculator (ROBUST VERSION)
  */
+import { collapsePunchBursts } from './punchDedup.js';
 
 export const STANDARD_WORK_DAY_MINUTES = 480;
 export const MIN_FULL_DAY_HOURS = 7.5;
@@ -179,20 +180,10 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         .filter((l) => l.mins !== null && Number.isFinite(l.mins))
         .sort((a, b) => (a.raw || a.mins) - (b.raw || b.mins));
 
-    const cleanLogs = [];
-    for (const log of sortedLogs) {
-        if (cleanLogs.length === 0) {
-            cleanLogs.push(log);
-            continue;
-        }
-
-        const last = cleanLogs[cleanLogs.length - 1];
-        const diffMs = (log.raw && last.raw) ? (log.raw - last.raw) : (log.mins - last.mins) * 60000;
-
-        if (diffMs > 10000) {
-            cleanLogs.push(log);
-        }
-    }
+    const cleanLogs = collapsePunchBursts(
+        sortedLogs,
+        (log) => (Number.isFinite(log.raw) ? log.raw : log.mins * 60000)
+    );
 
     if (cleanLogs.length === 0) {
         return {

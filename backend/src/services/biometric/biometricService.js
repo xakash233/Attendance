@@ -3,10 +3,11 @@ import prisma from '../../config/prisma.js';
 import auditService from '../audit/auditService.js';
 import ZKLib from 'node-zklib';
 import { getIo } from '../../config/socket.js';
-import calculateAttendance, { resolveDayStatusFromHours } from '../../utils/attendanceCalculator.js';
+import calculateAttendance, { resolveDayStatusFromHours, roundWorkedHours } from '../../utils/attendanceCalculator.js';
 import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
 import { getCompanyDayCategory } from '../../utils/payrollCalendar.js';
 import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
+import { collapsePunchBursts } from '../../utils/punchDedup.js';
 import admsService from './admsService.js';
 import bcrypt from 'bcryptjs';
 
@@ -203,6 +204,9 @@ class BiometricService {
             return !existingLogSet.has(`${user.id}_${new Date(r.timestamp).toISOString()}`);
         });
 
+        // Every raw punch is stored, including retries and double reads. Repeat-punch
+        // bursts (which would flip IN→OUT) are collapsed at calculation time by
+        // collapsePunchBursts, so nothing is thrown away here.
         const insertedCount = trulyNewRecords.length;
         console.log(`[BiometricService] Inserting ${insertedCount} new punch record(s).`);
 
@@ -541,8 +545,9 @@ class BiometricService {
         let shift = user.shift || 'B';
 
         if (punches.length > 0) {
-            // Process with ROBUST LOGIC
-            const formattedLogs = punches.map((p) => ({
+            // Raw rows may hold retry bursts or exact duplicates; one burst = one punch.
+            const dayPunches = collapsePunchBursts(punches, (p) => p.timestamp);
+            const formattedLogs = dayPunches.map((p) => ({
                 timestamp: p.timestamp,
                 employeeCode: user.employeeCode
             }));
@@ -550,18 +555,21 @@ class BiometricService {
             const currentTime = dateStr === todayStr ? new Date() : null;
             const result = calculateAttendance(formattedLogs, currentTime, dateStr);
 
-            const firstPunchTime = punches[0].timestamp;
-            const lastPunchTime = punches[punches.length - 1].timestamp;
+            const firstPunchTime = dayPunches[0].timestamp;
+            const lastPunchTime = dayPunches[dayPunches.length - 1].timestamp;
 
-            workHrs = applyUserHourAdjustment(userId, parseFloat(result.totalWorkHours));
+            workHrs = applyUserHourAdjustment(userId, parseFloat(result.totalWorkHours), dateStr);
             const isCurrentDay = dateStr === todayStr;
+            const sessionOngoing = Boolean(result.isOngoing && isCurrentDay);
             finalStatus = resolveDayStatusFromHours(workHrs, {
-                isOngoing: result.isOngoing && isCurrentDay,
+                isOngoing: sessionOngoing,
                 preserveStatus: result.status
             }).replace(/ /g, '_');
-            deficit = parseFloat(result.deficit);
+            // Recalculate deficit from adjusted hours (8h target) so manual credits reduce deficit.
+            deficit = Math.max(0, roundWorkedHours(8 - workHrs));
             firstPunch = firstPunchTime;
-            lastPunch = lastPunchTime;
+            // While still checked IN today, do not stamp checkOut — last punch is the IN, not an exit.
+            lastPunch = sessionOngoing ? null : lastPunchTime;
             shift = result.shift;
         }
 

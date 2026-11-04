@@ -5,6 +5,7 @@ import calculateAttendance, {
     resolveDayStatusFromHours
 } from '../utils/attendanceCalculator.js';
 import { applyUserHourAdjustment } from '../utils/userHourAdjustments.js';
+import { collapsePunchBursts } from '../utils/punchDedup.js';
 import {
     countAccountantCountableDaysInRange,
     countCompanyWorkingDaysInRange,
@@ -30,16 +31,7 @@ const buildDayPunchDetails = (timestamps, att) => {
     const punches = [];
 
     if (Array.isArray(timestamps) && timestamps.length > 0) {
-        const deduped = [];
-        for (const ts of timestamps) {
-            const punchDate = new Date(ts);
-            if (
-                deduped.length === 0
-                || punchDate.getTime() - deduped[deduped.length - 1].getTime() > 10000
-            ) {
-                deduped.push(punchDate);
-            }
-        }
+        const deduped = collapsePunchBursts(timestamps.map((ts) => new Date(ts)));
 
         deduped.forEach((punchDate, index) => {
             punches.push({
@@ -734,22 +726,9 @@ export const getLiveAttendance = async (req, res, next) => {
                 isWfh = true;
             }
 
-            // ONLY Biometric punches are recorded as per requirement
-            const allPunches = [...biometricPunches].sort((a, b) => a.getTime() - b.getTime());
-
-            // Deduplicate extremely close punches (within 30s) to handle hardware double-triggers
-            const rawPunches = [];
-            for (let punch of allPunches) {
-                if (rawPunches.length === 0) {
-                    rawPunches.push(punch);
-                } else {
-                    const last = rawPunches[rawPunches.length - 1];
-                    // 30 seconds is enough to catch biometric double-presents without skipping valid separate sessions
-                    if (punch.getTime() - last.getTime() > 10000) {
-                        rawPunches.push(punch);
-                    }
-                }
-            }
+            // ONLY Biometric punches are recorded as per requirement.
+            // Collapse retry bursts so IN/OUT parity stays correct.
+            const rawPunches = collapsePunchBursts(biometricPunches);
             let currentStatus = 'OUT';
             let firstPunch = null;
             let lastPunch = null;
@@ -772,7 +751,7 @@ export const getLiveAttendance = async (req, res, next) => {
             }
 
             const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
-            const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours);
+            const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours, dateStr);
 
             return {
                 id: user.id,
@@ -824,15 +803,8 @@ export const getDashboardReport = async (req, res, next) => {
             vMode: b.verificationMode,
             logId: b.deviceLogId
         }));
-        allPunches.sort((a, b) => a.time - b.time);
-
-        // Deduplicate punches within 30s
-        const rawPunches = [];
-        for (let p of allPunches) {
-            if (rawPunches.length === 0 || (p.time - rawPunches[rawPunches.length - 1].time > 10000)) {
-                rawPunches.push(p);
-            }
-        }
+        // Collapse retry bursts so IN/OUT parity stays correct
+        const rawPunches = collapsePunchBursts(allPunches, (p) => p.time);
 
         // Calculate Stats
         // Robust Calculation Sync (100% precision with administrative view)
@@ -840,7 +812,7 @@ export const getDashboardReport = async (req, res, next) => {
         const currentTimeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
         const calcPunchesForSync = rawPunches.map(p => ({ timestamp: p.time }));
         const calcResult = calculateAttendance(calcPunchesForSync, currentTimeStr, dateStr);
-        const adjustedWorkHours = applyUserHourAdjustment(userId, calcResult.totalWorkHours);
+        const adjustedWorkHours = applyUserHourAdjustment(userId, calcResult.totalWorkHours, dateStr);
 
         let workMs = Math.round(adjustedWorkHours * 60) * 60000;
         let breakMs = 0;
@@ -940,9 +912,11 @@ export const getDashboardReport = async (req, res, next) => {
                 })
             ]);
 
-            // ONLY Biometric data for history
-            const dayPunches = dayBiometric.map(b => ({ time: b.timestamp, type: 'BIOMETRIC' }));
-            dayPunches.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+            // ONLY Biometric data for history (retry bursts collapsed, sorted)
+            const dayPunches = collapsePunchBursts(
+                dayBiometric.map(b => ({ time: b.timestamp, type: 'BIOMETRIC' })),
+                (p) => p.time
+            );
 
             let status = 'ABSENT';
             let holidayDay = holidays.find(h => h.date.toISOString().split('T')[0] === d.toISOString().split('T')[0]);
@@ -984,11 +958,12 @@ export const getDashboardReport = async (req, res, next) => {
                     isTodaySession ? now : null,
                     dStr
                 );
-                worked = applyUserHourAdjustment(userId, dayCalc.totalWorkHours);
+                worked = applyUserHourAdjustment(userId, dayCalc.totalWorkHours, dStr);
             } else if (att?.checkIn && att?.checkOut && att.checkOut > att.checkIn) {
                 worked = applyUserHourAdjustment(
                     userId,
-                    calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dStr)
+                    calculateWorkedHoursFromBounds(att.checkIn, att.checkOut, dStr),
+                    dStr
                 );
             }
 
@@ -1249,6 +1224,9 @@ export const getComplianceReport = async (req, res, next) => {
             }
             biometricByUserDate.get(key).push(punch.timestamp);
         }
+        for (const [key, timestamps] of biometricByUserDate) {
+            biometricByUserDate.set(key, collapsePunchBursts(timestamps));
+        }
 
         const formattedOutput = [];
 
@@ -1436,7 +1414,8 @@ export const getComplianceReport = async (req, res, next) => {
 
                     const punchHours = applyUserHourAdjustment(
                         user.id,
-                        parseFloat(dayCalcResult.totalWorkHours)
+                        parseFloat(dayCalcResult.totalWorkHours),
+                        dateStr
                     );
                     const storedHours = att ? (att.workingHours || 0) : 0;
                     actualWorkedToday = Math.max(punchHours, storedHours);
