@@ -25,6 +25,8 @@ type PushConfig = {
     serverHost: string;
     serverPort: number;
     pushUrl: string;
+    pushPath?: string;
+    enableDomainName?: boolean;
     instructions: string[];
 };
 
