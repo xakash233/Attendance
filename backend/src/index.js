@@ -8,6 +8,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { startOutBreakMonitor } from './services/attendance/outBreakMonitorService.js';
+import { startMissedPunchOutCloser } from './services/attendance/missedPunchOutService.js';
 
 const PORT = process.env.PORT || 5001;
 
@@ -29,6 +30,9 @@ if (isMain || process.env.NODE_ENV === 'development' || process.env.NODE_ENV ===
 
     if (process.env.ENABLE_OUT_BREAK_MONITOR !== 'false') {
       startOutBreakMonitor(60);
+    }
+    if (process.env.ENABLE_MISSED_PUNCH_OUT_CLOSER !== 'false') {
+      startMissedPunchOutCloser(60);
     }
   });
 }

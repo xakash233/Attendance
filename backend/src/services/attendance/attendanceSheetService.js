@@ -183,7 +183,9 @@ export async function buildTectraAttendanceSheetData(prisma, { month = null, ist
                 isLop,
                 workedHours,
                 isFuture,
-                isBeforeEffectiveStart
+                isBeforeEffectiveStart,
+                // checkIn is only set from a biometric punch (WFH rows leave it empty)
+                hasOfficePunch: Boolean(att?.checkIn)
             });
 
             codeByUserDate.set(`${user.id}_${dateStr}`, code);

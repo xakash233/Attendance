@@ -60,6 +60,12 @@ export async function publishAttendanceToGoogleSheet({
         });
     }
 
+    // Clear first so removed employees/columns don't linger from an earlier, wider write.
+    await sheets.spreadsheets.values.batchClear({
+        spreadsheetId,
+        requestBody: { ranges: [`'${employeeTab}'`, `'${attendanceTab}'`] }
+    });
+
     await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId,
         requestBody: {

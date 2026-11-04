@@ -8,8 +8,10 @@ import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
 import { getCompanyDayCategory } from '../../utils/payrollCalendar.js';
 import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
 import { collapsePunchBursts } from '../../utils/punchDedup.js';
+import { missedPunchOutEnd } from '../../utils/missedPunchOut.js';
 import admsService from './admsService.js';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 
 class BiometricService {
     normalizeEmployeeCode(code) {
@@ -87,7 +89,9 @@ class BiometricService {
             return 0;
         }
 
-        const defaultPasswordHash = await bcrypt.hash('Password@123', 10);
+        // Placeholder accounts get an unguessable password: nobody can sign in as
+        // "Employee 18" until HR sets a real email, which issues a fresh password.
+        const defaultPasswordHash = await bcrypt.hash(randomBytes(24).toString('base64url'), 10);
         const createPayload = usersToCreate.map((user) => ({
             email: this.buildDefaultEmail(user.employeeCode),
             password: defaultPasswordHash,
@@ -552,24 +556,33 @@ class BiometricService {
                 employeeCode: user.employeeCode
             }));
             const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-            const currentTime = dateStr === todayStr ? new Date() : null;
+            const isCurrentDay = dateStr === todayStr;
+            // Finished day ending on an IN (forgot to punch out): close it at shift end.
+            const missedOutEnd = isCurrentDay
+                ? null
+                : missedPunchOutEnd(dayPunches.map((p) => p.timestamp), dateStr);
+            const currentTime = isCurrentDay ? new Date() : missedOutEnd;
             const result = calculateAttendance(formattedLogs, currentTime, dateStr);
 
             const firstPunchTime = dayPunches[0].timestamp;
             const lastPunchTime = dayPunches[dayPunches.length - 1].timestamp;
 
             workHrs = applyUserHourAdjustment(userId, parseFloat(result.totalWorkHours), dateStr);
-            const isCurrentDay = dateStr === todayStr;
             const sessionOngoing = Boolean(result.isOngoing && isCurrentDay);
             finalStatus = resolveDayStatusFromHours(workHrs, {
                 isOngoing: sessionOngoing,
-                preserveStatus: result.status
+                // the calculator calls a missed-out day ON-SITE; don't carry that over
+                preserveStatus: missedOutEnd ? null : result.status
             }).replace(/ /g, '_');
+            if (missedOutEnd) {
+                console.log(`[BiometricSync] ${user.employeeCode} ${dateStr}: missed punch-out, closed at ${missedOutEnd.toISOString()}`);
+            }
             // Recalculate deficit from adjusted hours (8h target) so manual credits reduce deficit.
             deficit = Math.max(0, roundWorkedHours(8 - workHrs));
             firstPunch = firstPunchTime;
             // While still checked IN today, do not stamp checkOut — last punch is the IN, not an exit.
-            lastPunch = sessionOngoing ? null : lastPunchTime;
+            // Missed punch-out keeps checkOut empty so HR can spot and correct it.
+            lastPunch = (sessionOngoing || missedOutEnd) ? null : lastPunchTime;
             shift = result.shift;
         }
 

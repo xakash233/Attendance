@@ -18,9 +18,14 @@ export function attendanceDayToSheetCode({
     isLop,
     workedHours,
     isFuture,
-    isBeforeEffectiveStart
+    isBeforeEffectiveStart,
+    hasOfficePunch = false
 }) {
     if (isBeforeEffectiveStart || isFuture) return '';
+
+    // Came into the office on a weekend (Saturday off/WFH or Sunday): the punch wins.
+    const isWeekend = dayCategory === 'SAT_LEAVE' || dayCategory === 'SAT_WFH' || dayCategory === 'SUNDAY';
+    if (hasOfficePunch && isWeekend && !isHoliday) return 'WFO';
 
     if (isHoliday || dayCategory === 'SUNDAY') return 'HOLIDAY';
     if (dayCategory === 'SAT_LEAVE') return 'HOLIDAY';
@@ -49,7 +54,10 @@ export function attendanceDayToSheetCode({
         return 'CL';
     }
 
-    if (Number(workedHours || 0) >= 1 || statusU.includes('PRESENT')) return 'WFO';
+    // ON-SITE = punched in and still in the office; SHORT DAY = punched but under 7.5h.
+    // Both mean the person came in, even before the first hour is worked.
+    const punchedIn = statusU === 'ON-SITE' || statusU.replace(/_/g, ' ') === 'SHORT DAY';
+    if (punchedIn || Number(workedHours || 0) >= 1 || statusU.includes('PRESENT')) return 'WFO';
     if (statusU === 'ABSENT') return 'LOP';
 
     return '';
@@ -69,7 +77,10 @@ export function buildEmployeeDetailsRows(users) {
 }
 
 export function buildAttendanceMatrixRows(dates, users, codeByUserDate) {
-    const header = ['Date', 'Day', ...users.map((user) => user.name)];
+    // Code in the header keeps same-name employees (e.g. two "Monisha") apart.
+    const header = ['Date', 'Day', ...users.map((user) => (
+        user.employeeCode ? `${user.name} (${user.employeeCode})` : user.name
+    ))];
     const rows = [header];
 
     for (const dateStr of dates) {
