@@ -6,6 +6,7 @@ import { collapsePunchBursts } from './punchDedup.js';
 export const STANDARD_WORK_DAY_MINUTES = 480;
 export const MIN_FULL_DAY_HOURS = 7.5;
 export const STANDARD_WORK_DAY_HOURS = 8;
+export const AUTO_PUNCH_OUT_MINUTES = 19 * 60 + 10; // 19:10 = 7:10 PM IST
 
 export const roundWorkedHours = (hours) => {
     const value = parseFloat(hours);
@@ -211,21 +212,39 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         }
     }
 
-    const isOngoing = cleanLogs.length % 2 !== 0;
+    const hasUnclosedCheckIn = cleanLogs.length % 2 !== 0;
+    const lastIn = hasUnclosedCheckIn ? cleanLogs[cleanLogs.length - 1].mins : null;
+    const checkedInBeforeAutoOut = hasUnclosedCheckIn && lastIn !== null && lastIn < AUTO_PUNCH_OUT_MINUTES;
 
-    if (isOngoing && currentTimeStr) {
-        const currentMins = getMinutes(currentTimeStr);
-        const lastIn = cleanLogs[cleanLogs.length - 1].mins;
-        if (Number.isFinite(currentMins) && currentMins > lastIn) {
+    const istDateStr = dateStr ? resolveIstDateStr(dateStr) : resolveIstDateStr(
+        cleanLogs[0].raw ? new Date(cleanLogs[0].raw) : new Date()
+    );
+    const todayIstStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const isToday = !dateStr || dateStr === todayIstStr;
+    const currentMins = currentTimeStr ? getMinutes(currentTimeStr) : null;
+
+    let isAutoPunchOut = false;
+    let isOngoing = false;
+
+    if (hasUnclosedCheckIn && checkedInBeforeAutoOut) {
+        if (!isToday || (Number.isFinite(currentMins) && currentMins >= AUTO_PUNCH_OUT_MINUTES)) {
+            isAutoPunchOut = true;
+            isOngoing = false;
+            totalWorkMinutes += (AUTO_PUNCH_OUT_MINUTES - lastIn);
+        } else if (isToday) {
+            isOngoing = true;
+            if (Number.isFinite(currentMins) && currentMins > lastIn) {
+                totalWorkMinutes += (currentMins - lastIn);
+            }
+        }
+    } else if (hasUnclosedCheckIn) {
+        isOngoing = isToday;
+        if (isOngoing && Number.isFinite(currentMins) && currentMins > lastIn) {
             totalWorkMinutes += (currentMins - lastIn);
         }
     }
 
     const pairingHours = totalWorkMinutes / 60;
-
-    const istDateStr = dateStr ? resolveIstDateStr(dateStr) : resolveIstDateStr(
-        cleanLogs[0].raw ? new Date(cleanLogs[0].raw) : new Date()
-    );
 
     let boundsHours = 0;
     const firstRaw = cleanLogs[0].raw;
@@ -235,19 +254,18 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         const firstDate = new Date(firstRaw);
         let lastDate = new Date(lastRaw);
 
-        if (isOngoing && currentTimeStr) {
+        if (isAutoPunchOut) {
+            lastDate = new Date(`${istDateStr}T19:10:00.000+05:30`);
+        } else if (isOngoing && currentTimeStr) {
             let liveEnd = null;
             if (currentTimeStr instanceof Date) {
                 liveEnd = currentTimeStr;
-            } else {
-                const currentMins = getMinutes(currentTimeStr);
-                if (Number.isFinite(currentMins)) {
-                    const h = Math.floor(currentMins / 60);
-                    const min = currentMins % 60;
-                    liveEnd = new Date(
-                        `${istDateStr}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00.000+05:30`
-                    );
-                }
+            } else if (Number.isFinite(currentMins)) {
+                const h = Math.floor(currentMins / 60);
+                const min = currentMins % 60;
+                liveEnd = new Date(
+                    `${istDateStr}T${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}:00.000+05:30`
+                );
             }
             if (liveEnd && !Number.isNaN(liveEnd.getTime()) && liveEnd > lastDate) {
                 lastDate = liveEnd;
@@ -266,6 +284,8 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         netHours = pairingHours;
     } else if (isOngoing) {
         netHours = boundsHours > 0 ? boundsHours : pairingHours;
+    } else if (isAutoPunchOut) {
+        netHours = boundsHours > 0 ? boundsHours : pairingHours;
     } else if (pairingHours >= lunchDeductionThreshold && boundsHours > 0) {
         netHours = boundsHours;
     } else {
@@ -276,6 +296,7 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
     const deficitMinutes = Math.max(0, STANDARD_WORK_DAY_MINUTES - totalWorkMinutesFinal);
 
     const status = resolveDayStatusFromHours(netHours, { isOngoing });
+    const effectiveLastPunchMins = isAutoPunchOut ? AUTO_PUNCH_OUT_MINUTES : lastPunch;
 
     return {
         shift: firstPunch <= getMinutes('09:45') ? 'A' : 'B',
@@ -283,9 +304,10 @@ export const calculateAttendance = (attendanceLogs = [], currentTimeStr = null, 
         totalWorkHours: netHours.toFixed(2),
         status,
         isOngoing,
+        isAutoPunchOut,
         deficit: (deficitMinutes / 60).toFixed(2),
         firstPunch: formatTime(firstPunch),
-        lastPunch: formatTime(lastPunch)
+        lastPunch: formatTime(effectiveLastPunchMins)
     };
 };
 

@@ -37,13 +37,20 @@ export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr }) {
     const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
     const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours, dateStr);
 
+    let displayLastPunch = lastPunch;
+    let displayCurrentStatus = currentStatus;
+    if (calcResult?.isAutoPunchOut) {
+        displayCurrentStatus = 'OUT';
+        displayLastPunch = new Date(`${dateStr}T19:10:00.000+05:30`);
+    }
+
     if (!isWfh && isHybridWorkEmployee(user.employeeCode) && rawPunches.length === 0) {
         isWfh = true;
     }
 
     const currentStatusDisplay = rawPunches.length === 0
         ? (isWfh ? 'WFH' : 'ABSENT')
-        : currentStatus;
+        : displayCurrentStatus;
 
     return {
         id: user.id,
@@ -52,7 +59,7 @@ export function buildLiveStatusFromUserDay(user, { dateStr, currentTimeStr }) {
         department: user.department?.name || 'Unassigned',
         profileImage: user.profileImage,
         firstPunch: firstPunch ? firstPunch.toISOString() : null,
-        lastPunch: lastPunch ? lastPunch.toISOString() : null,
+        lastPunch: displayLastPunch ? displayLastPunch.toISOString() : null,
         currentStatus: currentStatusDisplay,
         isWfh,
         totalHours: (isWfh && rawPunches.length === 0)

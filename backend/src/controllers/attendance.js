@@ -753,6 +753,13 @@ export const getLiveAttendance = async (req, res, next) => {
             const calcResult = calculateAttendance(rawPunches, currentTimeStr, dateStr);
             const adjustedHours = applyUserHourAdjustment(user.id, calcResult.totalWorkHours, dateStr);
 
+            let displayLastPunch = lastPunch;
+            let displayCurrentStatus = rawPunches.length === 0 ? 'ABSENT' : currentStatus;
+            if (calcResult?.isAutoPunchOut) {
+                displayCurrentStatus = 'OUT';
+                displayLastPunch = new Date(`${dateStr}T19:10:00.000+05:30`);
+            }
+
             return {
                 id: user.id,
                 name: user.name,
@@ -760,8 +767,8 @@ export const getLiveAttendance = async (req, res, next) => {
                 department: user.department?.name || 'Unassigned',
                 profileImage: user.profileImage,
                 firstPunch: firstPunch ? firstPunch.toISOString() : null,
-                lastPunch: lastPunch ? lastPunch.toISOString() : null,
-                currentStatus: rawPunches.length === 0 ? 'ABSENT' : currentStatus,
+                lastPunch: displayLastPunch ? displayLastPunch.toISOString() : null,
+                currentStatus: displayCurrentStatus,
                 isWfh,
                 totalHours: adjustedHours.toFixed(2),
                 punchesCount: rawPunches.length,
@@ -845,6 +852,18 @@ export const getDashboardReport = async (req, res, next) => {
                 breakMs += (p.time - rawPunches[i - 1].time);
                 breaksCount++;
             }
+        }
+
+        if (calcResult?.isAutoPunchOut) {
+            currentStatus = 'OUT';
+            dailyActivity.push({
+                time: new Date(`${dateStr}T19:10:00.000+05:30`),
+                type: 'PUNCH OUT',
+                device: 'Auto System',
+                vMode: 'Auto',
+                logId: 'AUTO_OUT',
+                label: 'End of Day (Auto Punch-Out)'
+            });
         }
 
         // 2. Weekly Overview (Mon-Sat Logic)
@@ -1535,7 +1554,11 @@ export const getComplianceReport = async (req, res, next) => {
                 let lastPunchDisplay = firstPunchDisplay;
                 if (dayPunchTimestamps && dayPunchTimestamps.length > 0) {
                     firstPunchDisplay = formatIstPunchTime(dayPunchTimestamps[0]);
-                    lastPunchDisplay = formatIstPunchTime(dayPunchTimestamps[dayPunchTimestamps.length - 1]);
+                    if (dayCalcResult?.isAutoPunchOut) {
+                        lastPunchDisplay = '07:10 PM';
+                    } else {
+                        lastPunchDisplay = formatIstPunchTime(dayPunchTimestamps[dayPunchTimestamps.length - 1]);
+                    }
                 } else if (att?.checkIn) {
                     firstPunchDisplay = formatIstPunchTime(att.checkIn);
                     lastPunchDisplay = att.checkOut ? formatIstPunchTime(att.checkOut) : '---';
