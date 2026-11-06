@@ -10,6 +10,7 @@ import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
 import { collapsePunchBursts } from '../../utils/punchDedup.js';
 import { missedPunchOutEnd } from '../../utils/missedPunchOut.js';
 import admsService from './admsService.js';
+import lateArrivalAlertService from '../attendance/lateArrivalAlertService.js';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 
@@ -275,6 +276,9 @@ class BiometricService {
                 try {
                     await this.updateDailyAttendance(prisma, group.userId, group.timestamp);
                     successCount++;
+                    // Check and trigger 2nd weekly late arrival alert asynchronously
+                    lateArrivalAlertService.checkAndTriggerWeeklyLateAlert(group.userId, group.timestamp)
+                        .catch((err) => console.error(`[LateAlert] Async error for ${group.userId}:`, err.message));
                 } catch (err) {
                     console.error(`[BiometricService] Error updating daily attendance for ${group.userId}:`, err.message);
                 }
@@ -465,7 +469,7 @@ class BiometricService {
      * Process an individual biometric record within a transaction
      */
     async processSingleRecord(record, deviceIP, syncLogId, preFetchedUser = null) {
-        return prisma.$transaction(async (tx) => {
+        const txResult = await prisma.$transaction(async (tx) => {
             const user = preFetchedUser || await tx.user.findUnique({
                 where: { employeeCode: record.employeeCode }
             });
@@ -486,7 +490,7 @@ class BiometricService {
 
             if (existingLog) {
                 // Already processed this exact timestamp for this user in a previous sync
-                return;
+                return { skipped: true };
             }
 
             // 2. Insert raw biometric log
@@ -502,7 +506,15 @@ class BiometricService {
 
             // 3. Map to daily Attendance aggregation
             await this.updateDailyAttendance(tx, user.id, timestamp);
+            return { userId: user.id, timestamp };
         });
+
+        if (txResult && !txResult.skipped && txResult.userId) {
+            lateArrivalAlertService.checkAndTriggerWeeklyLateAlert(txResult.userId, txResult.timestamp)
+                .catch((err) => console.error(`[LateAlert] Async error for ${txResult.userId}:`, err.message));
+        }
+
+        return txResult;
     }
 
     /**
