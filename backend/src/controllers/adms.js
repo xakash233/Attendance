@@ -191,7 +191,14 @@ async function ingestCdataPost(req) {
 
     if (table === 'OPTIONS' || table === 'OPERLOG') {
         const payload = typeof body === 'string' ? body : JSON.stringify(body || {});
-        console.log(`[ADMS] SN:${serialNumber} posted ${table} payload (${payload.length} bytes)`);
+        console.log(`[ADMS] SN:${serialNumber} posted ${table} payload (${payload.length} bytes):`, payload.slice(0, 300));
+        // Check if OPERLOG contains user info
+        const users = parseUserInfoRecords(body);
+        if (users.length > 0) {
+            console.log(`[ADMS] SN:${serialNumber} extracted ${users.length} user record(s) from ${table}:`, users.map(u => `${u.employeeCode}:${u.employeeName}`).join(', '));
+            const created = await biometricService.ensureUsersExistFromRecords(users);
+            console.log(`[ADMS] SN:${serialNumber} processed user sync from ${table}:`, created);
+        }
     }
 }
 
