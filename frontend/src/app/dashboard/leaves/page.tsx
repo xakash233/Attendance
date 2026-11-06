@@ -421,31 +421,30 @@ export default function LeavesPage() {
 
     return (
         <>
-            <div className="space-y-6 animate-fade-in pb-10">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-5 animate-fade-in pb-10">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                     <div>
-                        <h1 className="text-[24px] font-semibold text-[#101828] leading-none">
+                        <h1 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-tight">
                             {user?.role === 'EMPLOYEE' ? 'My Leave Requests' :
                              user?.role === 'HR' ? 'Leave Management' :
                              user?.role === 'SUPER_ADMIN' ? 'Leave Approvals' : 'Leaves'}
                         </h1>
-                        <p className="text-[13px] font-medium text-[#667085] mt-1">
+                        <p className="text-[12.5px] font-normal text-[#667085] mt-0.5">
                             {user?.role === 'EMPLOYEE' ? 'Manage your time off and leave requests.' : 'Manage and approve employee leave requests.'}
                         </p>
                     </div>
 
                     {user?.role === 'EMPLOYEE' && (
-                        <div className="flex gap-3 shrink-0">
-
+                        <div className="flex items-center gap-2.5 shrink-0">
                             <button
                                 onClick={() => {
                                     setIsWFHRequest(true);
                                     resetLeaveForm(true);
                                     setIsApplyModalOpen(true);
                                 }}
-                                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[14px] font-bold shadow-sm hover:bg-indigo-700 transition-all flex items-center gap-2"
+                                className="h-9 px-3.5 bg-white border border-[#D0D5DD] text-[#344054] rounded-lg text-[12.5px] font-medium hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-xs"
                             >
-                                <Briefcase size={18} />
+                                <Briefcase size={15} />
                                 Request WFH
                             </button>
                             <button
@@ -454,9 +453,9 @@ export default function LeavesPage() {
                                     resetLeaveForm(false);
                                     setIsApplyModalOpen(true);
                                 }}
-                                className="btn-primary py-2.5 px-6"
+                                className="h-9 px-3.5 bg-[#101828] text-white rounded-lg text-[12.5px] font-medium hover:bg-[#1D2939] transition-all flex items-center gap-1.5 shadow-xs"
                             >
-                                <Plus size={18} />
+                                <Plus size={15} />
                                 Request Leave
                             </button>
                         </div>
@@ -464,23 +463,23 @@ export default function LeavesPage() {
                 </div>
 
                 {user?.role !== 'EMPLOYEE' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                         {[
                             { label: 'Total Requests', value: topSummaryStats.totalRequests, icon: Database, color: 'slate' },
                             { label: 'Total Approved', value: topSummaryStats.totalApproved, icon: CheckCircle2, color: 'emerald' },
                             { label: 'Total Pending', value: topSummaryStats.totalPending, icon: Clock, color: 'amber' }
                         ].map((stat, index) => (
-                            <div key={index} className="card p-5 flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
+                            <div key={index} className="p-3.5 sm:p-4 rounded-xl border border-[#E4E7EC] bg-white flex items-center gap-3 shadow-xs">
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                                     stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
                                     stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
                                     'bg-slate-50 text-slate-600'
                                 }`}>
-                                    <stat.icon size={20} />
+                                    <stat.icon size={16} />
                                 </div>
                                 <div>
-                                    <p className="text-[13px] font-medium text-[#667085]">{stat.label}</p>
-                                    <h3 className="text-[22px] font-semibold text-[#101828] leading-none mt-1">{stat.value}</h3>
+                                    <p className="text-[11.5px] font-medium text-[#667085] leading-none">{stat.label}</p>
+                                    <h3 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-tight mt-1 tabular-nums">{stat.value}</h3>
                                 </div>
                             </div>
                         ))}
@@ -489,7 +488,7 @@ export default function LeavesPage() {
 
                 {user?.role !== 'SUPER_ADMIN' && (
                     <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                         {(() => {
                             const used = leaves.filter((l: any) => l.status === 'FINAL_APPROVED' && l.userId === user?.id).reduce((sum: number, l: any) => sum + l.totalDays, 0);
                             const pending = leaves.filter((l: any) => {
@@ -509,17 +508,17 @@ export default function LeavesPage() {
                                 { label: 'Leaves Remaining', value: formatDayValue(remaining), icon: CheckCircle2, color: 'emerald' },
                                 { label: 'Pending Requests', value: pending, icon: Clock, color: 'amber' }
                             ].map((stat, i) => (
-                                <div key={i} className="card p-4 flex items-center gap-3 min-h-[88px]">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                <div key={i} className="p-3 sm:p-3.5 rounded-xl border border-[#E4E7EC] bg-white flex items-center gap-3 shadow-xs">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
                                         stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
                                             stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
                                                 'bg-slate-50 text-slate-600'
                                         }`}>
-                                        <stat.icon size={17} />
+                                        <stat.icon size={15} />
                                     </div>
-                                    <div className="min-w-0 flex-1 space-y-1">
-                                        <p className="text-[12px] font-medium text-[#667085] leading-4 line-clamp-1">{stat.label}</p>
-                                        <h3 className="text-[20px] font-semibold text-[#101828] leading-6 tabular-nums">{stat.value}</h3>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[11px] font-medium text-[#667085] leading-tight truncate">{stat.label}</p>
+                                        <h3 className="text-[16px] sm:text-[18px] font-semibold text-[#101828] leading-tight mt-0.5 tabular-nums">{stat.value}</h3>
                                     </div>
                                 </div>
                             ));
@@ -536,24 +535,24 @@ export default function LeavesPage() {
                         });
 
                         return (
-                            <div className="card bg-white p-5 border-[#E6E8EC]">
-                                <p className="text-[11px] font-bold text-[#101828] uppercase tracking-widest mb-3">Classification Breakdown</p>
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="px-4 py-3 border border-indigo-100 bg-indigo-50/30 rounded-xl flex items-center justify-between">
-                                        <p className="text-[12px] font-bold text-indigo-500 uppercase tracking-wide">Sick Leave</p>
-                                        <p className="text-[18px] font-semibold text-indigo-700 tabular-nums">{SL.toFixed(1)}<span className="text-[10px] font-semibold text-indigo-400 ml-1">SL</span></p>
+                            <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-[#E4E7EC] shadow-xs">
+                                <p className="text-[11px] font-medium text-[#667085] uppercase tracking-wider mb-2.5">Classification Breakdown</p>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                                    <div className="px-3 py-2 border border-indigo-100/70 bg-indigo-50/30 rounded-lg flex items-center justify-between">
+                                        <p className="text-[11px] font-medium text-indigo-600 uppercase tracking-wide">Sick Leave</p>
+                                        <p className="text-[15px] font-semibold text-indigo-700 tabular-nums">{SL.toFixed(1)}<span className="text-[9.5px] font-medium text-indigo-400 ml-1">SL</span></p>
                                     </div>
-                                    <div className="px-4 py-3 border border-amber-100 bg-amber-50/30 rounded-xl flex items-center justify-between">
-                                        <p className="text-[12px] font-bold text-amber-500 uppercase tracking-wide">Casual Leave</p>
-                                        <p className="text-[18px] font-semibold text-amber-700 tabular-nums">{CL.toFixed(1)}<span className="text-[10px] font-semibold text-amber-400 ml-1">CL</span></p>
+                                    <div className="px-3 py-2 border border-amber-100/70 bg-amber-50/30 rounded-lg flex items-center justify-between">
+                                        <p className="text-[11px] font-medium text-amber-600 uppercase tracking-wide">Casual Leave</p>
+                                        <p className="text-[15px] font-semibold text-amber-700 tabular-nums">{CL.toFixed(1)}<span className="text-[9.5px] font-medium text-amber-400 ml-1">CL</span></p>
                                     </div>
-                                    <div className="px-4 py-3 border border-rose-100 bg-rose-50/30 rounded-xl flex items-center justify-between">
-                                        <p className="text-[12px] font-bold text-rose-500 uppercase tracking-wide">Paid Leave</p>
-                                        <p className="text-[18px] font-semibold text-rose-700 tabular-nums">{PL.toFixed(1)}<span className="text-[10px] font-semibold text-rose-400 ml-1">PL</span></p>
+                                    <div className="px-3 py-2 border border-rose-100/70 bg-rose-50/30 rounded-lg flex items-center justify-between">
+                                        <p className="text-[11px] font-medium text-rose-600 uppercase tracking-wide">Paid Leave</p>
+                                        <p className="text-[15px] font-semibold text-rose-700 tabular-nums">{PL.toFixed(1)}<span className="text-[9.5px] font-medium text-rose-400 ml-1">PL</span></p>
                                     </div>
-                                    <div className="px-4 py-3 border border-blue-100 bg-blue-50/30 rounded-xl flex items-center justify-between">
-                                        <p className="text-[12px] font-bold text-blue-500 uppercase tracking-wide">Half Day</p>
-                                        <p className="text-[18px] font-semibold text-blue-700 tabular-nums">{HD.toFixed(1)}<span className="text-[10px] font-semibold text-blue-400 ml-1">HD</span></p>
+                                    <div className="px-3 py-2 border border-blue-100/70 bg-blue-50/30 rounded-lg flex items-center justify-between">
+                                        <p className="text-[11px] font-medium text-blue-600 uppercase tracking-wide">Half Day</p>
+                                        <p className="text-[15px] font-semibold text-blue-700 tabular-nums">{HD.toFixed(1)}<span className="text-[9.5px] font-medium text-blue-400 ml-1">HD</span></p>
                                     </div>
                                 </div>
                             </div>
@@ -563,26 +562,26 @@ export default function LeavesPage() {
                 )}
 
                 {/* Table Registry */}
-                <div className="card overflow-hidden">
-                    <div className="p-5 border-b border-[#E6E8EC] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-white">
-                        <div className="relative w-full max-w-sm">
-                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${leaves.length === 0 ? 'text-slate-300' : 'text-[#667085]'}`} size={16} />
+                <div className="bg-white rounded-xl border border-[#E4E7EC] overflow-hidden shadow-xs">
+                    <div className="p-3 sm:p-3.5 border-b border-[#E4E7EC] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white">
+                        <div className="relative w-full sm:max-w-xs">
+                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${leaves.length === 0 ? 'text-slate-300' : 'text-[#667085]'}`} size={15} />
                             <input
                                 type="text"
-                                placeholder={leaves.length === 0 ? "No records to search" : "Search by name, ID or leave type..."}
+                                placeholder={leaves.length === 0 ? "No records to search" : "Search by name, ID or type..."}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 disabled={leaves.length === 0}
-                                className="input-field pl-9 py-2 text-[13px] disabled:bg-slate-50 disabled:cursor-not-allowed disabled:placeholder-slate-300"
+                                className="h-9 w-full bg-white border border-[#D0D5DD] rounded-lg pl-9 pr-3 text-[12.5px] font-normal text-[#101828] placeholder-[#667085] focus:outline-none focus:ring-2 focus:ring-[#101828]/10 disabled:bg-slate-50 disabled:cursor-not-allowed"
                             />
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2 px-3 py-2 border border-[#E6E8EC] rounded-xl bg-white">
-                                <Filter size={14} className="text-[#667085]" />
+                        <div className="flex items-center gap-2">
+                            <div className="h-9 flex items-center gap-1.5 px-2.5 border border-[#D0D5DD] rounded-lg bg-white">
+                                <Filter size={13} className="text-[#667085]" />
                                 <select
                                     value={leaveTypeFilter}
                                     onChange={(e) => setLeaveTypeFilter(e.target.value)}
-                                    className="bg-transparent text-[12px] font-semibold text-[#101828] outline-none cursor-pointer"
+                                    className="bg-transparent text-[12px] font-medium text-[#101828] outline-none cursor-pointer"
                                 >
                                     <option value="all">All Leave Types</option>
                                     {Array.from(new Set(leaves.map((leave: any) => leave.leaveType.name))).map((leaveTypeName) => (
@@ -593,10 +592,10 @@ export default function LeavesPage() {
                             <button
                                 type="button"
                                 onClick={() => setShowCancelledLeaves((prev) => !prev)}
-                                className={`px-3 py-2 text-[12px] font-semibold rounded-xl border transition-all ${
+                                className={`h-9 px-3 text-[12px] font-medium rounded-lg border transition-all ${
                                     showCancelledLeaves
-                                        ? 'bg-slate-900 text-white border-slate-900'
-                                        : 'bg-white text-[#667085] border-[#E6E8EC] hover:border-slate-300'
+                                        ? 'bg-[#101828] text-white border-[#101828]'
+                                        : 'bg-white text-[#344054] border-[#D0D5DD] hover:bg-slate-50'
                                 }`}
                             >
                                 {showCancelledLeaves ? 'Hide Cancelled' : 'Show Cancelled'}
@@ -608,41 +607,41 @@ export default function LeavesPage() {
                     <div className="hidden md:block overflow-x-auto no-scrollbar">
                         <table className="w-full text-left">
                             <thead>
-                                <tr className="bg-[#F8F9FB] border-b border-[#E6E8EC]">
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Employee</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider">Leave Type</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Applied On</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-center">Status</th>
-                                    <th className="px-6 py-3 text-[11px] font-semibold text-[#667085] uppercase tracking-wider text-right">Action</th>
+                                <tr className="bg-[#FAFAFB] border-b border-[#EAECF0]">
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider">Leave</th>
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider">Employee</th>
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider">Leave Type</th>
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Applied On</th>
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Status</th>
+                                    <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-[#E6E8EC]">
+                            <tbody className="divide-y divide-[#F2F4F7]">
                                 {(() => {
                                     if (leaves.length === 0) return (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-32 text-center">
-                                                <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
-                                                    <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
-                                                        <Calendar size={40} strokeWidth={1.5} />
+                                            <td colSpan={6} className="px-5 py-14 text-center">
+                                                <div className="flex flex-col items-center gap-3 max-w-sm mx-auto">
+                                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 border border-slate-100">
+                                                        <Calendar size={24} strokeWidth={1.5} />
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <p className="text-[18px] font-bold text-[#101828]">No leave requests found</p>
-                                                        <p className="text-[14px] text-[#667085] leading-relaxed">
-                                                            You haven&apos;t applied for any leave yet. Start by submitting a new application for approval.
+                                                    <div className="space-y-1">
+                                                        <p className="text-[14px] font-semibold text-[#101828]">No leave requests found</p>
+                                                        <p className="text-[12px] text-[#667085]">
+                                                            You haven&apos;t applied for any leave yet.
                                                         </p>
                                                     </div>
                                                     {user?.role === 'EMPLOYEE' && (
-                                                        <div className="flex gap-4">
+                                                        <div className="flex gap-2.5 mt-2">
                                                             <button 
                                                                 onClick={() => {
                                                                     setIsWFHRequest(false);
                                                                     resetLeaveForm(false);
                                                                     setIsApplyModalOpen(true);
                                                                 }}
-                                                                className="btn-primary py-3 px-10 shadow-lg shadow-black/5 flex items-center justify-center gap-2"
+                                                                className="h-9 px-3.5 bg-[#101828] text-white rounded-lg text-[12.5px] font-medium hover:bg-[#1D2939] flex items-center gap-1.5"
                                                             >
-                                                                <Plus size={18} />
+                                                                <Plus size={15} />
                                                                 Apply Leave
                                                             </button>
                                                             <button 
@@ -651,11 +650,12 @@ export default function LeavesPage() {
                                                                     resetLeaveForm(true);
                                                                     setIsApplyModalOpen(true);
                                                                 }}
-                                                                className="btn-secondary py-3 px-10 shadow-lg flex items-center justify-center gap-2 border-indigo-100 text-indigo-600"
+                                                                className="h-9 px-3.5 bg-white border border-[#D0D5DD] text-[#344054] rounded-lg text-[12.5px] font-medium hover:bg-slate-50 flex items-center gap-1.5"
                                                             >
-                                                                <Briefcase size={18} />
+                                                                <Briefcase size={15} />
                                                                 Request WFH
-                                                            </button>                                                        </div>
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </td>
@@ -664,22 +664,20 @@ export default function LeavesPage() {
 
                                     if (filteredLeaves.length === 0) return (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-24 text-center">
-                                                <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
-                                                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                                                        <Search size={24} />
+                                            <td colSpan={6} className="px-5 py-14 text-center">
+                                                <div className="flex flex-col items-center gap-2 max-w-xs mx-auto">
+                                                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
+                                                        <Search size={18} />
                                                     </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[15px] font-bold text-[#101828]">No matching requests found</p>
-                                                        <p className="text-[13px] text-[#667085]">
-                                                            We couldn&apos;t find any results for &quot;{searchQuery}&quot;. Try adjusting your filters or search terms.
-                                                        </p>
-                                                    </div>
+                                                    <p className="text-[13px] font-semibold text-[#101828]">No matching requests found</p>
+                                                    <p className="text-[12px] text-[#667085]">
+                                                        No results for &quot;{searchQuery}&quot;.
+                                                    </p>
                                                     <button 
                                                         onClick={() => setSearchQuery('')}
-                                                        className="mt-2 text-[13px] font-bold text-[#101828] underline underline-offset-4 hover:text-[#667085] transition-colors"
+                                                        className="mt-1 text-[12px] font-medium text-indigo-600 hover:underline"
                                                     >
-                                                        Clear Search Filter
+                                                        Clear Filter
                                                     </button>
                                                 </div>
                                             </td>
@@ -687,47 +685,47 @@ export default function LeavesPage() {
                                     );
 
                                     return paginatedLeaves.map((leave: any) => (
-                                        <tr key={leave.id} className="hover:bg-slate-50 transition-all">
-                                            <td className="px-6 py-4">
+                                        <tr key={leave.id} className="hover:bg-slate-50/60 transition-colors">
+                                            <td className="px-5 py-3">
                                                 <button
                                                     type="button"
-                                                    className="text-left text-[14px] font-semibold text-[#101828] hover:text-indigo-600 transition-all"
+                                                    className="text-left text-[13px] font-medium text-[#101828] hover:text-indigo-600 transition-colors"
                                                     onClick={() => setExpandedLeaveId((prev) => (prev === leave.id ? null : leave.id))}
                                                 >
                                                     {formatLeaveLine(leave)}
                                                 </button>
-                                                <div className="mt-2 space-y-2 max-w-sm">
+                                                <div className="mt-1 space-y-1.5 max-w-xs">
                                                     <p
-                                                        className={`text-[12px] text-[#667085] leading-relaxed ${expandedLeaveId === leave.id ? '' : 'line-clamp-2'}`}
+                                                        className={`text-[11.5px] text-[#667085] leading-relaxed ${expandedLeaveId === leave.id ? '' : 'line-clamp-1'}`}
                                                         title={leave.reason?.trim() || ''}
                                                     >
                                                         {leave.reason?.trim() || 'No reason provided.'}
                                                     </p>
                                                     {leave.attachmentUrl && (
-                                                        <div className="flex items-center gap-2">
+                                                        <div className="flex items-center gap-1.5">
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleViewAttachment(leave)}
-                                                                className="inline-flex items-center gap-2 rounded-md border border-[#E6E8EC] bg-white px-3 py-1.5 text-[12px] font-semibold text-[#101828] hover:border-[#101828] transition-all"
+                                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#D0D5DD] bg-white px-2 py-1 text-[11px] font-medium text-[#344054] hover:bg-slate-50 transition-colors"
                                                             >
-                                                                <FileText size={14} className="text-[#667085]" />
-                                                                <span className="max-w-[140px] truncate">{leave.attachmentName || 'View attachment'}</span>
+                                                                <FileText size={12} className="text-[#667085]" />
+                                                                <span className="max-w-[120px] truncate">{leave.attachmentName || 'View file'}</span>
                                                             </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleDownloadAttachment(leave)}
                                                                 title="Download attachment"
-                                                                className="w-8 h-8 flex items-center justify-center rounded-md border border-[#E6E8EC] bg-white text-[#667085] hover:border-[#101828] hover:text-[#101828] transition-all"
+                                                                className="w-6 h-6 flex items-center justify-center rounded-md border border-[#D0D5DD] bg-white text-[#667085] hover:bg-slate-50 transition-colors"
                                                             >
-                                                                <Download size={14} />
+                                                                <Download size={12} />
                                                             </button>
                                                         </div>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-[#101828] text-white flex items-center justify-center font-semibold text-[12px] uppercase relative overflow-hidden border border-[#E6E8EC]">
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-7 h-7 rounded-full bg-[#101828] text-white flex items-center justify-center font-medium text-[10.5px] uppercase relative overflow-hidden border border-[#E6E8EC] shrink-0">
                                                         {leave.user.profileImage ? (
                                                             <Image
                                                                 src={leave.user.profileImage}
@@ -741,32 +739,26 @@ export default function LeavesPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="text-[14px] font-medium text-[#101828]">{leave.user.name}</p>
-                                                        <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.employeeCode}</p>
-                                                        <Link
-                                                            href={`/dashboard/users/${leave.userId || leave.user.id}`}
-                                                            className="mt-1 inline-flex text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
-                                                        >
-                                                            Open profile
-                                                        </Link>
+                                                        <p className="text-[12.5px] font-medium text-[#101828] leading-tight">{leave.user.name}</p>
+                                                        <p className="text-[11px] text-[#667085] leading-tight">{leave.user.employeeCode}</p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="text-[14px] font-medium text-[#101828]">
+                                            <td className="px-5 py-3">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-[12.5px] font-medium text-[#101828]">
                                                         {leave.leaveType.name}
                                                     </span>
                                                     {leave.attachmentUrl && (
-                                                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#667085]">
-                                                            <Paperclip size={11} />
+                                                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#667085]">
+                                                            <Paperclip size={10} />
                                                             Attachment
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-[13px] font-semibold text-[#101828]">
+                                            <td className="px-5 py-3 text-center">
+                                                <span className="text-[12px] font-medium text-[#344054] tabular-nums">
                                                     {new Date(leave.createdAt).toLocaleDateString('en-GB', {
                                                         day: 'numeric',
                                                         month: 'short',
@@ -774,50 +766,50 @@ export default function LeavesPage() {
                                                     })}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[12px] font-bold uppercase tracking-wider border shadow-sm ${getStatusStyle(leave.status)}`}>
+                                            <td className="px-5 py-3 text-center">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getStatusStyle(leave.status)}`}>
                                                     {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? (
-                                                        <span className="flex items-center gap-1.5">
-                                                            <ShieldCheck size={13} className="text-amber-500" />
+                                                        <span className="flex items-center gap-1">
+                                                            <ShieldCheck size={11} className="text-amber-500" />
                                                             Pending Approval
                                                         </span>
                                                     ) : leave.status.replace(/_/g, ' ')}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end items-center gap-2">
+                                            <td className="px-5 py-3 text-right">
+                                                <div className="flex justify-end items-center gap-1.5">
                                                     {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
                                                         <>
-                                                            <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
-                                                            <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
+                                                            <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                            <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
                                                         </>
                                                     )}
                                                     {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
                                                         <>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
                                                         </>
                                                     )}
                                                     {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
                                                         <>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-3 py-1.5 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100 hover:bg-red-100 transition-all">Reject</button>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-3 py-1.5 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100 hover:bg-emerald-100 transition-all">Approve</button>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
                                                         </>
                                                     )}
                                                     {canDeleteOwnLeaveRequest(leave) && (
                                                         <button
                                                             onClick={() => handleDeleteLeaveRequest(leave.id)}
-                                                            className="w-8 h-8 flex items-center justify-center bg-red-50 text-red-600 rounded hover:bg-red-100 transition-all"
-                                                            title="Delete your leave request"
+                                                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                                            title="Delete leave request"
                                                         >
-                                                            <Trash2 size={15} />
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     )}
                                                     {user?.role === 'EMPLOYEE' && !leave.isWFH &&
                                                         !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
                                                             <button
                                                                 onClick={() => handleCancel(leave.id)}
-                                                                className="text-[12px] font-semibold text-[#D92D20] hover:text-red-700 transition-all"
+                                                                className="text-[11.5px] font-medium text-red-600 hover:underline"
                                                             >
                                                                 Cancel
                                                             </button>
@@ -825,128 +817,72 @@ export default function LeavesPage() {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
+                                    ));
                                 })()}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Mobile Card View */}
-                    <div className="md:hidden divide-y divide-[#E6E8EC]">
+                    <div className="md:hidden divide-y divide-[#F2F4F7]">
                         {(() => {
                             if (leaves.length === 0) return (
-                                <div className="px-6 py-20 text-center">
-                                    <div className="flex flex-col items-center gap-4 max-w-xs mx-auto">
-                                        <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-200 border border-slate-100">
-                                            <Calendar size={32} strokeWidth={1.5} />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[16px] font-bold text-[#101828]">No leaves found</p>
-                                            <p className="text-[13px] text-[#667085]">Start by submitting a new application.</p>
-                                        </div>
-                                        {user?.role === 'EMPLOYEE' && (
-                                            <button onClick={() => { setIsWFHRequest(false); resetLeaveForm(false); setIsApplyModalOpen(true); }} className="btn-primary w-full py-2.5">Apply Leave</button>
-                                        )}
-                                    </div>
+                                <div className="px-5 py-12 text-center">
+                                    <p className="text-[13px] font-medium text-[#101828]">No leaves found</p>
                                 </div>
                             );
 
                             if (filteredLeaves.length === 0) return (
-                                <div className="px-6 py-16 text-center">
-                                    <div className="flex flex-col items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300">
-                                            <Search size={20} />
-                                        </div>
-                                        <p className="text-[14px] font-bold text-[#101828]">No results found</p>
-                                        <button onClick={() => setSearchQuery('')} className="text-[12px] font-bold text-indigo-600">Clear filters</button>
-                                    </div>
+                                <div className="px-5 py-10 text-center">
+                                    <p className="text-[13px] font-medium text-[#101828]">No results found</p>
+                                    <button onClick={() => setSearchQuery('')} className="text-[11.5px] font-medium text-indigo-600 mt-1">Clear filters</button>
                                 </div>
                             );
 
                             return paginatedLeaves.map((leave: any) => (
-                                <div key={leave.id} className="p-5 space-y-4 bg-white hover:bg-slate-50/50 transition-colors">
-                                    <div className="flex items-start justify-between gap-3">
+                                <div key={leave.id} className="p-3.5 space-y-2.5 bg-white">
+                                    <div className="flex items-start justify-between gap-2">
                                         <div>
-                                            <p className="text-[15px] font-bold text-[#101828]">{formatLeaveLine(leave)}</p>
-                                            <p className="text-[12px] text-[#667085] mt-1">{leave.leaveType.name}</p>
-                                            <p className="text-[12px] text-[#667085] mt-0.5">{leave.user.name} · {leave.user.employeeCode}</p>
-                                            <p className="text-[12px] text-[#667085] mt-1">
-                                                Applied on{' '}
-                                                <span className="font-semibold text-[#101828]">
-                                                    {new Date(leave.createdAt).toLocaleDateString('en-GB', {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric',
-                                                    })}
-                                                </span>
-                                            </p>
+                                            <p className="text-[13px] font-medium text-[#101828]">{formatLeaveLine(leave)}</p>
+                                            <p className="text-[11px] text-[#667085] mt-0.5">{leave.leaveType.name} · {leave.user.name}</p>
                                         </div>
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border shadow-sm shrink-0 ${getStatusStyle(leave.status)}`}>
-                                            {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? 'Pending Approval' : leave.status.replace(/_/g, ' ')}
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border shrink-0 ${getStatusStyle(leave.status)}`}>
+                                            {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? 'Pending' : leave.status.replace(/_/g, ' ')}
                                         </span>
                                     </div>
-
-                                    <div className="bg-slate-50/80 rounded-xl p-3 border border-slate-100 space-y-2">
-                                        <div>
-                                            <p className="text-[10px] font-bold text-[#667085] uppercase tracking-tight mb-1">Reason for Leave</p>
-                                            <p className="text-[13px] text-[#344054] leading-relaxed italic font-medium">
-                                                &quot;{leave.reason?.trim() || 'No reason provided.'}&quot;
-                                            </p>
-                                        </div>
-                                        {leave.attachmentUrl && (
-                                            <div className="flex items-center gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleViewAttachment(leave)}
-                                                    className="inline-flex items-center gap-2 text-[12px] font-semibold text-indigo-600 hover:text-indigo-700"
-                                                >
-                                                    <FileText size={14} />
-                                                    <span className="max-w-[180px] truncate">{leave.attachmentName || 'View attachment'}</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDownloadAttachment(leave)}
-                                                    className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#667085] hover:text-[#101828]"
-                                                >
-                                                    <Download size={14} />
-                                                    Download
-                                                </button>
-                                            </div>
+                                    {leave.reason && (
+                                        <p className="text-[11.5px] text-[#667085] line-clamp-2">
+                                            {leave.reason}
+                                        </p>
+                                    )}
+                                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                                        {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                                            <>
+                                                <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-2.5 py-1 text-[11px] font-medium text-red-600 bg-red-50 rounded-md">Reject</button>
+                                                <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-2.5 py-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 rounded-md">Approve</button>
+                                            </>
+                                        )}
+                                        {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                            <>
+                                                <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-2.5 py-1 text-[11px] font-medium text-red-600 bg-red-50 rounded-md">Reject</button>
+                                                <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-2.5 py-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 rounded-md">Approve</button>
+                                            </>
+                                        )}
+                                        {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                            <>
+                                                <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-2.5 py-1 text-[11px] font-medium text-red-600 bg-red-50 rounded-md">Reject</button>
+                                                <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-2.5 py-1 text-[11px] font-medium text-emerald-600 bg-emerald-50 rounded-md">Approve</button>
+                                            </>
+                                        )}
+                                        {canDeleteOwnLeaveRequest(leave) && (
+                                            <button onClick={() => handleDeleteLeaveRequest(leave.id)} className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-600"><Trash2 size={14} /></button>
+                                        )}
+                                        {user?.role === 'EMPLOYEE' && !leave.isWFH && !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
+                                            <button onClick={() => handleCancel(leave.id)} className="text-[11.5px] font-medium text-red-600">Cancel</button>
                                         )}
                                     </div>
-
-                                    <div className="flex items-center justify-between pt-1 w-full">
-                                        <div className="flex items-center gap-2">
-                                            {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
-                                                <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
-                                            )}
-                                            {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
-                                                <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
-                                            )}
-                                            {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
-                                                <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-4 py-2 text-[12px] font-bold text-red-600 bg-red-50 rounded-lg border border-red-100">Reject</button>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
-                                                <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
-                                            )}
-                                            {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
-                                                <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
-                                            )}
-                                            {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
-                                                <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-4 py-2 text-[12px] font-bold text-emerald-600 bg-emerald-50 rounded-lg border border-emerald-100">Approve</button>
-                                            )}
-                                            {canDeleteOwnLeaveRequest(leave) && (
-                                                <button onClick={() => handleDeleteLeaveRequest(leave.id)} className="w-9 h-9 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg border border-rose-100 shadow-sm" title="Delete your leave request"><Trash2 size={16} /></button>
-                                            )}
-                                            {user?.role === 'EMPLOYEE' && !leave.isWFH && !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
-                                                <button onClick={() => handleCancel(leave.id)} className="px-4 py-2 text-[12px] font-bold text-rose-600 bg-rose-50 rounded-lg border border-rose-100">Cancel</button>
-                                            )}
-                                        </div>
-                                    </div>
                                 </div>
-                            ))
+                            ));
                         })()}
                     </div>
                     {filteredLeaves.length > 0 && (
