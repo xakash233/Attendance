@@ -337,8 +337,12 @@ class LeaveService {
                     const normalizedDate = new Date(`${dateStr}T00:00:00.000Z`);
 
                     const isLOP = isInsufficient;
-                    const attStatus = (leaveRequest.durationType === 'WORK_FROM_HOME') ? 'PRESENT_WFH' : (isLOP ? 'LOP' : 'LEAVE');
-                    const workHrs = leaveRequest.durationType === 'WORK_FROM_HOME' ? 8.0 : 0;
+                    const isWfh = leaveRequest.durationType === 'WORK_FROM_HOME'
+                        || (leaveRequest.leaveType?.name && String(leaveRequest.leaveType.name).toUpperCase().includes('WORK FROM HOME'))
+                        || (leaveRequest.leaveType?.name && String(leaveRequest.leaveType.name).toUpperCase().includes('WFH'))
+                        || leaveRequest.leaveType?.code === 'WFH';
+                    const attStatus = isWfh ? 'PRESENT_WFH' : (isLOP ? 'LOP' : 'LEAVE');
+                    const workHrs = isWfh ? 7.5 : 0;
 
                     await tx.attendance.upsert({
                         where: { userId_date: { userId: leaveRequest.userId, date: normalizedDate } },

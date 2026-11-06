@@ -175,7 +175,7 @@ export const decideWFH = async (req, res, next) => {
                 where: { userId_date: { userId: wfh.userId, date: day } },
                 update: {
                     status: 'PRESENT_WFH',
-                    workingHours: 8,
+                    workingHours: 7.5,
                     deficit: 0,
                     leaveDeducted: 0,
                     isManual: true,
@@ -185,7 +185,7 @@ export const decideWFH = async (req, res, next) => {
                     userId: wfh.userId,
                     date: day,
                     status: 'PRESENT_WFH',
-                    workingHours: 8,
+                    workingHours: 7.5,
                     overtime: 0,
                     deficit: 0,
                     leaveDeducted: 0,

@@ -1338,6 +1338,15 @@ export const getComplianceReport = async (req, res, next) => {
                     status = att.status.replace(/_/g, ' ');
                 }
 
+                const isWfhLeave = Boolean(
+                    leave && (
+                        leave.durationType === 'WORK_FROM_HOME'
+                        || (leave.leaveType?.name && String(leave.leaveType.name).toUpperCase().includes('WORK FROM HOME'))
+                        || (leave.leaveType?.name && String(leave.leaveType.name).toUpperCase().includes('WFH'))
+                        || leave.leaveType?.code === 'WFH'
+                    )
+                );
+
                 if (leave) {
                     const lType = (leave.leaveType?.name || 'LEAVE').toUpperCase();
                     const isWfhSaturday = dayCategory === 'SAT_WFH';
@@ -1346,7 +1355,11 @@ export const getComplianceReport = async (req, res, next) => {
                     const lopPortion = leaveAllocation.lopPortion || 0;
                     const hasLop = lopPortion > 0;
 
-                    if (leave.status.includes('REJECTED')) {
+                    if (isWfhLeave && (leave.status === 'APPROVED' || leave.status === 'FINAL_APPROVED' || leave.status === 'HR_APPROVED')) {
+                        status = 'WFH';
+                        remarks = 'WFH (Approved)';
+                        hours = Math.max(hours, MIN_FULL_DAY_HOURS);
+                    } else if (leave.status.includes('REJECTED')) {
                         if (!att) {
                             status = `REJECTED (${lType})`;
                             remarks = leave.comments || 'Rejected by Admin';
@@ -1371,10 +1384,6 @@ export const getComplianceReport = async (req, res, next) => {
                                 ? `HALF DAY LOP (${lopPortion.toFixed(1)} day)`
                                 : 'HALF DAY LEAVE';
                         }
-                    } else if (leave.durationType === 'WORK_FROM_HOME' && (isWfhSaturday || noWorkRecorded)) {
-                        status = 'WFH';
-                        hours = Math.max(hours, 8.0);
-                        remarks = 'WFH (Approved)';
                     } else if (isWfhSaturday || noWorkRecorded) {
                         status = hasLop ? 'LOP' : lType;
                         if (!isWfhSaturday) {
@@ -1449,7 +1458,7 @@ export const getComplianceReport = async (req, res, next) => {
                     );
                 }
 
-                // WFH days (scheduled Sat WFH or approved WFH) count as a full worked day when no punches.
+                // WFH days (scheduled Sat WFH, approved WFH request, or approved WFH leave) count as a full worked day (7.5h) when no punches.
                 const statusUpperForWfh = String(status || '').toUpperCase();
                 const remarksUpperForWfh = String(remarks || '').toUpperCase();
                 const isCreditedWfhDay =
@@ -1458,10 +1467,11 @@ export const getComplianceReport = async (req, res, next) => {
                     && dayCategory !== 'SAT_LEAVE'
                     && (
                         dayCategory === 'SAT_WFH'
+                        || Boolean(wfh)
+                        || (isWfhLeave && (leave?.status === 'APPROVED' || leave?.status === 'FINAL_APPROVED' || leave?.status === 'HR_APPROVED'))
                         || statusUpperForWfh.includes('WFH')
                         || remarksUpperForWfh.includes('WFH')
                     )
-                    && !remarksUpperForWfh.includes('APPROVED LEAVE')
                     && !remarksUpperForWfh.includes('HALF DAY LEAVE');
                 if (isCreditedWfhDay && actualWorkedToday < MIN_FULL_DAY_HOURS) {
                     actualWorkedToday = MIN_FULL_DAY_HOURS;
@@ -1698,7 +1708,7 @@ export const exportComplianceReport = async (req, res, next) => {
         const scopedUserIds = users.map((user) => user.id);
 
         // Batch fetch all data
-        const [allAttendance, allLeaves, allHolidays] = await Promise.all([
+        const [allAttendance, allLeaves, allHolidays, allWfhRequests] = await Promise.all([
             prisma.attendance.findMany({
                 where: { 
                     date: { gte: start, lte: end }, 
@@ -1717,6 +1727,12 @@ export const exportComplianceReport = async (req, res, next) => {
             }),
             prisma.holiday.findMany({
                 where: { date: { gte: start, lte: end } }
+            }),
+            prisma.wfhRequest.findMany({
+                where: {
+                    userId: { in: scopedUserIds },
+                    wfhDate: { gte: start, lte: end }
+                }
             })
         ]);
 
@@ -1902,8 +1918,37 @@ export const exportComplianceReport = async (req, res, next) => {
                     }
                 }
 
+                const wfhReq = allWfhRequests.find(w => {
+                    const wStatus = String(w.status || '').toUpperCase();
+                    const isApp = ['APPROVED', 'FINAL_APPROVED', 'AUTO_APPROVED'].includes(wStatus);
+                    const dStr = typeof w.wfhDate === 'string' ? w.wfhDate.split('T')[0] : w.wfhDate.toISOString().split('T')[0];
+                    return w.userId === user.id && dStr === dateStr && isApp;
+                });
+                if (wfhReq && !isFuture && !holiday) {
+                    status = 'WFH';
+                    remarks = 'WFH (Approved)';
+                    if (isCompanyWorkday) {
+                        actualWorkedToday = Math.max(actualWorkedToday, 7.5);
+                    }
+                }
+
+                const isWfhLeave = Boolean(
+                    leave && (
+                        leave.durationType === 'WORK_FROM_HOME'
+                        || (leave.leaveType?.name && String(leave.leaveType.name).toUpperCase().includes('WORK FROM HOME'))
+                        || (leave.leaveType?.name && String(leave.leaveType.name).toUpperCase().includes('WFH'))
+                        || leave.leaveType?.code === 'WFH'
+                    )
+                );
+
                 if (leave) {
-                    if (leave.status.includes('REJECTED') || leave.status.includes('PENDING')) {
+                    if (isWfhLeave && (leave.status === 'APPROVED' || leave.status === 'FINAL_APPROVED' || leave.status === 'HR_APPROVED')) {
+                        status = 'WFH';
+                        remarks = 'WFH (Approved)';
+                        if (isCompanyWorkday && !isFuture) {
+                            actualWorkedToday = Math.max(actualWorkedToday, 7.5);
+                        }
+                    } else if (leave.status.includes('REJECTED') || leave.status.includes('PENDING')) {
                         if (!att) {
                             status = (leave.status.includes('REJECTED') ? 'REJECTED: ' : 'PENDING: ') + (leave.leaveType?.name || 'LEAVE').toUpperCase();
                             remarks = leave.comments || 'Unapproved Leave';

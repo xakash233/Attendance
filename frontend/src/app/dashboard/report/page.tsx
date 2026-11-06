@@ -427,8 +427,9 @@ export default function ReportPage() {
                     && remarksUpper.includes('MANUAL')
                 );
 
+            if (isApprovedWfh) return 'PRESENT';
             if (leaveApplied && !hasPunch) return 'LEAVE';
-            if (isApprovedWfh || hasPunch) return 'PRESENT';
+            if (hasPunch) return 'PRESENT';
             return 'ABSENT';
         }
 

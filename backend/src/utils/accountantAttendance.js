@@ -42,6 +42,7 @@ const hasLeaveApplied = (row) => {
  * Applies to weekdays and 1st/3rd/5th Saturdays (WFH) — punch always wins as present.
  */
 export const isAccountantLeaveDay = (row) => {
+    if (hasApprovedWfh(row)) return false;
     if (!hasLeaveApplied(row)) return false;
     return !hasBiometricPunch(row);
 };
@@ -82,11 +83,15 @@ export const hasApprovedWfh = (row) => {
 export const classifyAccountantDay = (row) => {
     if (row?.IsBeforeEffectiveStart || !row?.IsCompanyWorkingDay) return 'UNKNOWN';
 
+    if (hasApprovedWfh(row)) {
+        return 'PRESENT';
+    }
+
     if (isAccountantLeaveDay(row)) {
         return 'LEAVE';
     }
 
-    if (hasApprovedWfh(row) || hasBiometricPunch(row)) {
+    if (hasBiometricPunch(row)) {
         return 'PRESENT';
     }
 
