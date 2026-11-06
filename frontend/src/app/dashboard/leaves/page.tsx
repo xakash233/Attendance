@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
     Plus, X, Filter, Calendar, Briefcase,
     ArrowRight, Loader2, Search, User, Clock, ShieldCheck,
-    CheckCircle2, XCircle, Database, AlertCircle, Trash2, Paperclip, FileText, Download
+    CheckCircle2, XCircle, Database, AlertCircle, Trash2, Paperclip, FileText, Download, ChevronDown
 } from 'lucide-react';
 import DatePicker from '@/components/ui/DatePicker';
 import Image from 'next/image';
@@ -684,140 +684,162 @@ export default function LeavesPage() {
                                         </tr>
                                     );
 
-                                    return paginatedLeaves.map((leave: any) => (
-                                        <tr key={leave.id} className="hover:bg-slate-50/60 transition-colors">
-                                            <td className="px-5 py-3">
-                                                <button
-                                                    type="button"
-                                                    className="text-left text-[13px] font-medium text-[#101828] hover:text-indigo-600 transition-colors"
-                                                    onClick={() => setExpandedLeaveId((prev) => (prev === leave.id ? null : leave.id))}
+                                    return paginatedLeaves.map((leave: any) => {
+                                        const isExpanded = expandedLeaveId === leave.id;
+                                        return (
+                                            <React.Fragment key={leave.id}>
+                                                <tr 
+                                                    onClick={() => setExpandedLeaveId(isExpanded ? null : leave.id)}
+                                                    className={`transition-colors cursor-pointer ${isExpanded ? 'bg-indigo-50/20' : 'hover:bg-slate-50/70'}`}
                                                 >
-                                                    {formatLeaveLine(leave)}
-                                                </button>
-                                                <div className="mt-1 space-y-1.5 max-w-xs">
-                                                    <p
-                                                        className={`text-[11.5px] text-[#667085] leading-relaxed ${expandedLeaveId === leave.id ? '' : 'line-clamp-1'}`}
-                                                        title={leave.reason?.trim() || ''}
-                                                    >
-                                                        {leave.reason?.trim() || 'No reason provided.'}
-                                                    </p>
-                                                    {leave.attachmentUrl && (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleViewAttachment(leave)}
-                                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#D0D5DD] bg-white px-2 py-1 text-[11px] font-medium text-[#344054] hover:bg-slate-50 transition-colors"
-                                                            >
-                                                                <FileText size={12} className="text-[#667085]" />
-                                                                <span className="max-w-[120px] truncate">{leave.attachmentName || 'View file'}</span>
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDownloadAttachment(leave)}
-                                                                title="Download attachment"
-                                                                className="w-6 h-6 flex items-center justify-center rounded-md border border-[#D0D5DD] bg-white text-[#667085] hover:bg-slate-50 transition-colors"
-                                                            >
-                                                                <Download size={12} />
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-3">
-                                                <div className="flex items-center gap-2.5">
-                                                    <div className="w-7 h-7 rounded-full bg-[#101828] text-white flex items-center justify-center font-medium text-[10.5px] uppercase relative overflow-hidden border border-[#E6E8EC] shrink-0">
-                                                        {leave.user.profileImage ? (
-                                                            <Image
-                                                                src={leave.user.profileImage}
-                                                                alt={leave.user.name}
-                                                                layout="fill"
-                                                                objectFit="cover"
-                                                                unoptimized
+                                                    <td className="px-5 py-3">
+                                                        <div className="flex items-start gap-2">
+                                                            <ChevronDown 
+                                                                size={14} 
+                                                                className={`text-[#667085] shrink-0 mt-0.5 transition-transform ${isExpanded ? 'rotate-180 text-indigo-600' : ''}`} 
                                                             />
-                                                        ) : (
-                                                            leave.user.name.substring(0, 2)
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[12.5px] font-medium text-[#101828] leading-tight">{leave.user.name}</p>
-                                                        <p className="text-[11px] text-[#667085] leading-tight">{leave.user.employeeCode}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-3">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <span className="text-[12.5px] font-medium text-[#101828]">
-                                                        {leave.leaveType.name}
-                                                    </span>
-                                                    {leave.attachmentUrl && (
-                                                        <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#667085]">
-                                                            <Paperclip size={10} />
-                                                            Attachment
+                                                            <div className="min-w-0">
+                                                                <span className="text-[13px] font-medium text-[#101828] block">
+                                                                    {formatLeaveLine(leave)}
+                                                                </span>
+                                                                <p className="text-[11.5px] text-[#667085] line-clamp-1 mt-0.5" title={leave.reason?.trim() || ''}>
+                                                                    {leave.reason?.trim() || 'No reason provided.'}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-3">
+                                                        <div>
+                                                            <p className="text-[13px] font-medium text-[#101828] leading-tight">{leave.user.name}</p>
+                                                            <p className="text-[11px] text-[#667085] leading-tight mt-0.5">{leave.user.employeeCode}</p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-3">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <span className="text-[12.5px] font-medium text-[#101828]">
+                                                                {leave.leaveType.name}
+                                                            </span>
+                                                            {leave.attachmentUrl && (
+                                                                <span className="inline-flex items-center gap-1 text-[10.5px] font-medium text-[#667085]">
+                                                                    <Paperclip size={10} />
+                                                                    Attachment
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-3 text-center">
+                                                        <span className="text-[12px] font-medium text-[#344054] tabular-nums">
+                                                            {new Date(leave.createdAt).toLocaleDateString('en-GB', {
+                                                                day: 'numeric',
+                                                                month: 'short',
+                                                                year: 'numeric',
+                                                            })}
                                                         </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-3 text-center">
-                                                <span className="text-[12px] font-medium text-[#344054] tabular-nums">
-                                                    {new Date(leave.createdAt).toLocaleDateString('en-GB', {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric',
-                                                    })}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3 text-center">
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getStatusStyle(leave.status)}`}>
-                                                    {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? (
-                                                        <span className="flex items-center gap-1">
-                                                            <ShieldCheck size={11} className="text-amber-500" />
-                                                            Pending Approval
+                                                    </td>
+                                                    <td className="px-5 py-3 text-center">
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${getStatusStyle(leave.status)}`}>
+                                                            {leave.status === 'AUTO_APPROVED' || leave.status === 'PENDING' ? (
+                                                                <span className="flex items-center gap-1">
+                                                                    <ShieldCheck size={11} className="text-amber-500" />
+                                                                    Pending Approval
+                                                                </span>
+                                                            ) : leave.status.replace(/_/g, ' ')}
                                                         </span>
-                                                    ) : leave.status.replace(/_/g, ' ')}
-                                                </span>
-                                            </td>
-                                            <td className="px-5 py-3 text-right">
-                                                <div className="flex justify-end items-center gap-1.5">
-                                                    {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
-                                                        <>
-                                                            <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
-                                                            <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
-                                                        </>
-                                                    )}
-                                                    {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
-                                                        <>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
-                                                            <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
-                                                        </>
-                                                    )}
-                                                    {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
-                                                        <>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
-                                                            <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
-                                                        </>
-                                                    )}
-                                                    {canDeleteOwnLeaveRequest(leave) && (
-                                                        <button
-                                                            onClick={() => handleDeleteLeaveRequest(leave.id)}
-                                                            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                                            title="Delete leave request"
-                                                        >
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    )}
-                                                    {user?.role === 'EMPLOYEE' && !leave.isWFH &&
-                                                        !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
-                                                            <button
-                                                                onClick={() => handleCancel(leave.id)}
-                                                                className="text-[11.5px] font-medium text-red-600 hover:underline"
-                                                            >
-                                                                Cancel
-                                                            </button>
-                                                        )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ));
+                                                    </td>
+                                                    <td className="px-5 py-3 text-right">
+                                                        <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                            {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                                                                <>
+                                                                    <button onClick={() => handleWFHDecision(leave.id, 'REJECTED')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                                    <button onClick={() => handleWFHDecision(leave.id, 'APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
+                                                                </>
+                                                            )}
+                                                            {!leave.isWFH && leave.status === 'PENDING_HR' && user?.role === 'HR' && (
+                                                                <>
+                                                                    <button onClick={() => handleHRDecision(leave.id, 'REJECTED_BY_HR')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                                    <button onClick={() => handleHRDecision(leave.id, 'HR_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
+                                                                </>
+                                                            )}
+                                                            {!leave.isWFH && (leave.status === 'HR_APPROVED' || leave.status === 'PENDING_SUPERADMIN' || leave.status === 'PENDING_HR') && (user?.role === 'SUPER_ADMIN') && (
+                                                                <>
+                                                                    <button onClick={() => handleFinalDecision(leave.id, 'REJECTED_BY_SUPERADMIN')} className="px-2.5 py-1 text-[11.5px] font-medium text-red-600 bg-red-50 rounded-md border border-red-100 hover:bg-red-100 transition-colors">Reject</button>
+                                                                    <button onClick={() => handleFinalDecision(leave.id, 'FINAL_APPROVED')} className="px-2.5 py-1 text-[11.5px] font-medium text-emerald-600 bg-emerald-50 rounded-md border border-emerald-100 hover:bg-emerald-100 transition-colors">Approve</button>
+                                                                </>
+                                                            )}
+                                                            {canDeleteOwnLeaveRequest(leave) && (
+                                                                <button
+                                                                    onClick={() => handleDeleteLeaveRequest(leave.id)}
+                                                                    className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                                                    title="Delete leave request"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
+                                                            {user?.role === 'EMPLOYEE' && !leave.isWFH &&
+                                                                !['CANCELLED', 'REJECTED_BY_HR', 'REJECTED_BY_SUPERADMIN', 'FINAL_APPROVED'].includes(leave.status) && (
+                                                                    <button
+                                                                        onClick={() => handleCancel(leave.id)}
+                                                                        className="text-[11.5px] font-medium text-red-600 hover:underline"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {/* Expanded Reason & Details Row */}
+                                                {isExpanded && (
+                                                    <tr className="bg-slate-50/70 border-b border-[#EAECF0]">
+                                                        <td colSpan={6} className="px-5 py-3.5">
+                                                            <div className="bg-white rounded-xl border border-[#E4E7EC] p-4 shadow-xs space-y-3">
+                                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-2">
+                                                                    <div>
+                                                                        <span className="text-[10.5px] font-semibold text-[#667085] uppercase tracking-wider block">Leave Request Details</span>
+                                                                        <p className="text-[12.5px] font-medium text-[#101828] mt-0.5">
+                                                                            {leave.user.name} ({leave.user.employeeCode}) · {formatLeaveLine(leave)} · {leave.leaveType.name}
+                                                                        </p>
+                                                                    </div>
+                                                                    <span className="text-[11px] text-[#667085]">
+                                                                        Applied on {new Date(leave.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                                    </span>
+                                                                </div>
+
+                                                                <div className="space-y-1">
+                                                                    <span className="text-[10.5px] font-semibold text-[#667085] uppercase tracking-wider block">Reason for Leave:</span>
+                                                                    <div className="bg-slate-50/80 p-3 rounded-lg border border-slate-200/60 text-[12.5px] text-[#344054] leading-relaxed whitespace-pre-wrap">
+                                                                        {leave.reason?.trim() || 'No reason provided.'}
+                                                                    </div>
+                                                                </div>
+
+                                                                {leave.attachmentUrl && (
+                                                                    <div className="flex items-center gap-2 pt-0.5" onClick={(e) => e.stopPropagation()}>
+                                                                        <span className="text-[10.5px] font-semibold text-[#667085] uppercase tracking-wider">Attachment:</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleViewAttachment(leave)}
+                                                                            className="inline-flex items-center gap-1.5 rounded-md border border-[#D0D5DD] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#344054] hover:bg-slate-50 transition-colors"
+                                                                        >
+                                                                            <FileText size={13} className="text-[#667085]" />
+                                                                            <span className="max-w-[200px] truncate">{leave.attachmentName || 'View attachment'}</span>
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleDownloadAttachment(leave)}
+                                                                            title="Download attachment"
+                                                                            className="w-7 h-7 flex items-center justify-center rounded-md border border-[#D0D5DD] bg-white text-[#667085] hover:bg-slate-50 transition-colors"
+                                                                        >
+                                                                            <Download size={13} />
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    });
                                 })()}
                             </tbody>
                         </table>
@@ -839,8 +861,14 @@ export default function LeavesPage() {
                                 </div>
                             );
 
-                            return paginatedLeaves.map((leave: any) => (
-                                <div key={leave.id} className="p-3.5 space-y-2.5 bg-white">
+                            return paginatedLeaves.map((leave: any) => {
+                                const isExpanded = expandedLeaveId === leave.id;
+                                return (
+                                <div 
+                                    key={leave.id} 
+                                    onClick={() => setExpandedLeaveId(isExpanded ? null : leave.id)}
+                                    className="p-3.5 space-y-2.5 bg-white cursor-pointer hover:bg-slate-50/50 transition-colors"
+                                >
                                     <div className="flex items-start justify-between gap-2">
                                         <div>
                                             <p className="text-[13px] font-medium text-[#101828]">{formatLeaveLine(leave)}</p>
@@ -851,9 +879,31 @@ export default function LeavesPage() {
                                         </span>
                                     </div>
                                     {leave.reason && (
-                                        <p className="text-[11.5px] text-[#667085] line-clamp-2">
-                                            {leave.reason}
-                                        </p>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-semibold text-[#667085] uppercase tracking-wider">Reason for Request:</p>
+                                            <p className={`text-[12px] text-[#344054] bg-slate-50 p-2.5 rounded-lg border border-slate-100 ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`}>
+                                                {leave.reason}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {isExpanded && leave.attachmentUrl && (
+                                        <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewAttachment(leave)}
+                                                className="inline-flex items-center gap-1.5 rounded-md border border-[#D0D5DD] bg-white px-2.5 py-1 text-[11px] font-medium text-[#344054] hover:bg-slate-50"
+                                            >
+                                                <FileText size={12} className="text-[#667085]" />
+                                                <span className="max-w-[160px] truncate">{leave.attachmentName || 'Attachment'}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDownloadAttachment(leave)}
+                                                className="w-6 h-6 flex items-center justify-center rounded-md border border-[#D0D5DD] bg-white text-[#667085]"
+                                            >
+                                                <Download size={12} />
+                                            </button>
+                                        </div>
                                     )}
                                     <div className="flex items-center justify-end gap-1.5 pt-1">
                                         {leave.isWFH && ['PENDING', 'AUTO_APPROVED'].includes(leave.status) && ['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
@@ -882,7 +932,8 @@ export default function LeavesPage() {
                                         )}
                                     </div>
                                 </div>
-                            ));
+                            );
+                        });
                         })()}
                     </div>
                     {filteredLeaves.length > 0 && (
