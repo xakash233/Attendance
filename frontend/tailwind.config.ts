@@ -32,6 +32,9 @@ const config: Config = {
                     foreground: "#6B7280",
                 },
             },
+            boxShadow: {
+                'xs': '0 1px 2px rgba(16, 24, 40, 0.04)',
+            },
             borderRadius: {
                 'xl': '1rem',
                 '2xl': '1.5rem',

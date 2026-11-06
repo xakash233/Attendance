@@ -39,26 +39,26 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
     const filteredLinks = links.filter((link) => link.roles.includes(user?.role || ''));
 
     return (
-        <aside className="h-full w-full bg-transparent flex flex-col pb-2 transition-all overflow-y-auto no-scrollbar pt-0">
+        <aside className="h-full w-full bg-white flex flex-col pb-2 transition-all overflow-y-auto no-scrollbar pt-0">
             {/* Institution Branded Header */}
-            <div className="flex items-center px-4 py-8 ">
+            <div className="flex items-center px-4 py-4 border-b border-[#E6E8EC]/70">
                 <div className="flex-1 flex items-center justify-start overflow-hidden">
                     <Image
                         src="/logo/tectras_upscaled.png"
                         alt="Tectra Logo"
-                        width={220}
-                        height={60}
-                        className="object-contain"
+                        width={150}
+                        height={40}
+                        className="object-contain max-h-[36px] w-auto"
                         priority
                     />
                 </div>
-                <button className="text-[#667085] hover:text-[#101828] md:hidden ml-auto" onClick={onClose}>
-                    <ChevronLeft size={20} />
+                <button className="text-[#667085] hover:text-[#101828] md:hidden ml-auto p-1 rounded-md" onClick={onClose}>
+                    <ChevronLeft size={18} />
                 </button>
             </div>
 
             {/* Navigation Menu */}
-            <nav className="flex flex-col gap-1.5 px-3 flex-1">
+            <nav className="flex flex-col gap-0.5 px-2.5 py-3 flex-1">
                 {filteredLinks.map((link) => {
                     const isActive = pathname === link.href;
                     return (
@@ -66,10 +66,10 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
                             key={link.label}
                             href={link.href}
                             onClick={onClose}
-                            className={`flex items-center gap-3 px-5 py-3.5 rounded-xl transition-all duration-200 font-bold text-[14px] cursor-pointer 
-                                ${isActive ? 'bg-[#101828] text-white shadow-lg' : 'text-[#667085] hover:bg-slate-50 hover:text-[#101828]'}`}
+                            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors font-medium text-[13px] cursor-pointer 
+                                ${isActive ? 'bg-[#101828] text-white shadow-xs' : 'text-[#475467] hover:bg-slate-100/70 hover:text-[#101828]'}`}
                         >
-                            <link.icon size={20} className="shrink-0" />
+                            <link.icon size={17} className="shrink-0" />
                             <span>{link.label}</span>
                         </Link>
                     );
@@ -77,11 +77,10 @@ const Sidebar = ({ onClose }: { onClose?: () => void }) => {
             </nav>
 
             {/* Branding Footer */}
-            <div className="px-6 py-6 mt-auto">
-                <h4 className="text-[20px] font-extrabold text-[#101828] leading-[1.1] tracking-tight">
-                    Your Vision,<br />
-                    <span className="text-[#667085] font-semibold">Our Technology.</span>
-                </h4>
+            <div className="px-4 py-3 mt-auto border-t border-[#E6E8EC]/70">
+                <p className="text-[11.5px] font-semibold text-[#101828] leading-tight tracking-tight">
+                    Your Vision, <span className="text-[#667085] font-normal">Our Technology.</span>
+                </p>
             </div>
         </aside>
     );

@@ -330,35 +330,35 @@ export default function DashboardPage() {
                     </div>
 
                     {['SUPER_ADMIN', 'HR', 'ACCOUNTANT'].includes(user?.role || '') && (
-                        <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-4 px-10 py-5 bg-[#101828] text-white rounded-md text-[14px] font-semibold uppercase tracking-[0.2em] hover:bg-slate-800 transition-all hover:shadow-2xl shadow-[#101828]/20 active:scale-95 whitespace-nowrap group"
+                                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-[#101828] text-white rounded-lg text-[12.5px] font-medium hover:bg-slate-800 transition-colors shadow-xs whitespace-nowrap"
                             >
-                                <Activity size={18} className="group-hover:rotate-12 transition-transform" />
+                                <Activity size={15} />
                                 Employee Reports
-                                <ArrowRight size={16} className="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                                <ArrowRight size={14} />
                             </Link>
                         </div>
                     )}
                     {user?.role === 'ADMIN' && (
-                        <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-3 px-8 py-3 bg-[#101828] text-white rounded-xl text-[13px] font-semibold uppercase tracking-[0.15em] hover:bg-slate-800 transition-all"
+                                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-[#101828] text-white rounded-lg text-[12.5px] font-medium hover:bg-slate-800 transition-colors shadow-xs"
                             >
-                                <Activity size={16} />
+                                <Activity size={15} />
                                 Employee Reports
                             </Link>
                         </div>
                     )}
                     {user?.role === 'EMPLOYEE' && (
-                        <div className="flex flex-col md:flex-row gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Link
                                 href="/dashboard/report"
-                                className="flex items-center justify-center gap-3 px-8 py-3 bg-white text-[#101828] border-2 border-[#E6E8EC] rounded-xl text-[13px] font-semibold uppercase tracking-[0.15em] hover:bg-slate-50 transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-white text-[#101828] border border-[#D0D5DD] rounded-lg text-[12.5px] font-medium hover:bg-slate-50 transition-colors shadow-xs whitespace-nowrap"
                             >
-                                <History size={16} />
+                                <History size={15} />
                                 30 Days Report
                             </Link>
                         </div>
@@ -550,43 +550,43 @@ export default function DashboardPage() {
                     {/* 2. ADMIN DASHBOARD (SUPER_ADMIN, HR, ADMIN, ACCOUNTANT) */}
                     {['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '') && (
                         <>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
-                                    <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-900 flex items-center justify-center mb-2">
-                                        <UserCheck size={24} />
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-3.5 sm:p-4 rounded-xl border border-[#E6E8EC] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 transition-all hover:border-slate-300">
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-900 flex items-center justify-center mb-1">
+                                        <UserCheck size={18} />
                                     </div>
-                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.present}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Present Today</p>
+                                    <h3 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-none">{stats.present}</h3>
+                                    <p className="text-[11px] font-medium text-slate-500">Present Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md">
-                                    <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center mb-2">
-                                        <UserMinus size={24} />
+                                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.05 }} className="bg-white p-3.5 sm:p-4 rounded-xl border border-[#E6E8EC] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 transition-all hover:border-slate-300">
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center mb-1">
+                                        <UserMinus size={18} />
                                     </div>
-                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.absent}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Absent Today</p>
+                                    <h3 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-none">{stats.absent}</h3>
+                                    <p className="text-[11px] font-medium text-slate-500">Absent Today</p>
                                 </motion.div>
 
-                                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
-                                    <div className="w-12 h-12 rounded-full bg-slate-300 text-slate-800 flex items-center justify-center mb-2">
-                                        <Calendar size={24} />
+                                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }} className="bg-white p-3.5 sm:p-4 rounded-xl border border-[#E6E8EC] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 transition-all hover:border-slate-300 cursor-pointer" onClick={() => router.push('/dashboard/leaves')}>
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center mb-1">
+                                        <Calendar size={18} />
                                     </div>
-                                    <h3 className="text-2xl font-semibold text-[#101828]">{pendingLeavesCount}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Admin Actions</p>
+                                    <h3 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-none">{pendingLeavesCount}</h3>
+                                    <p className="text-[11px] font-medium text-slate-500">Pending Approvals</p>
                                 </motion.div>
 
                                 <motion.div
-                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center gap-2 transition-all hover:border-slate-300 hover:shadow-md cursor-pointer"
+                                    transition={{ delay: 0.15 }}
+                                    className="bg-white p-3.5 sm:p-4 rounded-xl border border-[#E6E8EC] shadow-xs flex flex-col items-center justify-center text-center gap-1.5 transition-all hover:border-slate-300 cursor-pointer"
                                     onClick={() => router.push('/dashboard/users')}
                                 >
-                                    <div className="w-12 h-12 rounded-full bg-slate-50 text-slate-950 flex items-center justify-center mb-2">
-                                        <Users size={24} />
+                                    <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-950 flex items-center justify-center mb-1">
+                                        <Users size={18} />
                                     </div>
-                                    <h3 className="text-2xl font-semibold text-[#101828]">{stats.total}</h3>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Employess</p>
+                                    <h3 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] leading-none">{stats.total}</h3>
+                                    <p className="text-[11px] font-medium text-slate-500">Total Employees</p>
                                 </motion.div>
                             </div>
 

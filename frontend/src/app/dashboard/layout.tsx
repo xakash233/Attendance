@@ -213,20 +213,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Toaster position="top-right" />
 
             {/* Desktop Sidebar Orchestrator */}
-            <div className="hidden md:block w-[250px] shrink-0 relative z-[100] bg-white border-r border-[#E6E8EC]">
+            <div className="hidden md:block w-[230px] shrink-0 relative z-[100] bg-white border-r border-[#E6E8EC]">
                 <Sidebar />
             </div>
 
             {/* Mobile Workspace Overlay */}
             {isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-slate-950/40 backdrop-blur-md z-[200] md:hidden animate-fade-in"
+                    className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[200] md:hidden animate-fade-in"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
 
             {/* Mobile Workspace Drawer */}
-            <div className={`fixed inset-y-0 left-0 w-[250px] bg-white z-[210] md:hidden transition-transform duration-500 ease-in-out shadow-2xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className={`fixed inset-y-0 left-0 w-[230px] bg-white z-[210] md:hidden transition-transform duration-300 ease-in-out shadow-xl ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <Sidebar onClose={() => setIsMobileMenuOpen(false)} />
             </div>
 
@@ -234,28 +234,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1 flex flex-col min-w-0 min-h-screen relative z-[150]">
 
                 {/* Refined Terminal Header */}
-                <header className="h-[70px] bg-white/70 backdrop-blur-xl border-b border-[#E6E8EC]/50 sticky top-0 z-[80] px-6 flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+                <header className="h-[52px] sm:h-[56px] bg-white/80 backdrop-blur-md border-b border-[#E6E8EC] sticky top-0 z-[80] px-4 sm:px-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="p-2 md:hidden hover:bg-slate-100 rounded-lg text-[#667085] transition-all"
+                            className="p-1.5 md:hidden hover:bg-slate-100 rounded-md text-[#667085] transition-colors"
                         >
-                            <Menu size={22} />
+                            <Menu size={19} />
                         </button>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 md:hidden">
                             <Image
                                 src="/logo/tectra_upscaled.png"
                                 alt="Tectra Technologies"
-                                width={250}
-                                height={65}
-                                className="object-contain"
+                                width={120}
+                                height={32}
+                                className="object-contain max-h-[30px] w-auto"
                                 priority
                             />
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4 lg:gap-6 flex-1 justify-end">
+                    <div className="flex items-center gap-3 sm:gap-4 flex-1 justify-end">
 
                         <div className="relative" id="notifications-dropdown">
                             <button
@@ -334,42 +334,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="relative" id="profile-dropdown">
                             <button
                                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                className="flex items-center gap-3 p-1.5 pl-3 rounded-full border border-[#E6E8EC]/50 hover:bg-slate-50 transition-all"
+                                className="flex items-center gap-2.5 p-1 pl-2.5 rounded-full border border-[#E6E8EC] hover:bg-slate-50 transition-colors"
                             >
                                 <div className="text-right hidden sm:block">
-                                    <p className="text-[13px] font-bold text-[#101828] leading-none">{user?.name}</p>
-                                    <p className="font-medium text-[#667085] mt-1 uppercase tracking-wider text-[9px] leading-none">{user?.role?.replace('_', ' ')}</p>
+                                    <p className="text-[12px] font-semibold text-[#101828] leading-none">{user?.name}</p>
+                                    <p className="font-medium text-[#667085] mt-0.5 uppercase tracking-wider text-[9px] leading-none">{user?.role?.replace('_', ' ')}</p>
                                 </div>
                                 <UserAvatar name={user?.name || 'User'} profileImage={user?.profileImage} size="sm" />
-                                <ChevronDown size={14} className={`text-[#667085] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDown size={13} className={`text-[#667085] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {isProfileOpen && (
-                                <div className="absolute right-0 mt-2 w-56 bg-white border border-[#E6E8EC] rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[200]">
-                                    <div className="p-4 border-b border-[#E6E8EC] bg-[#F8F9FB]">
-                                        <p className="text-[14px] font-bold text-[#101828]">{user?.name}</p>
-                                        <p className="text-[11px] text-[#667085] truncate font-medium mt-0.5">{user?.email}</p>
+                                <div className="absolute right-0 mt-2 w-52 bg-white border border-[#E6E8EC] rounded-xl shadow-md overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 z-[200]">
+                                    <div className="p-3 border-b border-[#E6E8EC] bg-[#F8F9FB]">
+                                        <p className="text-[13px] font-semibold text-[#101828]">{user?.name}</p>
+                                        <p className="text-[11px] text-[#667085] truncate font-normal mt-0.5">{user?.email}</p>
                                     </div>
-                                    <div className="p-1.5">
+                                    <div className="p-1">
                                         <button
                                             onClick={() => {
                                                 router.push(`/dashboard/users/me`);
                                                 setIsProfileOpen(false);
                                             }}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-[#344054] hover:bg-slate-50 transition-all"
+                                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12.5px] font-medium text-[#344054] hover:bg-slate-50 transition-colors"
                                         >
-                                            <User size={16} />
+                                            <User size={15} />
                                             Edit Profile
                                         </button>
-                                        <div className="h-[1px] bg-[#E6E8EC] my-1 mx-2" />
+                                        <div className="h-[1px] bg-[#E6E8EC] my-1 mx-1.5" />
                                         <button
                                             onClick={() => {
                                                 logout();
                                                 setIsProfileOpen(false);
                                             }}
-                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-semibold text-[#D92D20] hover:bg-red-50 transition-all"
+                                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[12.5px] font-medium text-[#D92D20] hover:bg-red-50 transition-colors"
                                         >
-                                            <LogOut size={16} />
+                                            <LogOut size={15} />
                                             Log Out
                                         </button>
                                     </div>
@@ -380,7 +380,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </header>
 
                 {/* Content Terminal */}
-                <main className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-8 bg-[#F8F9FB]">
+                <main className="flex-1 overflow-y-auto no-scrollbar p-3.5 sm:p-5 lg:p-6 bg-[#F8F9FB]">
                     <div className="max-w-[1400px] mx-auto relative w-full h-full">
                         {children}
                     </div>

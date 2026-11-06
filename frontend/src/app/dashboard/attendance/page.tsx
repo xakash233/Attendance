@@ -127,61 +127,61 @@ export default function AttendancePage() {
     return (
         <div className="min-h-screen pb-12 overflow-x-hidden">
             <motion.div
-                initial={{ opacity: 0, y: -20 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
+                className="mb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
             >
-                <div className="space-y-1">
-                    <h1 className="text-[26px] md:text-[28px] font-black text-[#101828] tracking-tight leading-tight">
+                <div className="space-y-0.5">
+                    <h1 className="text-[19px] sm:text-[21px] font-semibold text-[#101828] tracking-tight leading-tight">
                         Live Presence Directory
                     </h1>
-                    <p className="text-[13px] font-medium text-[#667085]">
+                    <p className="text-[12.5px] font-normal text-[#667085]">
                         Real-time visualization of site presence and tracking.
                     </p>
                 </div>
-                <div className="flex flex-col items-start md:items-end w-full md:w-auto">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-100 bg-emerald-50">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Live Updates</span>
+                <div className="flex flex-col items-start sm:items-end w-full sm:w-auto">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-100 bg-emerald-50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Live</span>
                         </div>
-                        <span className="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 text-[10px] font-bold text-emerald-700 uppercase tracking-wider shadow-sm">
+                        <span className="px-2.5 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-[10.5px] font-semibold text-emerald-700">
                             On-Site {liveStats.present}
                         </span>
-                        <span className="px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-600 uppercase tracking-wider shadow-sm">
+                        <span className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[10.5px] font-semibold text-slate-600">
                             Away {liveStats.checkedOut}
                         </span>
                     </div>
-                    <p className="text-[11px] font-medium text-slate-400 mt-2">
-                        Last sync: <span className="font-bold text-[#101828]">{formatLastUpdated(lastUpdatedAt)}</span>
+                    <p className="text-[11px] font-normal text-slate-400 mt-1.5">
+                        Last sync: <span className="font-medium text-[#101828]">{formatLastUpdated(lastUpdatedAt)}</span>
                     </p>
                 </div>
             </motion.div>
 
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white border border-[#E6E8EC] rounded-lg shadow-sm overflow-hidden"
+                transition={{ delay: 0.1 }}
+                className="bg-white border border-[#E6E8EC] rounded-xl shadow-xs overflow-hidden"
             >
-                <div className="px-6 md:px-8 py-4 border-b border-[#E6E8EC] bg-white">
-                    <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-                        <div className="relative w-full md:max-w-sm">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <div className="px-4 sm:px-6 py-3 border-b border-[#E6E8EC] bg-white">
+                    <div className="flex flex-col sm:flex-row gap-2.5 sm:items-center sm:justify-between">
+                        <div className="relative w-full sm:max-w-xs">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Search by name or employee code"
-                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-[#D0D5DD] text-[13px] font-medium text-[#101828] placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-slate-200"
+                                className="w-full h-9 pl-8 pr-3 rounded-lg border border-[#D0D5DD] text-[12.5px] font-normal text-[#101828] placeholder:text-slate-400 outline-none focus:ring-1 focus:ring-slate-300"
                             />
                         </div>
                         <div className="flex items-center gap-2">
-                            <div className="inline-flex items-center gap-2 px-3 h-10 rounded-xl border border-[#D0D5DD] bg-white">
-                                <Filter size={14} className="text-slate-500" />
+                            <div className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-lg border border-[#D0D5DD] bg-white">
+                                <Filter size={13} className="text-slate-500" />
                                 <select
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'IN' | 'OUT' | 'ABSENT')}
-                                    className="bg-transparent text-[13px] font-semibold text-[#101828] outline-none cursor-pointer"
+                                    className="bg-transparent text-[12.5px] font-medium text-[#101828] outline-none cursor-pointer"
                                 >
                                     <option value="ALL">All Status</option>
                                     <option value="IN">On-Site / In</option>
@@ -189,14 +189,14 @@ export default function AttendancePage() {
                                     <option value="ABSENT">Absent</option>
                                 </select>
                             </div>
-                            <span className="text-[12px] font-semibold text-slate-500">
+                            <span className="text-[11.5px] font-medium text-slate-500">
                                 {filteredLiveData.length} shown
                             </span>
                         </div>
                     </div>
                 </div>
-                <div className="px-8 py-6 border-b border-[#E6E8EC] bg-slate-50/50">
-                    <h3 className="font-bold text-[14px] text-[#101828] flex items-center gap-2 uppercase tracking-widest">
+                <div className="px-4 sm:px-6 py-2.5 border-b border-[#E6E8EC] bg-slate-50/50 flex items-center justify-between">
+                    <h3 className="font-semibold text-[11.5px] text-[#475467] uppercase tracking-wider">
                         Live Tracking
                     </h3>
                 </div>
@@ -204,41 +204,41 @@ export default function AttendancePage() {
                 <div className="hidden md:block overflow-x-auto no-scrollbar">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="bg-slate-50/20 border-b border-[#E6E8EC]">
-                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Employee</th>
-                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Status</th>
-                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Check In</th>
-                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-center">Last Out</th>
-                                <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-widest text-right">Total Hours</th>
+                            <tr className="bg-slate-50/30 border-b border-[#E6E8EC]">
+                                <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider">Employee</th>
+                                <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Status</th>
+                                <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Check In</th>
+                                <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Last Out</th>
+                                <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-right">Total Hours</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E6E8EC]">
                             {filteredLiveData.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-[#667085] font-medium italic">No matching records found.</td>
+                                    <td colSpan={5} className="px-5 py-8 text-center text-[#667085] font-normal italic text-[12.5px]">No matching records found.</td>
                                 </tr>
                             ) : (
                                 filteredLiveData.map((emp) => (
                                     <React.Fragment key={emp.id}>
                                         <tr
-                                            className={`transition-all cursor-pointer group ${emp.id === user?.id ? 'bg-indigo-50/30' : 'hover:bg-slate-50/80'}`}
+                                            className={`transition-colors cursor-pointer group ${emp.id === user?.id ? 'bg-indigo-50/20' : 'hover:bg-slate-50/70'}`}
                                             onClick={() => setExpandedRow(expandedRow === emp.id ? null : emp.id)}
                                         >
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
+                                            <td className="px-5 py-3">
+                                                <div className="flex items-center gap-2.5">
                                                     <UserAvatar
                                                         name={emp.name}
                                                         profileImage={emp.profileImage}
                                                         size="sm"
                                                         clickable
                                                         onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setPreviewEmployee(emp);
+                                                             e.stopPropagation();
+                                                             setPreviewEmployee(emp);
                                                         }}
                                                     />
                                                     <div>
                                                         <span 
-                                                            className="text-[14px] font-bold text-[#101828] hover:text-indigo-600 hover:underline cursor-pointer transition-all"
+                                                            className="text-[13px] font-medium text-[#101828] hover:text-indigo-600 transition-colors cursor-pointer"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 router.push(`/dashboard/users/${emp.id}`);
@@ -249,60 +249,60 @@ export default function AttendancePage() {
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="flex flex-col items-center gap-1">
+                                            <td className="px-5 py-3 text-center">
+                                                <div className="flex flex-col items-center gap-0.5">
                                                     {emp.currentStatus === 'IN' ? (
-                                                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-semibold uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-medium ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
                                                             <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
                                                             {emp.isWfh ? 'Working (WFH)' : 'Working (On-Site)'}
                                                         </span>
                                                     ) : emp.currentStatus === 'ABSENT' ? (
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-50 text-neutral-400 rounded-full border border-neutral-100 text-[10px] font-semibold uppercase tracking-widest opacity-60">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-neutral-50 text-neutral-400 rounded-full border border-neutral-100 text-[10px] font-medium opacity-70">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-neutral-300" /> Not Checked In
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[10px] font-semibold uppercase tracking-widest">
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-neutral-100 text-neutral-600 rounded-full border border-neutral-200 text-[10px] font-medium">
                                                             <div className="w-1.5 h-1.5 rounded-full bg-neutral-400" /> {emp.isWfh ? 'Checked Out (WFH)' : 'Checked Out'}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
+                                            <td className="px-5 py-3 text-center">
+                                                <span className="text-[12.5px] font-normal text-[#344054] tabular-nums">
                                                     {emp.firstPunch ? formatTime(emp.firstPunch) : '--:--'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <span className="text-[14px] font-semibold text-[#101828] tabular-nums tracking-tighter">
+                                            <td className="px-5 py-3 text-center">
+                                                <span className="text-[12.5px] font-normal text-[#344054] tabular-nums">
                                                     {emp.lastPunch ? formatTime(emp.lastPunch) : '--:--'}
                                                 </span>
                                             </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <span className="text-[18px] font-semibold text-[#101828]">
+                                                <td className="px-5 py-3 text-right">
+                                                    <span className="text-[13px] font-semibold text-[#101828]">
                                                         {formatDuration(emp.totalHours)}
                                                     </span>
                                                     {emp.punchesCount % 2 !== 0 && (
-                                                        <p className="text-[9px] font-semibold text-amber-600 uppercase tracking-tighter mt-1 animate-pulse">
+                                                        <p className="text-[9px] font-medium text-amber-600 uppercase tracking-tight mt-0.5">
                                                             Ongoing Session
                                                         </p>
                                                     )}
                                                 </td>
                                         </tr>
                                         {expandedRow === emp.id && (
-                                            <tr className="bg-slate-50 overflow-hidden">
-                                                <td colSpan={5} className="px-6 py-4 border-t border-slate-100">
-                                                    <div className="flex justify-between items-center py-1">
+                                            <tr className="bg-slate-50/70 overflow-hidden">
+                                                <td colSpan={5} className="px-5 py-3 border-t border-slate-100 text-[12px]">
+                                                    <div className="flex justify-between items-center py-0.5">
                                                         <span className="text-slate-500">Working Hours:</span>
-                                                        <span className="font-bold text-[#101828]">{formatDuration(emp.totalHours)}</span>
+                                                        <span className="font-semibold text-[#101828]">{formatDuration(emp.totalHours)}</span>
                                                     </div>
-                                                    <div className="flex items-center gap-2 py-1">
+                                                    <div className="flex items-center gap-2 py-0.5">
                                                         <span className="text-slate-500">Current State:</span>
-                                                        <span className="font-semibold text-[#101828]">{getReadableStatus(emp)}</span>
+                                                        <span className="font-medium text-[#101828]">{getReadableStatus(emp)}</span>
                                                     </div>
-                                                    <div className="flex flex-row items-center justify-start gap-2.5 flex-wrap pl-4 mt-2">
-                                                        <span className="text-[11px] font-semibold text-[#667085] uppercase tracking-widest mr-2">Telemetry:</span>
+                                                    <div className="flex flex-row items-center justify-start gap-1.5 flex-wrap pl-3 mt-1.5">
+                                                        <span className="text-[10.5px] font-medium text-[#667085] uppercase tracking-wider mr-1">Telemetry:</span>
                                                         {emp.punches?.map((punchIso: string, idx: number) => (
-                                                            <span key={idx} className={`text-[10px] font-semibold uppercase tracking-widest px-3 py-1 rounded-full border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                                                            <span key={idx} className={`text-[9.5px] font-medium px-2 py-0.5 rounded-md border ${idx % 2 === 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
                                                                 {idx % 2 === 0 ? 'IN' : 'OUT'}: {formatTime(punchIso)}
                                                             </span>
                                                         ))}
@@ -320,82 +320,82 @@ export default function AttendancePage() {
                 {/* Mobile Card View */}
                 <div className="md:hidden divide-y divide-slate-100">
                     {filteredLiveData.length === 0 ? (
-                        <div className="px-6 py-12 text-center text-[#667085] font-medium italic text-[13px]">No matching records found.</div>
+                        <div className="px-4 py-8 text-center text-[#667085] font-normal italic text-[12.5px]">No matching records found.</div>
                     ) : (
                         filteredLiveData.map((emp) => (
-                            <div key={emp.id} className={`p-5 space-y-4 bg-white hover:bg-slate-50 transition-all ${emp.id === user?.id ? 'bg-indigo-50/20 border-l-4 border-indigo-500' : ''}`}>
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-center gap-3">
+                            <div key={emp.id} className={`p-3.5 space-y-2.5 bg-white ${emp.id === user?.id ? 'bg-indigo-50/10 border-l-2 border-indigo-500' : ''}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-center gap-2.5">
                                         <UserAvatar
                                             name={emp.name}
                                             profileImage={emp.profileImage}
-                                            size="md"
+                                            size="sm"
                                             clickable
                                             onClick={() => setPreviewEmployee(emp)}
                                         />
                                         <div>
                                             <h4 
-                                                className="text-[15px] font-bold text-[#101828] hover:text-indigo-600 active:text-indigo-700 transition-colors"
+                                                className="text-[13px] font-semibold text-[#101828] hover:text-indigo-600 transition-colors"
                                                 onClick={() => router.push(`/dashboard/users/${emp.id}`)}
                                             >
                                                 {emp.name}
                                             </h4>
-                                            <p className="text-[12px] font-medium text-slate-500">{emp.employeeCode || 'Emp ID not set'}</p>
+                                            <p className="text-[11px] font-normal text-slate-500">{emp.employeeCode || 'Emp ID not set'}</p>
                                         </div>
                                     </div>
                                     
                                     {emp.currentStatus === 'IN' ? (
-                                        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
+                                        <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-medium ${emp.isWfh ? 'bg-[#F0F9FF] text-[#026AA2] border-[#BAE6FD]' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                                            <div className={`w-1 h-1 rounded-full animate-pulse ${emp.isWfh ? 'bg-[#0284C7]' : 'bg-emerald-500'}`} />
                                             {emp.isWfh ? 'WFH' : 'On-Site'}
                                         </span>
                                     ) : (
-                                        <span className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[9px] font-bold uppercase tracking-widest ${emp.currentStatus === 'ABSENT' ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+                                        <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9.5px] font-medium ${emp.currentStatus === 'ABSENT' ? 'bg-slate-50 text-slate-400 border-slate-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                                             {emp.currentStatus === 'ABSENT' ? 'Offline' : (emp.isWfh ? 'Out (WFH)' : 'Checked Out')}
                                         </span>
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 py-4 border-y border-slate-50">
+                                <div className="grid grid-cols-2 gap-3 py-2 border-y border-slate-50">
                                     <div>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">First Punch In</p>
-                                        <p className="text-[15px] font-bold text-[#101828] tabular-nums tracking-tight">
+                                        <p className="text-[9.5px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">First Punch In</p>
+                                        <p className="text-[12.5px] font-medium text-[#101828] tabular-nums">
                                             {emp.firstPunch ? formatTime(emp.firstPunch) : '--:-- --'}
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Total Duration</p>
-                                        <p className="text-[18px] font-black text-[#101828] tabular-nums leading-none">{formatDuration(emp.totalHours)}</p>
+                                        <p className="text-[9.5px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">Total Duration</p>
+                                        <p className="text-[13.5px] font-semibold text-[#101828] tabular-nums leading-none">{formatDuration(emp.totalHours)}</p>
                                         {emp.punchesCount % 2 !== 0 && (
-                                            <span className="inline-block text-[9px] font-black text-amber-600 uppercase tracking-tighter animate-pulse mt-1">Ongoing Session</span>
+                                            <span className="inline-block text-[8.5px] font-medium text-amber-600 uppercase tracking-tight mt-0.5">Ongoing Session</span>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Telemetry Log</p>
-                                        <span className="text-[10px] font-bold text-[#101828] bg-slate-100 px-2 py-0.5 rounded-md">{emp.punchesCount} Punches</span>
+                                        <p className="text-[9.5px] font-medium text-slate-400 uppercase tracking-wider">Telemetry Log</p>
+                                        <span className="text-[9.5px] font-medium text-[#101828] bg-slate-100 px-1.5 py-0.5 rounded">{emp.punchesCount} Punches</span>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1">
                                         {emp.punches?.length > 0 ? (
                                             emp.punches.map((punchIso: string, idx: number) => (
-                                                <span key={idx} className={`text-[9px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border shadow-sm ${idx % 2 === 0 ? 'bg-emerald-50/50 text-emerald-700 border-emerald-100' : 'bg-rose-50/50 text-rose-700 border-rose-100'}`}>
+                                                <span key={idx} className={`text-[9px] font-medium px-2 py-0.5 rounded border ${idx % 2 === 0 ? 'bg-emerald-50/60 text-emerald-700 border-emerald-100' : 'bg-rose-50/60 text-rose-700 border-rose-100'}`}>
                                                     {idx % 2 === 0 ? 'In' : 'Out'}: {formatTime(punchIso)}
                                                 </span>
                                             ))
                                         ) : (
-                                            <p className="text-[11px] text-slate-400 italic">No biometric logs available for today.</p>
+                                            <p className="text-[10.5px] text-slate-400 italic">No biometric logs today.</p>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="pt-2">
+                                <div className="pt-1">
                                     <button 
                                         onClick={() => router.push(`/dashboard/users/${emp.id}`)}
-                                        className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-[12px] font-bold shadow-lg shadow-black/10 active:scale-[0.98] transition-all"
+                                        className="w-full py-1.5 bg-[#101828] text-white rounded-lg text-[11.5px] font-medium hover:bg-slate-800 transition-colors"
                                     >
-                                        View Employee Profile
+                                        View Profile
                                     </button>
                                 </div>
                             </div>
