@@ -43,12 +43,30 @@ app.use('/api/biometric/adms', admsRoutes);
 
 // Security and other middleware
 app.use(helmet({ contentSecurityPolicy: false }));
+
+const corsAllowedOrigins = new Set([
+    'https://hrms.tectratechnologies.com',
+    'http://hrms.tectratechnologies.com',
+    'http://157.173.218.57',
+    'https://157.173.218.57'
+]);
+if (process.env.FRONTEND_URL) {
+    corsAllowedOrigins.add(process.env.FRONTEND_URL.replace(/\/$/, ''));
+}
+
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.endsWith('.vercel.app') || origin === process.env.FRONTEND_URL) {
+        if (!origin) return callback(null, true);
+        const cleanOrigin = origin.replace(/\/$/, '');
+        if (
+            cleanOrigin.startsWith('http://localhost') ||
+            cleanOrigin.startsWith('http://127.0.0.1') ||
+            cleanOrigin.endsWith('.vercel.app') ||
+            corsAllowedOrigins.has(cleanOrigin)
+        ) {
             callback(null, true);
         } else {
-            callback(new Error('Not allowed by CORS'));
+            callback(new Error(`Not allowed by CORS: ${origin}`));
         }
     },
     credentials: true

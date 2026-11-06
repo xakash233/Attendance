@@ -1,27 +1,24 @@
-cd backend
-npx vercel env rm SMTP_HOST production --yes || true
-printf 'smtp.gmail.com' | npx vercel env add SMTP_HOST production || true
+#!/usr/bin/env bash
+# ==============================================================================
+# Deploy Backend to VPS (Dedicated Server for PM2 / Socket.io / ADMS Push)
+# Target: hrms.tectratechnologies.com (157.173.218.57)
+# ==============================================================================
+set -e
 
-npx vercel env rm SMTP_PORT production --yes || true
-printf '587' | npx vercel env add SMTP_PORT production || true
+VPS_IP="${VPS_IP:-157.173.218.57}"
+VPS_USER="${VPS_USER:-root}"
+VPS_PATH="${VPS_PATH:-/root/Attendance}"
 
-npx vercel env rm SMTP_USER production --yes || true
-printf 'tectradeveloper@gmail.com' | npx vercel env add SMTP_USER production || true
+echo "================================================================================"
+echo "🚀 Triggering Backend Deployment on VPS ($VPS_USER@$VPS_IP)..."
+echo "================================================================================"
 
-npx vercel env rm SMTP_PASS production --yes || true
-printf 'mxle dlnl ydyf puxx' | npx vercel env add SMTP_PASS production || true
-
-npx vercel env rm SMTP_FROM production --yes || true
-printf 'tectradeveloper@gmail.com' | npx vercel env add SMTP_FROM production || true
-
-npx vercel env rm JWT_SECRET production --yes || true
-printf 'tectra-attendance-super-secret-key' | npx vercel env add JWT_SECRET production || true
-
-npx vercel env rm JWT_REFRESH_SECRET production --yes || true
-printf 'tectra-attendance-refresh-token-super-secret' | npx vercel env add JWT_REFRESH_SECRET production || true
-
-npx vercel env rm FRONTEND_URL production --yes || true
-printf 'https://hrms.tectratechnologies.com' | npx vercel env add FRONTEND_URL production || true
-
-cd ..
-VERCEL_ORG_ID=team_X2f8zsWjkKOsLwvLhc2NSHsw VERCEL_PROJECT_ID=prj_2BCZVNEXtsq5iMBRWEdJfsLRfS8T npx vercel deploy --prod --yes
+if command -v ssh >/dev/null 2>&1; then
+  echo "Connecting via SSH..."
+  ssh -o ConnectTimeout=10 "$VPS_USER@$VPS_IP" "cd $VPS_PATH && git pull && bash scripts/deploy-backend-vps.sh"
+else
+  echo "SSH command not found or not configured in current shell."
+  echo "Please SSH into the VPS and execute:"
+  echo "   ssh $VPS_USER@$VPS_IP"
+  echo "   cd $VPS_PATH && git pull && bash scripts/deploy-backend-vps.sh"
+fi

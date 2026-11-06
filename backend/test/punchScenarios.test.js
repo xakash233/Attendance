@@ -15,8 +15,8 @@ const { default: biometricService } = await import('../src/services/biometric/bi
 const PAST_DAY = '2026-11-03'; // a Tuesday
 const at = (hhmmss, day = PAST_DAY) => new Date(`${day}T${hhmmss}.000+05:30`);
 const addMs = (date, ms) => new Date(date.getTime() + ms);
-/** `count` punches with realistic, uneven retry gaps of 2-30 seconds. */
-const RETRY_GAPS_MS = [2000, 5000, 12000, 20000, 30000, 8000];
+/** `count` punches with realistic, uneven retry gaps of 2-15 seconds. */
+const RETRY_GAPS_MS = [2000, 5000, 8000, 12000, 15000, 10000];
 const burst = (start, count) => {
     const punches = [start];
     while (punches.length < count) {
@@ -112,16 +112,16 @@ test('bursts of 100-200 at every punch still give the right day', async () => {
     assert.equal(saved.checkOut.getTime(), at('18:30:00').getTime());
 });
 
-test('retries 20-90 seconds apart count as one punch', async () => {
+test('retries 5-15 seconds apart count as one punch', async () => {
     const punches = [
-        // check-in: 4 tries, gaps 25s / 50s / 90s
-        at('09:30:00'), at('09:30:25'), at('09:31:15'), at('09:32:45'),
-        // lunch out: 2 tries 40s apart
-        at('13:00:00'), at('13:00:40'),
-        // back in: 2 tries 80s apart
-        at('14:00:00'), at('14:01:20'),
-        // check-out: 3 tries 20s / 50s apart
-        at('18:30:00'), at('18:30:20'), at('18:31:10')
+        // check-in: 4 tries, gaps 5s / 10s / 15s
+        at('09:30:00'), at('09:30:05'), at('09:30:15'), at('09:30:30'),
+        // lunch out: 2 tries 10s apart
+        at('13:00:00'), at('13:00:10'),
+        // back in: 2 tries 12s apart
+        at('14:00:00'), at('14:00:12'),
+        // check-out: 3 tries 5s / 12s apart
+        at('18:30:00'), at('18:30:05'), at('18:30:17')
     ];
 
     // Before the fix the 10s rule kept all 11, so check-in alone read IN,OUT,IN,OUT.

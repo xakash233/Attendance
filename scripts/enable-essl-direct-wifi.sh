@@ -33,7 +33,7 @@ await prisma.$disconnect();
 EOF
 
 echo "[4/5] Restarting backend..."
-pm2 restart attendance-backend --update-env
+pm2 restart attendance-api --update-env || pm2 restart attendance-backend --update-env || pm2 start ecosystem.config.cjs --only attendance-api
 sleep 2
 
 echo "[5/5] Verifying ADMS endpoint..."

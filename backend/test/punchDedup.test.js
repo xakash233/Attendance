@@ -5,8 +5,8 @@ import { collapsePunchBursts, PUNCH_DEDUP_WINDOW_MS } from '../src/utils/punchDe
 const at = (hhmmss) => new Date(`2026-11-04T${hhmmss}.000+05:30`);
 const addMs = (date, ms) => new Date(date.getTime() + ms);
 
-test('window is about two minutes and lives in one constant', () => {
-    assert.equal(PUNCH_DEDUP_WINDOW_MS, 120000);
+test('window is 20 seconds and lives in one constant', () => {
+    assert.equal(PUNCH_DEDUP_WINDOW_MS, 20000);
 });
 
 test('200 punches 1s apart collapse to the first one', () => {
@@ -16,9 +16,8 @@ test('200 punches 1s apart collapse to the first one', () => {
 });
 
 test('a burst keeps chaining past the window when each gap is inside it', () => {
-    // 150 retries 90s apart span ~3.7 hours of continuous retrying: still one punch.
     const start = at('09:00:00');
-    const burst = Array.from({ length: 150 }, (_, i) => addMs(start, i * 90000));
+    const burst = Array.from({ length: 150 }, (_, i) => addMs(start, i * 15000));
     assert.equal(collapsePunchBursts(burst).length, 1);
 });
 
@@ -28,14 +27,14 @@ test('unsorted input with exact duplicates is sorted and collapsed', () => {
 });
 
 test('punches more than the window apart stay separate', () => {
-    const rows = [at('09:30:00'), at('09:32:01')];
+    const rows = [at('09:30:00'), at('09:30:25')];
     assert.equal(collapsePunchBursts(rows).length, 2);
 });
 
 test('works on objects via an accessor and skips invalid times', () => {
     const rows = [
         { time: at('09:30:00'), id: 'a' },
-        { time: at('09:30:30'), id: 'b' },
+        { time: at('09:30:10'), id: 'b' },
         { time: 'not-a-date', id: 'bad' },
         { time: at('13:00:00'), id: 'c' }
     ];

@@ -73,6 +73,11 @@ export async function runOutBreakMonitor() {
     const now = new Date();
     const bounds = getIstDayBounds(now);
 
+    if (!prisma?.pushSubscription) {
+        // Prisma client not yet regenerated with PushSubscription model
+        return { checked: 0, alerted: 0 };
+    }
+
     const subscribedUsers = await prisma.pushSubscription.findMany({
         select: { userId: true },
         distinct: ['userId']
@@ -108,7 +113,7 @@ export async function runOutBreakMonitor() {
                 where: { wfhDate: bounds.todayStart },
                 select: { wfhDate: true }
             },
-            outBreakAlertState: true
+            ...(prisma?.outBreakAlertState ? { outBreakAlertState: true } : {})
         }
     });
 
@@ -117,7 +122,7 @@ export async function runOutBreakMonitor() {
     for (const user of users) {
         const liveStatus = buildLiveStatusFromUserDay(user, bounds);
         if (!shouldTriggerOutBreakAlert(liveStatus, now)) {
-            if (liveStatus.currentStatus === 'IN' || liveStatus.currentStatus === 'ABSENT') {
+            if (prisma?.outBreakAlertState && (liveStatus.currentStatus === 'IN' || liveStatus.currentStatus === 'ABSENT')) {
                 await prisma.outBreakAlertState.upsert({
                     where: { userId: user.id },
                     update: { lastAlertedOutAt: null },
@@ -140,20 +145,27 @@ export async function runOutBreakMonitor() {
         const title = 'Long break alert';
         const message = 'You have been out for more than 20 minutes. Please punch in when you return.';
 
-        await Promise.all([
+        const alertPromises = [
             sendOutBreakPush(user.id, { title, body: message }),
             notificationService.sendInAppNotification({
                 userId: user.id,
                 title,
                 message,
                 type: 'OUT_BREAK_ALERT'
-            }),
-            prisma.outBreakAlertState.upsert({
-                where: { userId: user.id },
-                update: { lastAlertedOutAt: lastPunch },
-                create: { userId: user.id, lastAlertedOutAt: lastPunch }
             })
-        ]);
+        ];
+
+        if (prisma?.outBreakAlertState) {
+            alertPromises.push(
+                prisma.outBreakAlertState.upsert({
+                    where: { userId: user.id },
+                    update: { lastAlertedOutAt: lastPunch },
+                    create: { userId: user.id, lastAlertedOutAt: lastPunch }
+                })
+            );
+        }
+
+        await Promise.all(alertPromises);
 
         alerted += 1;
     }

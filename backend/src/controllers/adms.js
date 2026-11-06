@@ -137,10 +137,10 @@ async function ingestCdataPost(req) {
     if (table === 'ATTLOG') {
         const records = parseAttlogRecords(body);
         if (records.length > 0) {
-            console.log(`[ADMS] SN:${serialNumber} uploaded ${records.length} ATTLOG record(s)`);
+            console.log(`[ADMS] SN:${serialNumber} uploaded ${records.length} ATTLOG record(s):`, records.map(r => `${r.employeeCode}@${r.timestamp}`).join(', '));
             await processPunchRecords(records, req, serialNumber, table);
         } else {
-            console.log(`[ADMS] SN:${serialNumber} ATTLOG body parsed to 0 records`);
+            console.warn(`[ADMS] SN:${serialNumber} ATTLOG body parsed to 0 records! Raw body preview:`, String(body || '').slice(0, 300));
         }
         return;
     }

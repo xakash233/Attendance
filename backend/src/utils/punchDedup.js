@@ -3,13 +3,12 @@
  * must run the raw rows through this first, because IN/OUT is assigned by position
  * (1st = IN, 2nd = OUT, ...). Raw rows stay untouched in the database.
  *
- * A "burst" is a run of punches where each one comes within the window of the punch
- * before it (failed scans, retries, double sensor reads, the same hit delivered twice).
- * The whole burst counts as ONE punch, kept at the time of its first scan — so 1 or 200
- * retries in a row give the same IN/OUT. Trade-off: a genuine OUT and IN less than the
- * window apart also merge into one punch.
+ * A "burst" is a rapid run of retries on the physical sensor (failed scan, double read,
+ * quick retry within seconds). A hardware scan retry takes 2-15 seconds.
+ * PUNCH_DEDUP_WINDOW_MS is set to 20 seconds so genuine punches 30s-1min apart (stepping
+ * in/out or correcting punch state) are NEVER discarded.
  */
-export const PUNCH_DEDUP_WINDOW_MS = 2 * 60 * 1000;
+export const PUNCH_DEDUP_WINDOW_MS = Number(process.env.PUNCH_DEDUP_WINDOW_MS) || 20 * 1000;
 
 const toMs = (value) => {
     if (value instanceof Date) return value.getTime();
