@@ -48,6 +48,29 @@ async function processPunchRecords(records, req, serialNumber, tableName) {
         await admsService.touchDevice(serialNumber, clientIp(req));
     }
 
+    // If any punch came from a placeholder user (e.g. "Employee 6"), ask the terminal for user names
+    if (serialNumber && records.length > 0) {
+        try {
+            const punchCodes = records.map((r) => String(r.employeeCode || '').trim()).filter(Boolean);
+            if (punchCodes.length > 0) {
+                const prisma = (await import('../config/prisma.js')).default;
+                const placeholders = await prisma.user.findMany({
+                    where: {
+                        employeeCode: { in: punchCodes },
+                        name: { startsWith: 'Employee ' }
+                    },
+                    select: { employeeCode: true }
+                });
+                if (placeholders.length > 0) {
+                    console.log(`[ADMS] SN:${serialNumber} punch from placeholder employee(s) [${placeholders.map(p => p.employeeCode).join(', ')}], querying terminal for user profiles...`);
+                    admsService.enqueueUserQuery(serialNumber);
+                }
+            }
+        } catch (error) {
+            console.warn('[ADMS] Could not check placeholder users:', error.message);
+        }
+    }
+
     const io = getIo();
     if (io && result.status !== 'SKIPPED') {
         io.emit('biometricSyncUpdate', {
@@ -83,6 +106,7 @@ export const handleCdataGet = async (req, res) => {
             // Force clock correction every init — options TimeZone alone is often ignored
             // until the device receives SET OPTIONS via getrequest.
             admsService.enqueueClockSync(serialNumber, { force: true });
+            admsService.enqueueUserQuery(serialNumber);
             console.log(`[ADMS] Init config for SN:${serialNumber} stamp=${attlogStamp}`);
             return sendPlain(res, admsService.buildOptionsResponse(serialNumber, attlogStamp));
         }
@@ -121,13 +145,21 @@ async function ingestCdataPost(req) {
         await admsService.touchDevice(serialNumber, ip);
     }
 
-    // Some eSSL firmware posts ATTLOG without ?table=ATTLOG — detect from body shape.
+    // Some eSSL firmware posts without ?table= — detect from body shape.
     if (!table) {
         const guessed = parseAttlogRecords(body);
         if (guessed.length > 0) {
             table = 'ATTLOG';
             console.log(`[ADMS] SN:${serialNumber} inferred ATTLOG from body (${guessed.length} row(s))`);
             await processPunchRecords(guessed, req, serialNumber, table);
+            return;
+        }
+        const guessedUsers = parseUserInfoRecords(body);
+        if (guessedUsers.length > 0) {
+            table = 'USERINFO';
+            console.log(`[ADMS] SN:${serialNumber} inferred USERINFO from body (${guessedUsers.length} row(s))`);
+            const created = await biometricService.ensureUsersExistFromRecords(guessedUsers);
+            console.log(`[ADMS] SN:${serialNumber} synced ${guessedUsers.length} user row(s), created ${created}`);
             return;
         }
         console.log(`[ADMS] SN:${serialNumber} POST with empty table (body ${String(body || '').length} bytes)`);
@@ -145,11 +177,14 @@ async function ingestCdataPost(req) {
         return;
     }
 
-    if (table === 'USER' || table === 'USERINFO') {
+    if (table === 'USER' || table === 'USERINFO' || table === 'USERDATA') {
         const users = parseUserInfoRecords(body);
         if (users.length > 0) {
+            console.log(`[ADMS] SN:${serialNumber} uploaded ${users.length} user profile record(s):`, users.map(u => `${u.employeeCode}:${u.employeeName}`).join(', '));
             const created = await biometricService.ensureUsersExistFromRecords(users);
             console.log(`[ADMS] SN:${serialNumber} synced ${users.length} user row(s), created ${created}`);
+        } else {
+            console.warn(`[ADMS] SN:${serialNumber} ${table} body parsed to 0 records! Raw body:`, String(body || '').slice(0, 300));
         }
         return;
     }
@@ -173,7 +208,7 @@ export const handleGetRequest = async (req, res) => {
         }
         const commands = admsService.dequeueCommands(serialNumber);
         if (commands) {
-            console.log(`[ADMS] getrequest SN:${serialNumber || 'unknown'} → sending commands`);
+            console.log(`[ADMS] getrequest SN:${serialNumber || 'unknown'} → sending commands:\n${commands}`);
             return sendPlain(res, commands);
         }
         // Returning OK with no command is correct; some firmware also accepts an empty INFO.
@@ -190,6 +225,10 @@ export const handleGetRequest = async (req, res) => {
  */
 export const handleDeviceCmd = async (req, res) => {
     const serialNumber = String(req.query.SN || '').trim();
+    const cmdId = req.query.ID || req.body?.ID;
+    const ret = req.query.Return || req.body?.Return;
+    const cmd = req.query.CMD || req.body?.CMD;
+    console.log(`[ADMS] devicecmd SN:${serialNumber || 'unknown'} ID=${cmdId} Return=${ret} CMD=${cmd}`);
     try {
         if (serialNumber) {
             await admsService.touchDevice(serialNumber, clientIp(req));

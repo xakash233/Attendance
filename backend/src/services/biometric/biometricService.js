@@ -74,8 +74,30 @@ class BiometricService {
 
         const existingUsers = await prisma.user.findMany({
             where: { employeeCode: { in: incomingCodes } },
-            select: { employeeCode: true }
+            select: { id: true, employeeCode: true, name: true }
         });
+
+        // Automatically update placeholder names (e.g. "Employee 6") when real names arrive
+        for (const existing of existingUsers) {
+            const incoming = uniqueByCode.get(existing.employeeCode);
+            if (!incoming) continue;
+
+            const isPlaceholder = !existing.name
+                || /^Employee\s+\d+$/i.test(existing.name.trim())
+                || existing.name.trim().toLowerCase() === `employee ${existing.employeeCode}`.toLowerCase();
+
+            const hasRealName = incoming.employeeName
+                && !/^Employee\s+\d+$/i.test(incoming.employeeName.trim())
+                && incoming.employeeName.trim().toLowerCase() !== `employee ${incoming.employeeCode}`.toLowerCase();
+
+            if (isPlaceholder && hasRealName) {
+                console.log(`[BiometricService] Updating placeholder name for employee code ${existing.employeeCode}: "${existing.name}" -> "${incoming.employeeName}"`);
+                await prisma.user.update({
+                    where: { id: existing.id },
+                    data: { name: incoming.employeeName }
+                });
+            }
+        }
 
         const existingCodes = new Set(existingUsers.map((user) => user.employeeCode));
         const usersToCreate = incomingCodes

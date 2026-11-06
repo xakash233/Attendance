@@ -124,13 +124,26 @@ export function parseUserInfoRecords(body) {
         const trimmed = line.trim();
         if (!trimmed) continue;
 
-        const kv = parseKeyValueLine(trimmed);
-        const employeeCode = kv.PIN || kv.uid || kv.UserID;
+        // Strip leading table labels if present (e.g. "USER " or "USERINFO ")
+        const cleaned = trimmed.replace(/^(USERINFO|USER)\s+/i, '');
+        const kv = parseKeyValueLine(cleaned);
+        let employeeCode = kv.PIN || kv.pin || kv['USER PIN'] || kv['USERPIN'] || kv.uid || kv.UserID || kv.userid;
+        let employeeName = kv.Name || kv.name;
+
+        // Tab-separated fallback if not key=value (e.g. "6\tAkash P\t...")
+        if (!employeeCode) {
+            const tabParts = cleaned.split('\t').map((part) => part.trim()).filter(Boolean);
+            if (tabParts.length >= 2 && /^\d+$/.test(tabParts[0])) {
+                employeeCode = tabParts[0];
+                employeeName = tabParts[1];
+            }
+        }
+
         if (!employeeCode) continue;
 
         records.push({
             employeeCode,
-            employeeName: kv.Name || kv.name || `Employee ${employeeCode}`
+            employeeName: employeeName ? employeeName.trim() : `Employee ${employeeCode}`
         });
     }
 
@@ -281,10 +294,28 @@ class AdmsService {
     }
 
     /**
-     * Ensure the device gets a timezone/clock correction at least once per process boot.
+     * Queue a query to pull user profile data (PIN, Name) from the device.
+     */
+    enqueueUserQuery(serialNumber) {
+        if (!serialNumber) return;
+        const id = commandSeq++;
+        const cmd = `C:${id}:DATA QUERY USERINFO`;
+        const existing = pendingCommands.get(serialNumber) || [];
+        if (!existing.some(c => c.includes('DATA QUERY USERINFO'))) {
+            pendingCommands.set(serialNumber, [...existing, cmd]);
+            console.log(`[ADMS] Queued DATA QUERY USERINFO for SN:${serialNumber} (cmd ${id})`);
+        }
+    }
+
+    /**
+     * Ensure the device gets a timezone/clock correction and user sync at least once per process boot.
      */
     ensureClockSync(serialNumber) {
         this.enqueueClockSync(serialNumber, { force: false });
+        if (!clockSyncedThisBoot.has(`user_${serialNumber}`)) {
+            clockSyncedThisBoot.add(`user_${serialNumber}`);
+            this.enqueueUserQuery(serialNumber);
+        }
     }
 
     /**
