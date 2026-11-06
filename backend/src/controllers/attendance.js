@@ -1449,6 +1449,28 @@ export const getComplianceReport = async (req, res, next) => {
                     hours = Math.max(hours, MIN_FULL_DAY_HOURS);
                 }
 
+                // Credit working hours for Approved Paid Leaves (7.5h full day, 3.75h half day)
+                const isApprovedPaidLeave =
+                    !isFuture
+                    && isCompanyWorkday
+                    && leave
+                    && (leave.status === 'APPROVED' || leave.status === 'FINAL_APPROVED');
+                if (isApprovedPaidLeave) {
+                    const isHalfDay = leave.durationType === 'FIRST_HALF' || leave.durationType === 'SECOND_HALF' || leave.durationType === 'HALF_DAY';
+                    if (!hasLop) {
+                        const credit = isHalfDay ? (MIN_FULL_DAY_HOURS / 2) : MIN_FULL_DAY_HOURS;
+                        actualWorkedToday = isHalfDay ? Math.max(actualWorkedToday + credit, credit) : Math.max(actualWorkedToday, credit);
+                        hours = Math.max(hours, credit);
+                    } else if (isHalfDay && lopPortion < 1) {
+                        const paidPortion = Math.max(0, 0.5 - lopPortion);
+                        const credit = paidPortion * MIN_FULL_DAY_HOURS;
+                        if (credit > 0) {
+                            actualWorkedToday = Math.max(actualWorkedToday, credit);
+                            hours = Math.max(hours, credit);
+                        }
+                    }
+                }
+
                 if (!isFuture && isCompanyWorkday) {
                     status = resolveDayStatusFromHours(actualWorkedToday, {
                         isOngoing: dateStr === dateStrToday && dayCalcResult?.isOngoing,
@@ -1583,6 +1605,7 @@ export const getComplianceReport = async (req, res, next) => {
                 payrollPeriodStart: start.toISOString().split('T')[0],
                 payrollPeriodEnd: end.toISOString().split('T')[0],
                 companyWorkingDays: companyWorkingDaysTotal,
+                companyWorkingHours: Number((companyWorkingDaysTotal * 7.5).toFixed(1)),
                 accountantCountableDays: accountantCountableDaysTotal,
                 biometricEnrolledUserIds,
                 accountantSummaries,
@@ -1832,15 +1855,29 @@ export const exportComplianceReport = async (req, res, next) => {
                 todayRef.setHours(0, 0, 0, 0);
                 const isFuture = new Date(iter) > todayRef;
 
-                let status = (dayOfWeek === 0 || dayOfWeek === 6) ? 'WEEKEND' : (holiday ? 'HOLIDAY' : (isFuture ? 'SCHEDULED' : 'ABSENT'));
-                const actualWorkedToday = att ? (att.workingHours || 0) : 0;
+                const dayCategory = getCompanyDayCategory(dateStr);
+                const isCompanyWorkday = isCompanyWorkingDay(dateStr, { isHoliday: Boolean(holiday) });
 
-                if (dayOfWeek !== 0 && !leave && !holiday) {
-                    weeklyTarget += 8.0;
+                let status = dayCategory === 'SUNDAY' ? 'WEEKEND' : (dayCategory === 'SAT_LEAVE' ? 'LEAVE' : (holiday ? 'HOLIDAY' : (isFuture ? 'SCHEDULED' : 'ABSENT')));
+                let actualWorkedToday = att ? (att.workingHours || 0) : 0;
+
+                if (isCompanyWorkday && !leave && !holiday) {
+                    weeklyTarget += 7.5;
                 }
 
                 let remarks = '';
                 if (att) status = att.status.replace(/_/g, ' ');
+
+                if (dayCategory === 'SAT_LEAVE') {
+                    status = 'LEAVE';
+                    remarks = '2nd/4th Saturday (Scheduled Leave)';
+                } else if (dayCategory === 'SAT_WFH' && !isFuture && !holiday) {
+                    if (!leave || leave.status.includes('REJECTED')) {
+                        status = 'WFH';
+                        remarks = '1st/3rd/5th Saturday (WFH)';
+                        actualWorkedToday = Math.max(actualWorkedToday, 7.5);
+                    }
+                }
 
                 if (leave) {
                     if (leave.status.includes('REJECTED') || leave.status.includes('PENDING')) {
@@ -1851,6 +1888,9 @@ export const exportComplianceReport = async (req, res, next) => {
                     } else {
                         status = (leave.leaveType?.name || 'LEAVE').toUpperCase();
                         remarks = 'LEAVE APPLIED';
+                        if (isCompanyWorkday && !isFuture) {
+                            actualWorkedToday = Math.max(actualWorkedToday, 7.5);
+                        }
                     }
                 }
 

@@ -475,18 +475,24 @@ export default function ReportPage() {
                         HasBiometricEnrollment: true
                     })
                 )
-                .map((summary: any) => ({
-                    employeeId: summary.userId || summary.name,
-                    name: summary.name,
-                    joiningDate: summary.joiningDate ?? null,
-                    firstBiometricDate: summary.firstBiometricDate ?? null,
-                    effectiveAttendanceStart: summary.effectiveAttendanceStart ?? null,
-                    companyWorkingDays: summary.companyWorkingDays ?? meta?.companyWorkingDays ?? 0,
-                    presentDays: summary.presentDays ?? 0,
-                    leaveDays: summary.leaveDays ?? 0,
-                    absentDays: summary.absentDays ?? 0,
-                    lopDays: summary.lopDays ?? 0
-                }));
+                .map((summary: any) => {
+                    const workingDays = summary.companyWorkingDays ?? meta?.companyWorkingDays ?? 0;
+                    const companyWorkingHours = summary.companyWorkingHours ?? Number((workingDays * 7.5).toFixed(1));
+                    return {
+                        employeeId: summary.userId || summary.name,
+                        name: summary.name,
+                        joiningDate: summary.joiningDate ?? null,
+                        firstBiometricDate: summary.firstBiometricDate ?? null,
+                        effectiveAttendanceStart: summary.effectiveAttendanceStart ?? null,
+                        companyWorkingDays: workingDays,
+                        companyWorkingHours,
+                        employeeWorkedHours: summary.employeeWorkedHours ?? 0,
+                        presentDays: summary.presentDays ?? 0,
+                        leaveDays: summary.leaveDays ?? 0,
+                        absentDays: summary.absentDays ?? 0,
+                        lopDays: summary.lopDays ?? 0
+                    };
+                });
         }
 
         const groupedByEmployee = new Map<string, { name: string; rows: any[] }>();
@@ -519,6 +525,7 @@ export default function ReportPage() {
                 let lopDays = 0;
                 const perDayClassification = new Map<string, 'PRESENT' | 'ABSENT' | 'LEAVE' | 'UNKNOWN'>();
                 const perDayLop = new Map<string, number>();
+                const perDayHours = new Map<string, number>();
 
                 employeeData.rows.forEach((row: any) => {
                     const dateKey = typeof row.Date === 'string' ? row.Date.split('T')[0] : '';
@@ -541,6 +548,10 @@ export default function ReportPage() {
                     } else if (existingClassification === 'LEAVE' && rowClassification === 'PRESENT') {
                         perDayClassification.set(dateKey, 'PRESENT');
                     }
+
+                    const rowHours = parseFloat(row.TotalWorkedHours || '0');
+                    const priorHours = perDayHours.get(dateKey) || 0;
+                    perDayHours.set(dateKey, Math.max(priorHours, rowHours));
                 });
 
                 perDayClassification.forEach((classification) => {
@@ -552,10 +563,20 @@ export default function ReportPage() {
                     lopDays += Number(lopPortion || 0);
                 });
 
+                let employeeWorkedHours = 0;
+                perDayHours.forEach((hrs) => {
+                    employeeWorkedHours += hrs;
+                });
+
+                const effectiveCompanyWorkingDays = perDayClassification.size || companyWorkingDays;
+                const companyWorkingHours = Number((effectiveCompanyWorkingDays * 7.5).toFixed(1));
+
                 return {
                     employeeId: employeeKey,
                     name: employeeData.name,
-                    companyWorkingDays,
+                    companyWorkingDays: effectiveCompanyWorkingDays,
+                    companyWorkingHours,
+                    employeeWorkedHours: Number(employeeWorkedHours.toFixed(1)),
                     presentDays,
                     leaveDays,
                     absentDays,
@@ -1074,7 +1095,7 @@ export default function ReportPage() {
                                 {meta?.companyWorkingDays ? ` • ${meta.companyWorkingDays} company working days` : ''}
                             </p>
                             <p className="text-[11px] text-[#667085]">
-                                1st/3rd/5th Saturday = WFH (counts present without biometric punch) • 2nd/4th Saturday = scheduled leave • Sunday off
+                                1st/3rd/5th Saturday = WFH (auto-credited 7.5 hrs) • 2nd/4th Saturday = scheduled leave • Full day threshold = 7.5 hrs • Sunday off
                             </p>
                         </div>
 
@@ -1103,6 +1124,7 @@ export default function ReportPage() {
                                     <tr className="bg-[#FAFAFB] border-b border-[#EAECF0]">
                                         <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider">Employee Name</th>
                                         <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Total Working Days (Company)</th>
+                                        <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Total Hours (Worked / Target)</th>
                                         <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Total Present Days</th>
                                         <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Total Leave Days</th>
                                         <th className="px-5 py-2.5 text-[11px] font-medium text-[#667085] uppercase tracking-wider text-center">Total Absent Days</th>
@@ -1112,7 +1134,7 @@ export default function ReportPage() {
                                 <tbody className="divide-y divide-[#F2F4F7]">
                                     {accountantSummaryRows.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-5 py-12 text-center text-slate-400 font-medium text-[13px]">
+                                            <td colSpan={7} className="px-5 py-12 text-center text-slate-400 font-medium text-[13px]">
                                                 No employee records found for the selected period
                                             </td>
                                         </tr>
@@ -1128,6 +1150,11 @@ export default function ReportPage() {
                                                     <ChevronRight size={13} className="text-slate-300 group-hover:text-indigo-500 shrink-0" />
                                                 </td>
                                                 <td className="px-5 py-3 text-[12.5px] text-[#101828] text-center font-medium tabular-nums">{summaryRow.companyWorkingDays}</td>
+                                                <td className="px-5 py-3 text-[12.5px] text-center font-medium tabular-nums">
+                                                    <span className="font-semibold text-emerald-700">{summaryRow.employeeWorkedHours}</span>
+                                                    <span className="text-slate-400"> / </span>
+                                                    <span className="text-slate-600">{summaryRow.companyWorkingHours} hrs</span>
+                                                </td>
                                                 <td className="px-5 py-3 text-[12.5px] text-emerald-700 text-center font-medium tabular-nums">{summaryRow.presentDays}</td>
                                                 <td className="px-5 py-3 text-[12.5px] text-indigo-700 text-center font-medium tabular-nums">{summaryRow.leaveDays}</td>
                                                 <td className="px-5 py-3 text-[12.5px] text-rose-700 text-center font-medium tabular-nums">{summaryRow.absentDays}</td>

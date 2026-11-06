@@ -122,7 +122,8 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
                 firstBiometricDate: row.FirstBiometricDate ?? null,
                 effectiveAttendanceStart: row.EffectiveAttendanceStart ?? null,
                 perDay: new Map(),
-                perDayLop: new Map()
+                perDayLop: new Map(),
+                perDayHours: new Map()
             });
         }
 
@@ -140,6 +141,10 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             const priorLop = bucket.perDayLop.get(dateKey) || 0;
             bucket.perDayLop.set(dateKey, Math.max(priorLop, lopValue));
         }
+
+        const dayHours = parseFloat(row.TotalWorkedHours || '0');
+        const priorHours = bucket.perDayHours.get(dateKey) || 0;
+        bucket.perDayHours.set(dateKey, Math.max(priorHours, dayHours));
     }
 
     return Array.from(byEmployee.values())
@@ -148,6 +153,7 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             let leaveDays = 0;
             let absentDays = 0;
             let lopDays = 0;
+            let employeeWorkedHours = 0;
 
             entry.perDay.forEach((classification) => {
                 if (classification === 'PRESENT') presentDays += 1;
@@ -157,6 +163,12 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
             entry.perDayLop.forEach((lopPortion) => {
                 lopDays += Number(lopPortion || 0);
             });
+            entry.perDayHours.forEach((hrs) => {
+                employeeWorkedHours += hrs;
+            });
+
+            const effectiveWorkingDays = entry.perDay.size || companyWorkingDays;
+            const companyWorkingHours = Number((effectiveWorkingDays * 7.5).toFixed(1));
 
             return {
                 userId: entry.userId,
@@ -164,7 +176,9 @@ export const buildAccountantSummaries = (reportRows, { companyWorkingDays, enrol
                 joiningDate: entry.joiningDate,
                 firstBiometricDate: entry.firstBiometricDate,
                 effectiveAttendanceStart: entry.effectiveAttendanceStart,
-                companyWorkingDays: entry.perDay.size || companyWorkingDays,
+                companyWorkingDays: effectiveWorkingDays,
+                companyWorkingHours,
+                employeeWorkedHours: Number(employeeWorkedHours.toFixed(1)),
                 presentDays,
                 leaveDays,
                 absentDays,
