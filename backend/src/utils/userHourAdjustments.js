@@ -35,7 +35,8 @@ export const NOV_2_TO_7_USER_IDS = new Set([
     '37108e72-32c1-40cf-83e3-474fdecec8e9', // Shaffna M (23)
     '5ef59359-9d84-4024-9e4d-c0b28aba765e', // Kumar (17)
     '424dce9e-b3cd-46ae-865e-04a2bcfe2154', // Vivek (19)
-    '63c04941-26f5-44b4-b261-6142fbf30978'  // Sofiya Rahamath A (42)
+    '63c04941-26f5-44b4-b261-6142fbf30978', // Sofiya Rahamath A (42)
+    '0918d27b-8884-4f92-b63b-6c1447a9c303'  // Sidharth R (34)
 ]);
 
 export const NOV_2_TO_7_DATES = new Set([
