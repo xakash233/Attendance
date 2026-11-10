@@ -11,7 +11,9 @@ import {
     exportTectraAttendanceSheet,
     syncTectraAttendanceSheet,
     getWeeklySummary,
-    getAdminAnalytics
+    getAdminAnalytics,
+    previewCeoReportController,
+    sendCeoReportController
 } from '../controllers/attendance.js';
 import { protect, authorize } from '../middleware/auth.js';
 
@@ -30,5 +32,7 @@ router.get('/export-compliance', protect, exportComplianceReport);
 router.get('/export-tectra-sheet', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), exportTectraAttendanceSheet);
 router.post('/sync-tectra-sheet', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), syncTectraAttendanceSheet);
 router.get('/admin-analytics', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), getAdminAnalytics);
+router.get('/preview-ceo-report', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), previewCeoReportController);
+router.post('/send-ceo-report', protect, authorize('SUPER_ADMIN', 'HR', 'ADMIN'), sendCeoReportController);
 
 export default router;

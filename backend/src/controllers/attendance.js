@@ -23,6 +23,11 @@ import {
     buildAttendanceWorkbookBuffer,
     syncAttendanceToGoogleSheet
 } from '../services/attendance/attendanceSheetExportService.js';
+import {
+    sendCeoMonthlyReport,
+    buildCeoReportData,
+    getCeoReportBounds
+} from '../services/attendance/ceoMonthlyReportService.js';
 
 const formatIstPunchTime = (timestamp) =>
     timestamp.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' });
@@ -2279,5 +2284,47 @@ export const getAdminAnalytics = async (req, res, next) => {
     } catch (error) {
         console.error('ANALYTICS_CRASH:', error);
         res.status(500).json({ error: error.message });
+    }
+};
+
+// @desc    Preview CEO Monthly Report (4 columns)
+// @route   GET /api/attendance/preview-ceo-report
+// @access  Private (SUPER_ADMIN, HR, ADMIN)
+export const previewCeoReportController = async (req, res, next) => {
+    try {
+        const { month, year } = req.query;
+        const bounds = getCeoReportBounds(month, year);
+        const reportData = await buildCeoReportData({ start: bounds.start, end: bounds.end });
+
+        res.json({
+            success: true,
+            bounds,
+            reportData
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Send CEO Monthly Report via Email + Attachment
+// @route   POST /api/attendance/send-ceo-report
+// @access  Private (SUPER_ADMIN, HR, ADMIN)
+export const sendCeoReportController = async (req, res, next) => {
+    try {
+        const { month, year, recipientEmail } = req.body;
+        const result = await sendCeoMonthlyReport({
+            monthParam: month,
+            yearParam: year,
+            recipientEmail: recipientEmail || undefined,
+            triggeredBy: `MANUAL_${req.user.name || req.user.email || 'ADMIN'}`
+        });
+
+        res.json({
+            success: true,
+            message: `Report for ${result.monthLabel} successfully sent to ${result.recipient}`,
+            data: result
+        });
+    } catch (error) {
+        next(error);
     }
 };

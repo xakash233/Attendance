@@ -34,6 +34,7 @@ const sendEmail = async (options) => {
         subject: options.subject,
         text: options.message,
         html: options.html,
+        attachments: options.attachments || [],
     };
 
     console.log(`[MAIL] Attempting to send email to: ${options.email}`);

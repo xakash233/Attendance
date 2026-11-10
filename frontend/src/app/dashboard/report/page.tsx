@@ -13,7 +13,11 @@ import {
     Search,
     Filter,
     X,
-    ChevronDown
+    ChevronDown,
+    Mail,
+    Send,
+    CheckCircle2,
+    FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
@@ -122,6 +126,53 @@ export default function ReportPage() {
         lopDays: number;
     } | null>(null);
     const [expandedLogRow, setExpandedLogRow] = useState<string | null>(null);
+    const [isCeoModalOpen, setIsCeoModalOpen] = useState(false);
+    const [ceoMonth, setCeoMonth] = useState<string>(() => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - 1);
+        return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7);
+    });
+    const [ceoLoading, setCeoLoading] = useState(false);
+    const [ceoPreviewData, setCeoPreviewData] = useState<any>(null);
+    const [ceoPreviewLoading, setCeoPreviewLoading] = useState(false);
+
+    const fetchCeoPreview = useCallback(async (monthToFetch?: string) => {
+        try {
+            setCeoPreviewLoading(true);
+            const targetMonth = monthToFetch || ceoMonth;
+            const res = await api.get(`/attendance/preview-ceo-report?month=${targetMonth}`);
+            if (res.data?.success) {
+                setCeoPreviewData(res.data);
+            }
+        } catch (error: any) {
+            console.error('Failed to preview CEO report:', error);
+            toast.error(error.response?.data?.message || 'Failed to load report preview');
+        } finally {
+            setCeoPreviewLoading(false);
+        }
+    }, [ceoMonth]);
+
+    useEffect(() => {
+        if (isCeoModalOpen) {
+            fetchCeoPreview(ceoMonth);
+        }
+    }, [isCeoModalOpen, ceoMonth, fetchCeoPreview]);
+
+    const handleSendCeoReport = async () => {
+        try {
+            setCeoLoading(true);
+            const res = await api.post('/attendance/send-ceo-report', { month: ceoMonth });
+            if (res.data?.success) {
+                toast.success(res.data.message || 'Report sent to CEO successfully!');
+                setIsCeoModalOpen(false);
+            }
+        } catch (error: any) {
+            console.error('Failed to send CEO report:', error);
+            toast.error(error.response?.data?.message || 'Failed to send report to CEO');
+        } finally {
+            setCeoLoading(false);
+        }
+    };
     const monthRef = React.useRef<HTMLInputElement>(null);
     const canUseAdvancedFilters = ['SUPER_ADMIN', 'HR', 'ADMIN', 'ACCOUNTANT'].includes(user?.role || '');
     const isAccountant = user?.role === 'ACCOUNTANT';
@@ -841,6 +892,16 @@ export default function ReportPage() {
                         {exportLoading ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                         Export
                     </button>
+                    {['SUPER_ADMIN', 'ADMIN', 'HR'].includes(user?.role || '') && (
+                        <button
+                            onClick={() => setIsCeoModalOpen(true)}
+                            className="h-9 flex-1 flex items-center justify-center gap-1.5 px-3 bg-blue-600 text-white rounded-lg text-[12px] font-medium hover:bg-blue-700 transition-all shadow-xs whitespace-nowrap"
+                            title="Send Monthly Working Hours Report to CEO"
+                        >
+                            <Mail size={13} />
+                            Send to CEO
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -1280,6 +1341,167 @@ export default function ReportPage() {
                     onClose={() => setSelectedAccountantEmployee(null)}
                 />
             )}
+
+            {/* CEO Monthly Report Modal */}
+            <AnimatePresence>
+                {isCeoModalOpen && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm animate-fade-in">
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                            transition={{ duration: 0.15 }}
+                            className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+                        >
+                            {/* Modal Header */}
+                            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between shrink-0">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <Mail size={16} className="text-blue-400" />
+                                        <h3 className="text-[15px] font-semibold tracking-tight text-white">Send Monthly Working Hours Report to CEO</h3>
+                                    </div>
+                                    <p className="text-[12px] text-slate-300 mt-0.5">
+                                        Recipient: <span className="font-semibold text-white">santosh@tectratechnologies.com</span> (Excel file attached)
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setIsCeoModalOpen(false)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition-all"
+                                >
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 overflow-y-auto space-y-5">
+                                {/* Month selector & description */}
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                    <div>
+                                        <label className="block text-[11px] font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                                            Select Month (Covers 1st to 29th)
+                                        </label>
+                                        <input
+                                            type="month"
+                                            value={ceoMonth}
+                                            onChange={(e) => {
+                                                setCeoMonth(e.target.value);
+                                                fetchCeoPreview(e.target.value);
+                                            }}
+                                            className="h-9 px-3 border border-slate-300 rounded-lg text-[13px] font-medium text-slate-800 bg-white outline-none focus:ring-2 focus:ring-blue-500 shadow-xs cursor-pointer"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[12px] text-slate-600">
+                                        <FileSpreadsheet size={16} className="text-emerald-600 shrink-0" />
+                                        <span>Generates strictly 4 columns with auto-attached <strong className="text-slate-800">.xlsx</strong> file.</span>
+                                    </div>
+                                </div>
+
+                                {/* Summary metrics */}
+                                {ceoPreviewData?.reportData && (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                                            <div className="text-[11px] font-medium text-slate-500 uppercase">Active Employees</div>
+                                            <div className="text-[18px] font-bold text-slate-900 mt-0.5">{ceoPreviewData.reportData.totalEmployees}</div>
+                                        </div>
+                                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                                            <div className="text-[11px] font-medium text-slate-500 uppercase">Total Office Hours</div>
+                                            <div className="text-[18px] font-bold text-slate-900 mt-0.5">{ceoPreviewData.reportData.totalOfficeHoursSum} hrs</div>
+                                        </div>
+                                        <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
+                                            <div className="text-[11px] font-medium text-slate-500 uppercase">Total Shortage</div>
+                                            <div className="text-[18px] font-bold text-rose-600 mt-0.5">{ceoPreviewData.reportData.totalShortHoursSum} hrs</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Preview table */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-[12px] font-semibold text-slate-700 uppercase tracking-wider">
+                                            Report Preview ({ceoPreviewData?.bounds?.monthLabel || ceoMonth})
+                                        </h4>
+                                        <span className="text-[11px] text-slate-500">
+                                            {ceoPreviewData?.reportData?.employees?.length || 0} employees listed
+                                        </span>
+                                    </div>
+
+                                    {ceoPreviewLoading ? (
+                                        <div className="py-12 flex flex-col items-center justify-center gap-2 border border-slate-200 rounded-xl bg-slate-50">
+                                            <Loader2 size={24} className="animate-spin text-blue-600" />
+                                            <span className="text-[12px] text-slate-500 font-medium">Calculating working hours for {ceoMonth}...</span>
+                                        </div>
+                                    ) : (
+                                        <div className="border border-slate-200 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto shadow-xs">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead className="sticky top-0 bg-slate-900 text-white z-10">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider">Employee Name</th>
+                                                        <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-right">Office Working Hour</th>
+                                                        <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-right">Employee Working Hours</th>
+                                                        <th className="px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-right">No. of Hours Short</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {ceoPreviewData?.reportData?.employees?.map((emp: any, idx: number) => (
+                                                        <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                                                            <td className="px-4 py-2 text-[12px] font-medium text-slate-900">{emp.name}</td>
+                                                            <td className="px-4 py-2 text-[12px] text-slate-600 text-right">{emp.officeWorkingHours} hrs</td>
+                                                            <td className="px-4 py-2 text-[12px] font-semibold text-slate-900 text-right">{emp.employeeWorkingHours} hrs</td>
+                                                            <td className="px-4 py-2 text-[12px] text-right">
+                                                                {emp.isShort ? (
+                                                                    <span className="inline-block px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[11px] rounded-md">
+                                                                        {emp.shortHours} hrs
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-block px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] rounded-md">
+                                                                        0.0 hrs
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                                <div className="text-[11px] text-slate-500">
+                                    Automated scheduled sends trigger every month on the 29th at 08:00 PM IST.
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setIsCeoModalOpen(false)}
+                                        className="h-9 px-4 border border-slate-300 text-slate-700 rounded-lg text-[12px] font-medium hover:bg-slate-100 transition-all shadow-xs"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleSendCeoReport}
+                                        disabled={ceoLoading || ceoPreviewLoading}
+                                        className="h-9 px-4 bg-blue-600 text-white rounded-lg text-[12px] font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                                    >
+                                        {ceoLoading ? (
+                                            <>
+                                                <Loader2 size={13} className="animate-spin" />
+                                                Sending Email &amp; Excel...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send size={13} />
+                                                Send Report to CEO
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
