@@ -17,6 +17,19 @@ const CEO_RECIPIENT_EMAIL = process.env.CEO_REPORT_EMAIL || 'santosh@tectratechn
 const HRMS_PORTAL_URL = 'https://hrms.tectratechnologies.com';
 
 /**
+ * Formats decimal hours into a clear, unambiguous "Xh Ymin" string.
+ * e.g., 7.5 -> "7h 30min", 157.5 -> "157h 30min", 0 -> "0h 00min"
+ */
+export function formatHoursAndMinutes(decimalHours) {
+    const val = parseFloat(decimalHours || 0);
+    if (isNaN(val) || val <= 0) return '0h 00min';
+    const totalMinutes = Math.round(val * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${String(minutes).padStart(2, '0')}min`;
+}
+
+/**
  * Computes start and end date bounds for the 29th monthly report.
  * Supports:
  * - Specific month/year string (e.g. "2026-10" or year=2026, month=10) -> 1st to 29th of that month.
@@ -347,9 +360,12 @@ export async function buildCeoReportData({ start, end }) {
 
         return {
             name: s.name,
-            officeWorkingHours: officeHours.toFixed(1),
-            employeeWorkingHours: employeeHours.toFixed(1),
-            shortHours: shortHours.toFixed(1),
+            officeWorkingHours: formatHoursAndMinutes(officeHours),
+            employeeWorkingHours: formatHoursAndMinutes(employeeHours),
+            shortHours: formatHoursAndMinutes(shortHours),
+            officeHoursDecimal: Number(officeHours.toFixed(1)),
+            employeeHoursDecimal: Number(employeeHours.toFixed(1)),
+            shortHoursDecimal: Number(shortHours.toFixed(1)),
             isShort: shortHours > 0
         };
     });
@@ -360,6 +376,9 @@ export async function buildCeoReportData({ start, end }) {
         totalOfficeHoursSum: Number(totalOfficeHoursSum.toFixed(1)),
         totalEmployeeHoursSum: Number(totalEmployeeHoursSum.toFixed(1)),
         totalShortHoursSum: Number(totalShortHoursSum.toFixed(1)),
+        totalOfficeHoursDisplay: formatHoursAndMinutes(totalOfficeHoursSum),
+        totalEmployeeHoursDisplay: formatHoursAndMinutes(totalEmployeeHoursSum),
+        totalShortHoursDisplay: formatHoursAndMinutes(totalShortHoursSum),
         employees: fourColumnRows
     };
 }
@@ -388,7 +407,7 @@ export async function buildCeoReportExcelBuffer({ reportData, bounds }) {
     // Subtitle banner
     sheet.mergeCells('A2:D2');
     const subtitleCell = sheet.getCell('A2');
-    subtitleCell.value = `Period: ${bounds.startDateStr} to ${bounds.endDateStr} (${bounds.monthLabel}) | Total Working Days: ${reportData.companyWorkingDays}`;
+    subtitleCell.value = `Period: ${bounds.startDateStr} to ${bounds.endDateStr} (${bounds.monthLabel}) | Total Working Days: ${reportData.companyWorkingDays} (Target: 7h 30min / day)`;
     subtitleCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF334155' } };
     subtitleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
     subtitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -423,22 +442,19 @@ export async function buildCeoReportExcelBuffer({ reportData, bounds }) {
         const row = sheet.getRow(currentLine);
         row.values = [
             emp.name,
-            parseFloat(emp.officeWorkingHours),
-            parseFloat(emp.employeeWorkingHours),
-            parseFloat(emp.shortHours)
+            emp.officeWorkingHours,
+            emp.employeeWorkingHours,
+            emp.shortHours
         ];
 
         row.font = { name: 'Calibri', size: 10 };
         row.height = 20;
 
-        // Alignment and number formatting
+        // Alignment
         row.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        row.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
-        row.getCell(2).numFmt = '#,##0.0';
-        row.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
-        row.getCell(3).numFmt = '#,##0.0';
-        row.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
-        row.getCell(4).numFmt = '#,##0.0';
+        row.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+        row.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+        row.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
 
         // Soft highlight for rows with short hours vs completed
         if (emp.isShort) {
@@ -456,20 +472,17 @@ export async function buildCeoReportExcelBuffer({ reportData, bounds }) {
     const totalRow = sheet.getRow(currentLine);
     totalRow.values = [
         'TOTAL',
-        reportData.totalOfficeHoursSum,
-        reportData.totalEmployeeHoursSum,
-        reportData.totalShortHoursSum
+        reportData.totalOfficeHoursDisplay,
+        reportData.totalEmployeeHoursDisplay,
+        reportData.totalShortHoursDisplay
     ];
     totalRow.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
     totalRow.height = 24;
     totalRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-    totalRow.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
-    totalRow.getCell(2).numFmt = '#,##0.0';
-    totalRow.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
-    totalRow.getCell(3).numFmt = '#,##0.0';
-    totalRow.getCell(4).alignment = { horizontal: 'right', vertical: 'middle' };
-    totalRow.getCell(4).numFmt = '#,##0.0';
+    totalRow.getCell(2).alignment = { horizontal: 'center', vertical: 'middle' };
+    totalRow.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+    totalRow.getCell(4).alignment = { horizontal: 'center', vertical: 'middle' };
 
     return workbook.xlsx.writeBuffer();
 }
@@ -481,14 +494,14 @@ export function buildCeoReportHtmlEmail({ reportData, bounds }) {
     const tableRows = reportData.employees.map((emp, index) => {
         const rowBg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
         const shortBadge = emp.isShort
-            ? `<span style="display: inline-block; background-color: #fef2f2; color: #dc2626; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #fecaca;">${emp.shortHours} hrs</span>`
-            : `<span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #bbf7d0;">0.0 hrs</span>`;
+            ? `<span style="display: inline-block; background-color: #fef2f2; color: #dc2626; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #fecaca;">${emp.shortHours}</span>`
+            : `<span style="display: inline-block; background-color: #dcfce7; color: #16a34a; font-weight: 700; padding: 2px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #bbf7d0;">0h 00min</span>`;
 
         return `
             <tr style="background-color: ${rowBg}; border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; font-weight: 600;">${emp.name}</td>
-                <td style="padding: 10px 14px; font-size: 13px; color: #475569; text-align: right; font-weight: 500;">${emp.officeWorkingHours} hrs</td>
-                <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right; font-weight: 700;">${emp.employeeWorkingHours} hrs</td>
+                <td style="padding: 10px 14px; font-size: 13px; color: #475569; text-align: right; font-weight: 500;">${emp.officeWorkingHours}</td>
+                <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right; font-weight: 700;">${emp.employeeWorkingHours}</td>
                 <td style="padding: 10px 14px; font-size: 13px; text-align: right;">${shortBadge}</td>
             </tr>
         `;
@@ -509,7 +522,7 @@ export function buildCeoReportHtmlEmail({ reportData, bounds }) {
         <!-- Body Content -->
         <div style="padding: 24px 28px;">
             <p style="margin: 0 0 18px 0; font-size: 14px; line-height: 1.6; color: #334155;">
-                Dear Sir, here is the working hours summary for all active employees for the period ending on the 29th of <strong>${bounds.monthLabel}</strong>.
+                Dear Sir, here is the working hours summary for all active employees for the period ending on the 29th of <strong>${bounds.monthLabel}</strong> (daily target: <strong>7h 30min</strong>).
             </p>
 
             <!-- Metrics Summary Cards -->
@@ -520,11 +533,11 @@ export function buildCeoReportHtmlEmail({ reportData, bounds }) {
                 </div>
                 <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Total Office Hours</div>
-                    <div style="font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 4px;">${reportData.totalOfficeHoursSum}h</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #0f172a; margin-top: 4px;">${reportData.totalOfficeHoursDisplay}</div>
                 </div>
                 <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; text-align: center;">
                     <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">Total Shortage</div>
-                    <div style="font-size: 20px; font-weight: 700; color: #dc2626; margin-top: 4px;">${reportData.totalShortHoursSum}h</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #dc2626; margin-top: 4px;">${reportData.totalShortHoursDisplay}</div>
                 </div>
             </div>
 
@@ -545,9 +558,9 @@ export function buildCeoReportHtmlEmail({ reportData, bounds }) {
                     <tfoot>
                         <tr style="background-color: #f1f5f9; font-weight: 700; border-top: 2px solid #cbd5e1;">
                             <td style="padding: 10px 14px; font-size: 13px; color: #0f172a;">TOTAL</td>
-                            <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right;">${reportData.totalOfficeHoursSum} hrs</td>
-                            <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right;">${reportData.totalEmployeeHoursSum} hrs</td>
-                            <td style="padding: 10px 14px; font-size: 13px; color: #dc2626; text-align: right;">${reportData.totalShortHoursSum} hrs</td>
+                            <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right;">${reportData.totalOfficeHoursDisplay}</td>
+                            <td style="padding: 10px 14px; font-size: 13px; color: #0f172a; text-align: right;">${reportData.totalEmployeeHoursDisplay}</td>
+                            <td style="padding: 10px 14px; font-size: 13px; color: #dc2626; text-align: right;">${reportData.totalShortHoursDisplay}</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -595,7 +608,7 @@ export async function sendCeoMonthlyReport({
     const attachmentFilename = `Employee_Working_Hours_Report_${safeMonth}.xlsx`;
     const subject = `Monthly Employee Working Hours Report - ${bounds.monthLabel} (Ending 29th)`;
 
-    const textMessage = `Tectra Technologies - Monthly Employee Working Hours Report\nPeriod: ${bounds.startDateStr} to ${bounds.endDateStr} (${bounds.monthLabel})\nTotal Employees: ${reportData.totalEmployees}\nTotal Office Hours: ${reportData.totalOfficeHoursSum} hrs\nTotal Worked Hours: ${reportData.totalEmployeeHoursSum} hrs\nTotal Shortage: ${reportData.totalShortHoursSum} hrs\n\nPlease find the attached Excel file (${attachmentFilename}) for full employee details.`;
+    const textMessage = `Tectra Technologies - Monthly Employee Working Hours Report\nPeriod: ${bounds.startDateStr} to ${bounds.endDateStr} (${bounds.monthLabel})\nTotal Employees: ${reportData.totalEmployees}\nTotal Office Hours: ${reportData.totalOfficeHoursDisplay}\nTotal Worked Hours: ${reportData.totalEmployeeHoursDisplay}\nTotal Shortage: ${reportData.totalShortHoursDisplay}\n\nPlease find the attached Excel file (${attachmentFilename}) for full employee details.`;
 
     console.log(`[CeoReport] Sending email to CEO at ${recipientEmail}...`);
 

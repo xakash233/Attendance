@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     getCeoReportBounds,
+    formatHoursAndMinutes,
     buildCeoReportExcelBuffer,
     buildCeoReportHtmlEmail
 } from '../src/services/attendance/ceoMonthlyReportService.js';
@@ -27,7 +28,15 @@ test('getCeoReportBounds handles February correctly in leap and non-leap years',
     assert.equal(leap.endDateStr, '2024-02-29');
 });
 
-test('buildCeoReportExcelBuffer generates a valid Excel buffer with 4 columns', async () => {
+test('formatHoursAndMinutes correctly converts 7.5 hours to 7h 30min', () => {
+    assert.equal(formatHoursAndMinutes(7.5), '7h 30min', '7.5 hours must be 7h 30min');
+    assert.equal(formatHoursAndMinutes(157.5), '157h 30min');
+    assert.equal(formatHoursAndMinutes(0), '0h 00min');
+    assert.equal(formatHoursAndMinutes(97.3), '97h 18min');
+    assert.equal(formatHoursAndMinutes(55.5), '55h 30min');
+});
+
+test('buildCeoReportExcelBuffer generates a valid Excel buffer with 4 columns in 7h 30min format', async () => {
     const mockBounds = getCeoReportBounds('2026-10');
     const mockReportData = {
         companyWorkingDays: 21,
@@ -35,19 +44,22 @@ test('buildCeoReportExcelBuffer generates a valid Excel buffer with 4 columns', 
         totalOfficeHoursSum: 315.0,
         totalEmployeeHoursSum: 290.0,
         totalShortHoursSum: 25.0,
+        totalOfficeHoursDisplay: '315h 00min',
+        totalEmployeeHoursDisplay: '290h 00min',
+        totalShortHoursDisplay: '25h 00min',
         employees: [
             {
                 name: 'John Doe',
-                officeWorkingHours: '157.5',
-                employeeWorkingHours: '157.5',
-                shortHours: '0.0',
+                officeWorkingHours: '157h 30min',
+                employeeWorkingHours: '157h 30min',
+                shortHours: '0h 00min',
                 isShort: false
             },
             {
                 name: 'Jane Smith',
-                officeWorkingHours: '157.5',
-                employeeWorkingHours: '132.5',
-                shortHours: '25.0',
+                officeWorkingHours: '157h 30min',
+                employeeWorkingHours: '132h 30min',
+                shortHours: '25h 00min',
                 isShort: true
             }
         ]
@@ -64,6 +76,7 @@ test('buildCeoReportExcelBuffer generates a valid Excel buffer with 4 columns', 
     assert.ok(html.includes('Office Working Hour'));
     assert.ok(html.includes('Employee Working Hours'));
     assert.ok(html.includes('No. of Hours Short'));
-    assert.ok(html.includes('0.0 hrs'));
-    assert.ok(html.includes('25.0 hrs'));
+    assert.ok(html.includes('157h 30min'));
+    assert.ok(html.includes('0h 00min'));
+    assert.ok(html.includes('25h 00min'));
 });

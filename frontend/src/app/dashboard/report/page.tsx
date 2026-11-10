@@ -1405,11 +1405,11 @@ export default function ReportPage() {
                                         </div>
                                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
                                             <div className="text-[11px] font-medium text-slate-500 uppercase">Total Office Hours</div>
-                                            <div className="text-[18px] font-bold text-slate-900 mt-0.5">{ceoPreviewData.reportData.totalOfficeHoursSum} hrs</div>
+                                            <div className="text-[18px] font-bold text-slate-900 mt-0.5">{ceoPreviewData.reportData.totalOfficeHoursDisplay || `${ceoPreviewData.reportData.totalOfficeHoursSum} hrs`}</div>
                                         </div>
                                         <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-center">
                                             <div className="text-[11px] font-medium text-slate-500 uppercase">Total Shortage</div>
-                                            <div className="text-[18px] font-bold text-rose-600 mt-0.5">{ceoPreviewData.reportData.totalShortHoursSum} hrs</div>
+                                            <div className="text-[18px] font-bold text-rose-600 mt-0.5">{ceoPreviewData.reportData.totalShortHoursDisplay || `${ceoPreviewData.reportData.totalShortHoursSum} hrs`}</div>
                                         </div>
                                     </div>
                                 )}
@@ -1421,7 +1421,7 @@ export default function ReportPage() {
                                             Report Preview ({ceoPreviewData?.bounds?.monthLabel || ceoMonth})
                                         </h4>
                                         <span className="text-[11px] text-slate-500">
-                                            {ceoPreviewData?.reportData?.employees?.length || 0} employees listed
+                                            {ceoPreviewData?.reportData?.employees?.length || 0} employees listed • Daily Target: 7h 30min
                                         </span>
                                     </div>
 
@@ -1445,16 +1445,16 @@ export default function ReportPage() {
                                                     {ceoPreviewData?.reportData?.employees?.map((emp: any, idx: number) => (
                                                         <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
                                                             <td className="px-4 py-2 text-[12px] font-medium text-slate-900">{emp.name}</td>
-                                                            <td className="px-4 py-2 text-[12px] text-slate-600 text-right">{emp.officeWorkingHours} hrs</td>
-                                                            <td className="px-4 py-2 text-[12px] font-semibold text-slate-900 text-right">{emp.employeeWorkingHours} hrs</td>
+                                                            <td className="px-4 py-2 text-[12px] text-slate-600 text-right">{emp.officeWorkingHours}</td>
+                                                            <td className="px-4 py-2 text-[12px] font-semibold text-slate-900 text-right">{emp.employeeWorkingHours}</td>
                                                             <td className="px-4 py-2 text-[12px] text-right">
                                                                 {emp.isShort ? (
                                                                     <span className="inline-block px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[11px] rounded-md">
-                                                                        {emp.shortHours} hrs
+                                                                        {emp.shortHours}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="inline-block px-2 py-0.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] rounded-md">
-                                                                        0.0 hrs
+                                                                        0h 00min
                                                                     </span>
                                                                 )}
                                                             </td>
