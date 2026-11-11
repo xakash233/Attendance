@@ -28,6 +28,7 @@ import {
     buildCeoReportData,
     getCeoReportBounds
 } from '../services/attendance/ceoMonthlyReportService.js';
+import { isIgnoredEmployee } from '../utils/ignoredEmployees.js';
 
 const formatIstPunchTime = (timestamp) =>
     timestamp.toLocaleTimeString('en-US', { hour12: true, timeZone: 'Asia/Kolkata' });
@@ -714,9 +715,9 @@ export const getLiveAttendance = async (req, res, next) => {
             }
         });
 
-        // Filter out unknown/test datas (unless it's the requesting user)
+        // Filter out unknown/test datas and blacklisted removed employees
         const cleanUsers = users.filter(u =>
-            u.employeeCode && u.employeeCode.trim() !== ''
+            u.employeeCode && u.employeeCode.trim() !== '' && !isIgnoredEmployee(u)
         );
 
         const liveData = cleanUsers.map(user => {

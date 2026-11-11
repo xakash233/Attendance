@@ -3,6 +3,7 @@ import prisma from '../config/prisma.js';
 import sendEmail from '../utils/email.js';
 import crypto from 'crypto';
 import leaveService from '../services/leave/leaveService.js';
+import { isIgnoredEmployee } from '../utils/ignoredEmployees.js';
 
 const istDateToUtcMidnight = (yyyyMmDd) => new Date(`${yyyyMmDd}T00:00:00.000Z`);
 
@@ -159,12 +160,13 @@ export const getEmployeeDirectory = async (req, res, next) => {
                 employeeCode: true,
                 role: true,
                 profileImage: true,
+                email: true,
                 department: { select: { id: true, name: true } },
             },
             orderBy: [{ name: 'asc' }],
         });
 
-        res.json(employees);
+        res.json(employees.filter(e => !isIgnoredEmployee(e)));
     } catch (error) {
         next(error);
     }
@@ -175,7 +177,7 @@ export const getEmployeeDirectory = async (req, res, next) => {
 // @access  Private (SUPER_ADMIN, ADMIN)
 export const getUsers = async (req, res, next) => {
     try {
-        const users = await prisma.user.findMany({
+        const rawUsers = await prisma.user.findMany({
             select: {
                 id: true,
                 email: true,
@@ -189,6 +191,7 @@ export const getUsers = async (req, res, next) => {
             },
             orderBy: { name: 'asc' }
         });
+        const users = rawUsers.filter(u => !isIgnoredEmployee(u));
         const includeHours = req.query.includeHours === 'true';
         if (!includeHours) {
             return res.json(users);

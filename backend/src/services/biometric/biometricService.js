@@ -13,6 +13,7 @@ import admsService from './admsService.js';
 import lateArrivalAlertService from '../attendance/lateArrivalAlertService.js';
 import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
+import { isIgnoredEmployee } from '../../utils/ignoredEmployees.js';
 
 class BiometricService {
     normalizeEmployeeCode(code) {
@@ -59,7 +60,7 @@ class BiometricService {
                 employeeCode: this.normalizeEmployeeCode(record.employeeCode),
                 employeeName: this.sanitizeDisplayName(record.employeeName, this.normalizeEmployeeCode(record.employeeCode))
             }))
-            .filter((record) => record.employeeCode);
+            .filter((record) => record.employeeCode && !isIgnoredEmployee(record.employeeCode));
 
         const uniqueByCode = new Map();
         for (const record of normalizedRecords) {

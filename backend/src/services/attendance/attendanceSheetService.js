@@ -10,6 +10,7 @@ import {
     isCompanyWorkingDay
 } from '../../utils/payrollCalendar.js';
 import { MIN_FULL_DAY_HOURS } from '../../utils/attendanceCalculator.js';
+import { isIgnoredEmployee } from '../../utils/ignoredEmployees.js';
 
 function isApprovedLeave(leave) {
     const status = String(leave?.status || '').toUpperCase();
@@ -54,7 +55,8 @@ export async function buildTectraAttendanceSheetData(prisma, { month = null, ist
         ]
     });
 
-    const userIds = users.map((user) => user.id);
+    const activeUsers = users.filter(u => !isIgnoredEmployee(u));
+    const userIds = activeUsers.map((user) => user.id);
     const periodStartStr = start.toISOString().split('T')[0];
 
     const [allAttendance, allLeaves, allWfh, allHolidays, firstBiometricRows] = await Promise.all([
@@ -104,7 +106,7 @@ export async function buildTectraAttendanceSheetData(prisma, { month = null, ist
     const codeByUserDate = new Map();
     const todayRef = new Date(`${todayStr}T00:00:00.000Z`);
 
-    for (const user of users) {
+    for (const user of activeUsers) {
         const joiningDateStr = user.joiningDate ? user.joiningDate.toISOString().split('T')[0] : null;
         const firstBiometricDateStr = firstBiometricByUserId.get(user.id) ?? null;
         const effectiveAttendanceStart = getEffectiveAttendanceStart(
@@ -195,8 +197,8 @@ export async function buildTectraAttendanceSheetData(prisma, { month = null, ist
     return {
         payrollMonth,
         monthLabel,
-        employees: users,
-        employeeDetailsRows: buildEmployeeDetailsRows(users),
-        attendanceRows: buildAttendanceMatrixRows(dates, users, codeByUserDate)
+        employees: activeUsers,
+        employeeDetailsRows: buildEmployeeDetailsRows(activeUsers),
+        attendanceRows: buildAttendanceMatrixRows(dates, activeUsers, codeByUserDate)
     };
 }

@@ -12,6 +12,7 @@ import calculateAttendance, { MIN_FULL_DAY_HOURS } from '../../utils/attendanceC
 import { applyUserHourAdjustment } from '../../utils/userHourAdjustments.js';
 import { collapsePunchBursts } from '../../utils/punchDedup.js';
 import { resolveHybridWorkDay } from '../../utils/hybridWorkSchedule.js';
+import { isIgnoredEmployee } from '../../utils/ignoredEmployees.js';
 
 const CEO_RECIPIENT_EMAIL = process.env.CEO_REPORT_EMAIL || 'santosh@tectratechnologies.com';
 const HRMS_PORTAL_URL = 'https://hrms.tectratechnologies.com';
@@ -103,8 +104,9 @@ export async function buildCeoReportData({ start, end }) {
         orderBy: { name: 'asc' }
     });
 
-    // Exclude CEO (Santosh) and executive exempt accounts
+    // Exclude CEO (Santosh) and executive exempt accounts or blacklisted employees
     const eligibleUsers = users.filter((u) => {
+        if (isIgnoredEmployee(u)) return false;
         const email = String(u.email || '').toLowerCase().trim();
         const name = String(u.name || '').toUpperCase().trim();
         if (email === 'santosh@tectratechnologies.com') return false;
